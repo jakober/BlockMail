@@ -12,17 +12,33 @@ android {
         applicationId = "com.jakober.klarmail"
         minSdk = 26
         targetSdk = 34
-        versionCode = 50
-        versionName = "2.47"
+        versionCode = 51
+        versionName = "2.48"
 
         // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
         manifestPlaceholders["appAuthRedirectScheme"] =
             "com.googleusercontent.apps.313846853654-qv9mb3t22r8v9u8uhj5ee3jl0mu0sftu"
     }
 
+    // Fester Signatur-Schlüssel für alle Builds (lokal wie CI): Ohne ihn erzeugt
+    // jeder Build-Rechner einen eigenen Debug-Schlüssel, und Android verweigert
+    // dann das Update über eine bestehende Installation ("Paket im Konflikt").
+    signingConfigs {
+        create("shared") {
+            storeFile = rootProject.file("keystore/blockmail-debug.keystore")
+            storePassword = "blockmail1"
+            keyAlias = "blockmail"
+            keyPassword = "blockmail1"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("shared")
         }
     }
     compileOptions {

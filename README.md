@@ -43,3 +43,8 @@ Die APK liegt danach unter `app/build/outputs/apk/debug/app-debug.apk`.
 Für die Google-Anmeldung ist eine OAuth-Client-ID (Android) in der Google Cloud Console hinterlegt,
 gebunden an Paketname `com.jakober.klarmail` und den Signatur-Fingerabdruck. Bei einer anderen
 Signierung muss der SHA-1-Fingerabdruck dort ergänzt werden.
+
+Alle Builds (lokal und GitHub Actions) signieren mit dem festen Schlüssel
+`keystore/blockmail-debug.keystore`, damit Updates ohne Neuinstallation möglich sind.
+Sein SHA-1-Fingerabdruck (für die Google Cloud Console):
+`0F:F9:2E:B8:A9:EA:48:FA:DF:B3:32:0F:DC:9D:CB:E0:A9:6A:CA:FA`
