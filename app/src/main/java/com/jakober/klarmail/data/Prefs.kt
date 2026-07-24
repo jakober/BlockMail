@@ -159,6 +159,14 @@ object Prefs {
         get() = sp.getLong("last_push_uid", 0L)
         set(v) = sp.edit().putLong("last_push_uid", v).apply()
 
+    /**
+     * Version des Vorschau-Algorithmus. Steigt sie, werden alle gespeicherten
+     * Vorschauen einmalig verworfen und aus dem Inhalte-Cache neu aufgebaut.
+     */
+    var snippetVersion: Int
+        get() = sp.getInt("snippet_version", 0)
+        set(v) = sp.edit().putInt("snippet_version", v).apply()
+
     var colorScheme: String
         get() = sp.getString("color_scheme", "klarmail") ?: "klarmail"
         set(v) {

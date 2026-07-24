@@ -138,17 +138,21 @@ object MailRepository {
         cacheFile = File(context.filesDir, "inbox_cache.json")
         bodyCacheDir = File(context.cacheDir, "body_cache").apply { mkdirs() }
         ruleScope.launch { cleanupBodyCache() }
+        val rebuildSnippets = Prefs.snippetVersion < SNIPPET_VERSION
         cacheFile?.takeIf { it.exists() }?.let {
             try {
-                // Gespeicherte Vorschauen erneut durch makeSnippet schicken:
-                // ältere Stände konnten noch HTML-Reste enthalten
-                val loaded = MailMessage.listFromJson(it.readText()).map { m ->
-                    m.snippet?.let { s -> m.copy(snippet = makeSnippet(s)) } ?: m
-                }
-                _messages.value = sort(applyRules(loaded))
+                val loaded = MailMessage.listFromJson(it.readText())
+                // Nach Änderungen am Vorschau-Algorithmus alle gespeicherten
+                // Vorschauen verwerfen; backfillSnippets baut sie aus dem
+                // Inhalte-Cache sauber neu auf
+                val cleaned = if (rebuildSnippets) {
+                    loaded.map { m -> if (m.snippet != null) m.copy(snippet = null) else m }
+                } else loaded
+                _messages.value = sort(applyRules(cleaned))
             } catch (_: Exception) {
             }
         }
+        if (rebuildSnippets) Prefs.snippetVersion = SNIPPET_VERSION
         backfillSnippets()
         // Regeln reaktiv anwenden: sobald sich Stumm-/Blockier-Liste ändert,
         // sofort die angezeigte Liste anpassen und serverseitig aufräumen.
@@ -172,17 +176,35 @@ object MailRepository {
     private fun sort(list: List<MailMessage>): List<MailMessage> =
         list.sortedWith(compareBy<MailMessage> { it.seen }.thenByDescending { it.date })
 
+    /** Steigt bei Änderungen am Vorschau-Algorithmus: erzwingt Neuaufbau. */
+    private const val SNIPPET_VERSION = 2
+
     /**
-     * Kürzt den Mail-Text auf eine kompakte Vorschau: HTML-Reste entfernen,
-     * Whitespace kollabieren, max. 140 Zeichen. Leerstring = "Inhalt geladen,
-     * aber kein lesbarer Text" (die UI zeigt dann "Kein Inhalt").
+     * HTML → sichtbarer Text: Style-/Script-/Head-Blöcke müssen vorher raus,
+     * denn Androids Html.fromHtml übernimmt deren Inhalt (CSS!) als Text.
      */
-    private fun makeSnippet(text: String): String {
-        val stripped = if (text.contains('<') || text.contains('&')) {
-            Html.fromHtml(text, Html.FROM_HTML_MODE_LEGACY).toString()
-        } else text
-        return stripped.replace('\u00A0', ' ').replace(Regex("\\s+"), " ").trim().take(140)
-            .takeIf { it != "(Kein lesbarer Textinhalt)" } ?: ""
+    private fun htmlToVisibleText(html: String): String = Html.fromHtml(
+        html.replace(Regex("(?is)<(style|script|head|title)[^>]*>.*?</\\1>"), " ")
+            .replace(Regex("(?s)<!--.*?-->"), " "),
+        Html.FROM_HTML_MODE_LEGACY
+    ).toString()
+
+    /**
+     * Kompakte Textvorschau einer Mail. Bevorzugt den sichtbaren Text der
+     * HTML-Ansicht (entspricht dem, was der Nutzer liest); die separate
+     * Nur-Text-Fassung vieler Absender enthält oft Markdown-/URL-Gerüst.
+     * Leerstring = "Inhalt geladen, aber kein lesbarer Text".
+     */
+    private fun makeSnippet(body: MailBody): String {
+        val fromHtml = body.html?.let { runCatching { htmlToVisibleText(it) }.getOrNull() }
+        var s = fromHtml?.takeIf { it.isNotBlank() } ?: body.text
+        if (s.contains('<') || s.contains('&')) s = htmlToVisibleText(s)
+        s = s.replace(Regex("\\[([^\\]]*)\\]\\([^)]*\\)"), "$1") // Markdown-Links: nur Linktext
+            .replace(Regex("https?://\\S+"), " ") // nackte URLs entfernen
+            .replace(Regex("[\\uFFFC\\u00A0\\u200B-\\u200D]"), " ") // Bild-Platzhalter, NBSP & Co.
+            .replace(Regex("\\s+"), " ").trim()
+        if (s == "(Kein lesbarer Textinhalt)") return ""
+        return s.take(140)
     }
 
     /**
@@ -190,10 +212,10 @@ object MailRepository {
      * Nur für den Posteingang: UIDs sind ordnerspezifisch — in einem anderen
      * Ordner könnte dieselbe UID zu einer fremden Mail gehören.
      */
-    private fun updateSnippet(uid: Long, text: String) {
+    private fun updateSnippet(uid: Long, body: MailBody) {
         if (_currentFolder.value != MailFolder.INBOX) return
         // Auch der Leerstring wird gespeichert: er markiert "geladen, ohne Text"
-        val snip = makeSnippet(text)
+        val snip = makeSnippet(body)
         var changed = false
         // update {} statt value = …: läuft parallel zu setSeen/deleteMail aus
         // UI- und Prefetch-Coroutinen; ein Read-Modify-Write würde Updates verlieren
@@ -215,7 +237,7 @@ object MailRepository {
             if (missing.isEmpty()) return@launch
             // Leerstring bleibt erhalten: markiert "geladen, aber ohne Text"
             val found = missing.mapNotNull { m ->
-                diskLoadBody(MailFolder.INBOX, m.uid)?.let { m.uid to makeSnippet(it.text) }
+                diskLoadBody(MailFolder.INBOX, m.uid)?.let { m.uid to makeSnippet(it) }
             }.toMap()
             if (found.isEmpty()) return@launch
             if (_currentFolder.value != MailFolder.INBOX) return@launch
@@ -579,7 +601,7 @@ object MailRepository {
                 if (bodyCache.size > 12) bodyCache.clear()
                 bodyCache[cacheKey] = cached
             }
-            if (folder == MailFolder.INBOX) updateSnippet(uid, cached.text)
+            if (folder == MailFolder.INBOX) updateSnippet(uid, cached)
             return@withContext cached
         }
         val store = openStore()
@@ -646,7 +668,7 @@ object MailRepository {
                 bodyCache[cacheKey] = body
             }
             diskSaveBody(folder, uid, body)
-            if (folder == MailFolder.INBOX) updateSnippet(uid, body.text)
+            if (folder == MailFolder.INBOX) updateSnippet(uid, body)
             body
         } finally {
             runCatching { store.close() }
