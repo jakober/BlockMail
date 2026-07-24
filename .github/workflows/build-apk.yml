@@ -42,6 +42,15 @@ jobs:
           name: BlockMail-v${{ steps.version.outputs.name }}-debug
           path: app/build/outputs/apk/debug/app-debug.apk
 
+      - name: APK im Branch apk-latest ablegen
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          BLOB=$(git hash-object -w app/build/outputs/apk/debug/app-debug.apk)
+          TREE=$(printf '100644 blob %s\tBlockMail-latest.apk\n' "$BLOB" | git mktree)
+          COMMIT=$(git commit-tree "$TREE" -m "APK v${{ steps.version.outputs.name }} aus ${{ github.sha }}")
+          git push --force origin "$COMMIT:refs/heads/apk-latest"
+
       - name: APK an "latest"-Release anhängen
         if: github.ref_name == 'main' || startsWith(github.ref_name, 'claude/')
         env:
