@@ -1,0 +1,80 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
+}
+
+android {
+    namespace = "com.jakober.klarmail"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.jakober.klarmail"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 48
+        versionName = "2.45"
+
+        // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
+        manifestPlaceholders["appAuthRedirectScheme"] =
+            "com.googleusercontent.apps.313846853654-qv9mb3t22r8v9u8uhj5ee3jl0mu0sftu"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/NOTICE.md"
+            excludes += "/META-INF/LICENSE.md"
+        }
+    }
+}
+
+dependencies {
+    val composeBom = platform("androidx.compose:compose-bom:2025.06.00")
+    implementation(composeBom)
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.activity:activity-compose:1.9.2")
+    implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.5")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.5")
+    implementation("androidx.core:core-ktx:1.13.1")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // IMAP/SMTP (Android-kompatible Jakarta-Mail-Variante)
+    implementation("com.sun.mail:android-mail:1.6.7")
+    implementation("com.sun.mail:android-activation:1.6.7")
+
+    // Claude API + Google-Token-Refresh
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Google-OAuth-Anmeldung (Konto-Auswahlfenster)
+    implementation("net.openid:appauth:0.11.1")
+
+    // Verschluesselte Ablage fuer Zugangsdaten
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Absender-Logos laden
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // Rich-Text-Editor fuer das Verfassen-Fenster
+    implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc13")
+}

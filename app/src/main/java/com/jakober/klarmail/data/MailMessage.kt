@@ -1,0 +1,49 @@
+package com.jakober.klarmail.data
+
+import org.json.JSONArray
+import org.json.JSONObject
+
+data class MailMessage(
+    val uid: Long,
+    val subject: String,
+    val from: String,
+    val fromAddress: String,
+    val date: Long,
+    val seen: Boolean,
+    val hasAttachments: Boolean = false
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("uid", uid)
+        put("subject", subject)
+        put("from", from)
+        put("fromAddress", fromAddress)
+        put("date", date)
+        put("seen", seen)
+        put("hasAttachments", hasAttachments)
+    }
+
+    companion object {
+        fun fromJson(o: JSONObject) = MailMessage(
+            uid = o.getLong("uid"),
+            subject = o.optString("subject"),
+            from = o.optString("from"),
+            fromAddress = o.optString("fromAddress"),
+            date = o.optLong("date"),
+            seen = o.optBoolean("seen", true),
+            hasAttachments = o.optBoolean("hasAttachments", false)
+        )
+
+        fun listToJson(list: List<MailMessage>): String {
+            val arr = JSONArray()
+            list.forEach { arr.put(it.toJson()) }
+            return arr.toString()
+        }
+
+        fun listFromJson(s: String): List<MailMessage> = try {
+            val arr = JSONArray(s)
+            (0 until arr.length()).map { fromJson(arr.getJSONObject(it)) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+}

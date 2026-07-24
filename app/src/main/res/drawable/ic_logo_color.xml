@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Buntes BlockMail-Logo (für großes Benachrichtigungs-Icon), ~10% Rand. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#E85510"
+        android:pathData="M20.28,10.8 L41.36,10.8 A9.48,9.48 0 0 1 50.84,20.28 L50.84,41.36 A9.48,9.48 0 0 1 41.36,50.84 L20.28,50.84 A9.48,9.48 0 0 1 10.8,41.36 L10.8,20.28 A9.48,9.48 0 0 1 20.28,10.8 Z" />
+    <path
+        android:fillColor="#E85510"
+        android:pathData="M66.64,10.8 L87.72,10.8 A9.48,9.48 0 0 1 97.2,20.28 L97.2,41.36 A9.48,9.48 0 0 1 87.72,50.84 L66.64,50.84 A9.48,9.48 0 0 1 57.16,41.36 L57.16,20.28 A9.48,9.48 0 0 1 66.64,10.8 Z" />
+    <path
+        android:fillColor="#E85510"
+        android:pathData="M20.28,57.16 L41.36,57.16 A9.48,9.48 0 0 1 50.84,66.64 L50.84,87.72 A9.48,9.48 0 0 1 41.36,97.2 L20.28,97.2 A9.48,9.48 0 0 1 10.8,87.72 L10.8,66.64 A9.48,9.48 0 0 1 20.28,57.16 Z" />
+    <path
+        android:fillColor="#E85510"
+        android:pathData="M66.64,57.16 L87.72,57.16 A9.48,9.48 0 0 1 97.2,66.64 L97.2,87.72 A9.48,9.48 0 0 1 87.72,97.2 L66.64,97.2 A9.48,9.48 0 0 1 57.16,87.72 L57.16,66.64 A9.48,9.48 0 0 1 66.64,57.16 Z" />
+
+    <path
+        android:fillColor="#F5B91E"
+        android:pathData="M40.3,27.66 L67.7,27.66 A12.64,12.64 0 0 1 80.34,40.3 L80.34,67.7 A12.64,12.64 0 0 1 67.7,80.34 L40.3,80.34 A12.64,12.64 0 0 1 27.66,67.7 L27.66,40.3 A12.64,12.64 0 0 1 40.3,27.66 Z" />
+
+    <group>
+        <clip-path
+            android:pathData="M40.3,27.66 L67.7,27.66 A12.64,12.64 0 0 1 80.34,40.3 L80.34,67.7 A12.64,12.64 0 0 1 67.7,80.34 L40.3,80.34 A12.64,12.64 0 0 1 27.66,67.7 L27.66,40.3 A12.64,12.64 0 0 1 40.3,27.66 Z" />
+        <path
+            android:fillColor="#8CFFFFFF"
+            android:pathData="M27.66,27.66 L80.34,27.66 L54,50.84 Z" />
+    </group>
+</vector>

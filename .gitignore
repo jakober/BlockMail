@@ -1,0 +1,22 @@
+# Gradle / Build
+.gradle/
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+local.properties
+
+# Fertige APKs (werden bei Bedarf neu gebaut)
+*.apk
+
+# Temporäre Logo-Importe
+logo_import/
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
