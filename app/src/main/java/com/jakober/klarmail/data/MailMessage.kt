@@ -10,7 +10,8 @@ data class MailMessage(
     val fromAddress: String,
     val date: Long,
     val seen: Boolean,
-    val hasAttachments: Boolean = false
+    val hasAttachments: Boolean = false,
+    val snippet: String? = null
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("uid", uid)
@@ -20,6 +21,7 @@ data class MailMessage(
         put("date", date)
         put("seen", seen)
         put("hasAttachments", hasAttachments)
+        snippet?.let { put("snippet", it) }
     }
 
     companion object {
@@ -30,7 +32,9 @@ data class MailMessage(
             fromAddress = o.optString("fromAddress"),
             date = o.optLong("date"),
             seen = o.optBoolean("seen", true),
-            hasAttachments = o.optBoolean("hasAttachments", false)
+            hasAttachments = o.optBoolean("hasAttachments", false),
+            // has()-Check statt optString: "" würde als "Vorschau vorhanden" gelten
+            snippet = if (o.has("snippet")) o.getString("snippet") else null
         )
 
         fun listToJson(list: List<MailMessage>): String {

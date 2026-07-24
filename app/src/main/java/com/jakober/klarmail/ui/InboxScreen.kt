@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -63,6 +65,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -357,7 +360,8 @@ fun InboxScreen(
                             onDelete = {
                                 scope.launch { MailRepository.deleteMail(mail.uid) }
                                 serverResults = serverResults?.filter { it.uid != mail.uid }
-                            }
+                            },
+                            modifier = Modifier.animateItem()
                         )
                     }
                     if (query.isNotBlank() && results.isEmpty() && !searching) {
@@ -397,8 +401,10 @@ fun InboxScreen(
 
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 if (unread.isNotEmpty()) {
-                    item(key = "header_unread") { SectionHeader("Neu (${unread.size})") }
-                    items(unread, key = { it.uid }) { mail ->
+                    item(key = "header_unread") {
+                        SectionHeader("Neu (${unread.size})", Modifier.animateItem())
+                    }
+                    items(unread, key = { it.uid }, contentType = { "mail" }) { mail ->
                         SwipeableMailRow(
                             mail = mail,
                             onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
@@ -406,15 +412,16 @@ fun InboxScreen(
                             selected = selected.contains(mail.uid),
                             selectionMode = selectionMode,
                             rightSpec = rightSpecFor(mail),
-                            onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } }
+                            onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
+                            modifier = Modifier.animateItem()
                         )
                     }
                 }
-                if (read.isNotEmpty()) {
-                    item(key = "header_read") {
-                        SectionHeader(if (unread.isEmpty()) "Alle E-Mails" else "Bereits gelesen")
+                groupReadByTime(read).forEach { (label, mails) ->
+                    item(key = "header_$label") {
+                        SectionHeader(label, Modifier.animateItem())
                     }
-                    items(read, key = { it.uid }) { mail ->
+                    items(mails, key = { it.uid }, contentType = { "mail" }) { mail ->
                         SwipeableMailRow(
                             mail = mail,
                             onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
@@ -422,7 +429,8 @@ fun InboxScreen(
                             selected = selected.contains(mail.uid),
                             selectionMode = selectionMode,
                             rightSpec = rightSpecFor(mail),
-                            onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } }
+                            onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
+                            modifier = Modifier.animateItem()
                         )
                     }
                 }
@@ -448,13 +456,33 @@ fun InboxScreen(
 }
 
 @Composable
-private fun SectionHeader(text: String) {
+private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp)
+        modifier = modifier.padding(start = 14.dp, top = 16.dp, bottom = 6.dp)
     )
+}
+
+/** Ordnet gelesene Mails Zeitgruppen zu (Reihenfolge der Liste bleibt erhalten). */
+private fun groupReadByTime(read: List<MailMessage>): List<Pair<String, List<MailMessage>>> {
+    val zone = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zone)
+    val yesterday = today.minusDays(1)
+    val weekStart = today.with(java.time.DayOfWeek.MONDAY)
+    fun labelFor(millis: Long): String {
+        val d = java.time.Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+        return when {
+            !d.isBefore(today) -> "Heute"
+            d == yesterday -> "Gestern"
+            !d.isBefore(weekStart) -> "Diese Woche"
+            else -> "Älter"
+        }
+    }
+    val grouped = read.groupBy { labelFor(it.date) }
+    return listOf("Heute", "Gestern", "Diese Woche", "Älter")
+        .mapNotNull { label -> grouped[label]?.let { label to it } }
 }
 
 private const val SWIPE_THRESHOLD = 0.30f
@@ -475,14 +503,22 @@ private fun SwipeableMailRow(
     selected: Boolean,
     selectionMode: Boolean,
     rightSpec: SwipeSpec,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     // Im Auswahlmodus keine Wischgesten – nur antippen/lange drücken
     if (selectionMode) {
-        MailRow(mail, selected, true, onClick, onLongClick)
+        MailRow(
+            mail, selected, true, onClick, onLongClick,
+            modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+        )
         return
     }
-    androidx.compose.foundation.layout.BoxWithConstraints {
+    // Abstand hier außen, damit widthPx (Basis der 30-%-Wischschwelle)
+    // exakt der sichtbaren Kartenbreite entspricht
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        modifier = modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+    ) {
         val widthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }
         val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
         val dismissState = rememberSwipeToDismissBoxState(
@@ -525,6 +561,9 @@ private fun SwipeableMailRow(
 
         SwipeToDismissBox(
             state = dismissState,
+            // Auf Kartenform clippen: die farbigen Wisch-Flächen dürfen nicht
+            // über die abgerundeten Ecken hinausragen
+            modifier = Modifier.clip(MailCardShape),
             enableDismissFromStartToEnd = true,
             enableDismissFromEndToStart = true,
             backgroundContent = {
@@ -590,6 +629,9 @@ private fun SwipeableMailRow(
     }
 }
 
+/** Kartenform der Mail-Einträge — auch fürs Clipping der Wisch-Hintergründe. */
+private val MailCardShape = RoundedCornerShape(16.dp)
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun MailRow(
@@ -597,16 +639,41 @@ private fun MailRow(
     selected: Boolean,
     selectionMode: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer
-    else MaterialTheme.colorScheme.surface
-    Row(
-        modifier = Modifier
+    val bg = when {
+        selected -> MaterialTheme.colorScheme.primaryContainer
+        !mail.seen -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.40f)
+        else -> MaterialTheme.colorScheme.surfaceContainerLow
+    }
+    Box(
+        modifier = modifier
             .fillMaxWidth()
+            .clip(MailCardShape)
             .background(bg)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        if (!mail.seen && !selected) {
+            // matchParentSize: erst nach dem Inhalt gemessen, damit der Streifen
+            // die volle Kartenhöhe bekommt (fillMaxHeight wäre hier unbegrenzt)
+            Box(Modifier.matchParentSize()) {
+                Box(
+                    Modifier
+                        .width(4.dp)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
+        }
+        MailRowContent(mail, selected, selectionMode)
+    }
+}
+
+@Composable
+private fun MailRowContent(mail: MailMessage, selected: Boolean, selectionMode: Boolean) {
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (selectionMode && selected) {
@@ -647,6 +714,16 @@ private fun MailRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            mail.snippet?.takeIf { it.isNotBlank() }?.let { snip ->
+                Text(
+                    text = snip,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
         Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End) {

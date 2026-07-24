@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -143,6 +144,7 @@ object MailRepository {
             } catch (_: Exception) {
             }
         }
+        backfillSnippets()
         // Regeln reaktiv anwenden: sobald sich Stumm-/Blockier-Liste ändert,
         // sofort die angezeigte Liste anpassen und serverseitig aufräumen.
         ruleScope.launch {
@@ -164,6 +166,52 @@ object MailRepository {
 
     private fun sort(list: List<MailMessage>): List<MailMessage> =
         list.sortedWith(compareBy<MailMessage> { it.seen }.thenByDescending { it.date })
+
+    /** Kürzt den Mail-Text auf eine kompakte Vorschau (Whitespace kollabiert). */
+    private fun makeSnippet(text: String): String =
+        text.replace(Regex("\\s+"), " ").trim().take(140)
+            .takeIf { it.isNotBlank() && it != "(Kein lesbarer Textinhalt)" } ?: ""
+
+    /**
+     * Trägt die Textvorschau einer Posteingangs-Mail in die angezeigte Liste ein.
+     * Nur für den Posteingang: UIDs sind ordnerspezifisch — in einem anderen
+     * Ordner könnte dieselbe UID zu einer fremden Mail gehören.
+     */
+    private fun updateSnippet(uid: Long, text: String) {
+        if (_currentFolder.value != MailFolder.INBOX) return
+        val snip = makeSnippet(text).takeIf { it.isNotEmpty() } ?: return
+        var changed = false
+        // update {} statt value = …: läuft parallel zu setSeen/deleteMail aus
+        // UI- und Prefetch-Coroutinen; ein Read-Modify-Write würde Updates verlieren
+        _messages.update { list ->
+            list.map {
+                if (it.uid == uid && it.snippet == null) {
+                    changed = true; it.copy(snippet = snip)
+                } else it
+            }
+        }
+        if (changed) persist()
+    }
+
+    /** Ergänzt fehlende Vorschauen aus bereits auf der Platte gecachten Inhalten. */
+    private fun backfillSnippets() {
+        if (_currentFolder.value != MailFolder.INBOX) return
+        ruleScope.launch {
+            val missing = _messages.value.filter { it.snippet == null }
+            if (missing.isEmpty()) return@launch
+            val found = missing.mapNotNull { m ->
+                diskLoadBody(MailFolder.INBOX, m.uid)?.let { m.uid to makeSnippet(it.text) }
+            }.filter { it.second.isNotEmpty() }.toMap()
+            if (found.isEmpty()) return@launch
+            if (_currentFolder.value != MailFolder.INBOX) return@launch
+            _messages.update { list ->
+                list.map { m ->
+                    if (m.snippet == null) found[m.uid]?.let { m.copy(snippet = it) } ?: m else m
+                }
+            }
+            persist()
+        }
+    }
 
     private fun persist() {
         if (_currentFolder.value != MailFolder.INBOX) return
@@ -230,7 +278,15 @@ object MailRepository {
                                 null
                             }
                         }
-                        _messages.value = sort(applyRules(list))
+                        // Vorhandene Vorschauen in die frische Serverliste übernehmen,
+                        // sonst verschwinden sie bei jedem Aktualisieren kurz
+                        val prevSnippets = _messages.value
+                            .filter { it.snippet != null }
+                            .associate { it.uid to it.snippet }
+                        val merged = if (_currentFolder.value == MailFolder.INBOX) {
+                            list.map { m -> prevSnippets[m.uid]?.let { m.copy(snippet = it) } ?: m }
+                        } else list
+                        _messages.value = sort(applyRules(merged))
                     }
                     persist()
                 } finally {
@@ -247,6 +303,7 @@ object MailRepository {
                             toPrefetch.forEach { prefetchBody(it.uid) }
                         }
                     }
+                    backfillSnippets()
                 }
             } catch (e: Exception) {
                 _error.value = friendlyError(e)
@@ -507,6 +564,7 @@ object MailRepository {
                 if (bodyCache.size > 12) bodyCache.clear()
                 bodyCache[cacheKey] = cached
             }
+            if (folder == MailFolder.INBOX) updateSnippet(uid, cached.text)
             return@withContext cached
         }
         val store = openStore()
@@ -573,6 +631,7 @@ object MailRepository {
                 bodyCache[cacheKey] = body
             }
             diskSaveBody(folder, uid, body)
+            if (folder == MailFolder.INBOX) updateSnippet(uid, body.text)
             body
         } finally {
             runCatching { store.close() }
