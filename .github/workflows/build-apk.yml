@@ -1,0 +1,55 @@
+name: APK bauen
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: JDK 17 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Gradle-Cache
+        uses: gradle/actions/setup-gradle@v4
+        continue-on-error: true
+
+      - name: Debug-APK bauen
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Versionsname auslesen
+        id: version
+        run: |
+          V=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "name=$V" >> "$GITHUB_OUTPUT"
+
+      - name: APK als Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockMail-v${{ steps.version.outputs.name }}-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: APK an "latest"-Release anhängen
+        if: github.ref_name == 'main' || startsWith(github.ref_name, 'claude/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk "BlockMail-v${{ steps.version.outputs.name }}.apk"
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest "BlockMail-v${{ steps.version.outputs.name }}.apk" \
+            --title "BlockMail v${{ steps.version.outputs.name }} (aktueller Stand)" \
+            --notes "Automatisch gebaute Debug-APK vom letzten Push (${{ github.sha }})." \
+            --prerelease
