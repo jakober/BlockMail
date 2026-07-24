@@ -772,6 +772,12 @@ private fun MailRowContent(mail: MailMessage, selected: Boolean, selectionMode: 
                     fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold
                 )
             }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = formatMailTime(mail.date),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             if (!mail.seen) {
                 Spacer(Modifier.height(6.dp))
                 Box(
@@ -790,9 +796,12 @@ fun formatMailDate(millis: Long): String {
     val sameDay = now.get(Calendar.YEAR) == then.get(Calendar.YEAR) &&
         now.get(Calendar.DAY_OF_YEAR) == then.get(Calendar.DAY_OF_YEAR)
     val pattern = when {
-        sameDay -> "HH:mm"
+        sameDay -> return "Heute"
         now.get(Calendar.YEAR) == then.get(Calendar.YEAR) -> "d. MMM"
         else -> "dd.MM.yy"
     }
     return SimpleDateFormat(pattern, Locale.GERMAN).format(Date(millis))
 }
+
+fun formatMailTime(millis: Long): String =
+    SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(millis))
