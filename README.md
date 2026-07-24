@@ -17,7 +17,7 @@ Schlichte, moderne Android-Mail-App für Gmail (Kotlin + Jetpack Compose, Materi
 - Claude-KI (eigener API-Key): Antwort entwerfen, Mail formulieren, Rechtschreibprüfung
 - Tägliches KI-Newsletter-Aufräumen mit Protokoll und Abmelde-Links
 - Stumm-/Blockier-Listen pro Absender; Mehrfachauswahl
-- Mehrere Farbschemas; Tablet-/Querformat-Zweispaltenansicht
+- Mehrere Farbschemas; Hell-/Dunkel-Modus wählbar (oder automatisch wie das Gerät); Tablet-/Querformat-Zweispaltenansicht
 
 ## Build
 Voraussetzungen: JDK 17+ (getestet mit JDK 21), Android SDK (Platform 35, Build-Tools).

@@ -12,6 +12,7 @@ object Prefs {
     private lateinit var sp: SharedPreferences
 
     val colorSchemeFlow = MutableStateFlow("klarmail")
+    val darkModeFlow = MutableStateFlow("system")
 
     /** Stumm geschaltete Absender: als gelesen markieren, keine Benachrichtigung. */
     val mutedFlow = MutableStateFlow<Set<String>>(emptySet())
@@ -37,6 +38,7 @@ object Prefs {
             context.getSharedPreferences("klarmail_prefs", Context.MODE_PRIVATE)
         }
         colorSchemeFlow.value = colorScheme
+        darkModeFlow.value = darkMode
         mutedFlow.value = loadSet("muted_senders")
         blockedFlow.value = loadSet("blocked_senders")
     }
@@ -172,6 +174,14 @@ object Prefs {
         set(v) {
             sp.edit().putString("color_scheme", v).apply()
             colorSchemeFlow.value = v
+        }
+
+    /** Erscheinungsbild: "system" (Gerät folgt), "light" oder "dark". */
+    var darkMode: String
+        get() = sp.getString("dark_mode", "system") ?: "system"
+        set(v) {
+            sp.edit().putString("dark_mode", v).apply()
+            darkModeFlow.value = v
         }
 
     val isConfigured: Boolean

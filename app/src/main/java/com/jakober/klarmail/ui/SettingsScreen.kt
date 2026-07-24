@@ -82,6 +82,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
     var newsletterResult by remember { mutableStateOf<String?>(null) }
     var connectedEmail by remember { mutableStateOf(Prefs.email) }
     val selectedScheme by Prefs.colorSchemeFlow.collectAsState()
+    val darkMode by Prefs.darkModeFlow.collectAsState()
 
     val authService = remember { AuthorizationService(context) }
     DisposableEffect(Unit) {
@@ -367,6 +368,30 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 onAdd = { Prefs.addBlocked(it) },
                 onRemove = { Prefs.removeBlocked(it) }
             )
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            SectionTitle("Erscheinungsbild")
+            listOf(
+                "system" to "Wie das Gerät (automatisch)",
+                "light" to "Hell",
+                "dark" to "Dunkel"
+            ).forEach { (id, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.darkMode = id }
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = darkMode == id,
+                        onClick = { Prefs.darkMode = id }
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
 
             Spacer(Modifier.height(8.dp))
             HorizontalDivider()

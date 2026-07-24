@@ -58,7 +58,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val scheme by Prefs.colorSchemeFlow.collectAsState()
-            KlarMailTheme(schemeId = scheme) {
+            val darkMode by Prefs.darkModeFlow.collectAsState()
+            KlarMailTheme(schemeId = scheme, darkMode = darkMode) {
                 val nav = rememberNavController()
                 val openUid = pendingOpenUid.value
                 androidx.compose.runtime.LaunchedEffect(openUid) {

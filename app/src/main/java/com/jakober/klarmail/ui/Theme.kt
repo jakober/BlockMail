@@ -112,9 +112,17 @@ val colorSchemes = listOf(
 )
 
 @Composable
-fun KlarMailTheme(schemeId: String, content: @Composable () -> Unit) {
+fun KlarMailTheme(
+    schemeId: String,
+    darkMode: String = "system",
+    content: @Composable () -> Unit
+) {
     val def = colorSchemes.find { it.id == schemeId } ?: colorSchemes.first()
-    val dark = isSystemInDarkTheme()
+    val dark = when (darkMode) {
+        "light" -> false
+        "dark" -> true
+        else -> isSystemInDarkTheme()
+    }
     MaterialTheme(
         colorScheme = if (dark) def.dark else def.light,
         content = content
