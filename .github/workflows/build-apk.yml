@@ -62,3 +62,18 @@ jobs:
             --title "BlockMail v${{ steps.version.outputs.name }} (aktueller Stand)" \
             --notes "Automatisch gebaute Debug-APK vom letzten Push (${{ github.sha }})." \
             --prerelease
+
+      - name: Versioniertes Release anlegen/aktualisieren
+        if: github.ref_name == 'main' || startsWith(github.ref_name, 'claude/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ steps.version.outputs.name }}"
+          cp app/build/outputs/apk/debug/app-debug.apk "BlockMail-v$V.apk"
+          if gh release view "v$V" >/dev/null 2>&1; then
+            gh release upload "v$V" "BlockMail-v$V.apk" --clobber
+          else
+            gh release create "v$V" "BlockMail-v$V.apk" \
+              --title "BlockMail v$V" \
+              --notes "Debug-APK der Version $V (Stand ${{ github.sha }})."
+          fi
