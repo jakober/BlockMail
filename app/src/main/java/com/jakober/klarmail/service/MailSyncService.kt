@@ -88,6 +88,8 @@ class MailSyncService : Service() {
                     }
                 } catch (_: Exception) {
                 }
+                // Vorgeladene Mail-Inhalte, die älter als eine Woche sind, entfernen
+                runCatching { MailRepository.cleanupBodyCache() }
                 delay(10 * 60_000)
             }
         }
@@ -198,6 +200,7 @@ class MailSyncService : Service() {
                     add(UIDFolder.FetchProfileItem.UID)
                 }
                 inbox.fetch(msgs, fp)
+                val toPrefetch = mutableListOf<Long>()
                 for (m in msgs) {
                     try {
                         val uid = inbox.getUID(m)
@@ -213,15 +216,24 @@ class MailSyncService : Service() {
                                 // Stumm: als gelesen markieren, keine Benachrichtigung
                                 MailRepository.onNewMessage(mail.copy(seen = true))
                                 scope.launch { MailRepository.setInboxSeenByUid(uid) }
+                                toPrefetch.add(uid)
                             }
                             else -> {
                                 MailRepository.onNewMessage(mail)
                                 if (!mail.seen) {
                                     showNewMailNotification(mail.uid, mail.from, mail.subject)
                                 }
+                                toPrefetch.add(uid)
                             }
                         }
                     } catch (_: Exception) {
+                    }
+                }
+                // Inhalte der neuen Mails direkt herunterladen (eigene Verbindung,
+                // nacheinander), damit das Öffnen später sofort aus dem Cache geht.
+                if (toPrefetch.isNotEmpty()) {
+                    scope.launch {
+                        toPrefetch.forEach { MailRepository.prefetchBody(it) }
                     }
                 }
             }

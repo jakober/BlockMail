@@ -109,6 +109,8 @@ object MailRepository {
 
     private val refreshMutex = Mutex()
     private var cacheFile: File? = null
+    private var appContext: Context? = null
+    private var bodyCacheDir: File? = null
 
     private val ruleScope = kotlinx.coroutines.CoroutineScope(
         kotlinx.coroutines.SupervisorJob() + Dispatchers.Default
@@ -131,7 +133,10 @@ object MailRepository {
     }
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         cacheFile = File(context.filesDir, "inbox_cache.json")
+        bodyCacheDir = File(context.cacheDir, "body_cache").apply { mkdirs() }
+        ruleScope.launch { cleanupBodyCache() }
         cacheFile?.takeIf { it.exists() }?.let {
             try {
                 _messages.value = sort(applyRules(MailMessage.listFromJson(it.readText())))
@@ -231,6 +236,18 @@ object MailRepository {
                 } finally {
                     runCatching { store.close() }
                 }
+                // Ungelesene Mails im Hintergrund vorladen, damit sie beim
+                // Antippen sofort aus dem Cache angezeigt werden.
+                if (_currentFolder.value == MailFolder.INBOX) {
+                    val toPrefetch = _messages.value
+                        .filter { !it.seen && !hasCachedBody(it.uid) }
+                        .take(10)
+                    if (toPrefetch.isNotEmpty()) {
+                        ruleScope.launch {
+                            toPrefetch.forEach { prefetchBody(it.uid) }
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 _error.value = friendlyError(e)
             } finally {
@@ -327,6 +344,91 @@ object MailRepository {
     private val bodyCache = HashMap<String, MailBody>()
     private val attachmentCache = HashMap<String, ByteArray>()
 
+    /** Wie lange vorgeladene Mail-Inhalte auf der Platte behalten werden. */
+    private const val BODY_CACHE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
+
+    private fun bodyCacheFile(folder: MailFolder, uid: Long): File? =
+        bodyCacheDir?.let { File(it, "${folder.name}_$uid.json") }
+
+    private fun bodyToJson(body: MailBody): String = org.json.JSONObject().apply {
+        put("html", body.html ?: org.json.JSONObject.NULL)
+        put("text", body.text)
+        put("attachments", org.json.JSONArray().apply {
+            body.attachments.forEach { a ->
+                put(org.json.JSONObject().apply {
+                    put("name", a.name)
+                    put("mime", a.mime)
+                    put("size", a.size)
+                    put("path", org.json.JSONArray(a.path))
+                })
+            }
+        })
+    }.toString()
+
+    private fun bodyFromJson(s: String): MailBody {
+        val o = org.json.JSONObject(s)
+        val atts = o.optJSONArray("attachments")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val a = arr.getJSONObject(i)
+                val path = a.getJSONArray("path")
+                MailAttachment(
+                    name = a.getString("name"),
+                    mime = a.optString("mime"),
+                    size = a.optInt("size"),
+                    path = (0 until path.length()).map { path.getInt(it) }
+                )
+            }
+        } ?: emptyList()
+        return MailBody(
+            html = if (o.isNull("html")) null else o.getString("html"),
+            text = o.optString("text"),
+            attachments = atts
+        )
+    }
+
+    private fun diskLoadBody(folder: MailFolder, uid: Long): MailBody? = try {
+        bodyCacheFile(folder, uid)?.takeIf { it.exists() }?.let { bodyFromJson(it.readText()) }
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun diskSaveBody(folder: MailFolder, uid: Long, body: MailBody) {
+        try {
+            bodyCacheFile(folder, uid)?.writeText(bodyToJson(body))
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun diskDeleteBody(folder: MailFolder, uid: Long) {
+        runCatching { bodyCacheFile(folder, uid)?.delete() }
+    }
+
+    /** Ist der Inhalt einer Mail bereits lokal vorhanden (Speicher oder Platte)? */
+    fun hasCachedBody(uid: Long, folder: MailFolder = MailFolder.INBOX): Boolean =
+        synchronized(bodyCache) { bodyCache.containsKey("${folder.name}:$uid") } ||
+            bodyCacheFile(folder, uid)?.exists() == true
+
+    /** Löscht vorgeladene Inhalte, die älter als eine Woche sind. */
+    fun cleanupBodyCache() {
+        try {
+            val cutoff = System.currentTimeMillis() - BODY_CACHE_MAX_AGE_MS
+            bodyCacheDir?.listFiles()?.forEach { f ->
+                if (f.lastModified() < cutoff) runCatching { f.delete() }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Lädt den Inhalt einer Mail im Hintergrund vor, damit das Öffnen später
+     * sofort aus dem Cache bedient wird. Fehler sind unkritisch — dann wird
+     * beim Öffnen ganz normal nachgeladen.
+     */
+    suspend fun prefetchBody(uid: Long, folder: MailFolder = MailFolder.INBOX) {
+        if (hasCachedBody(uid, folder)) return
+        runCatching { loadBodyContent(uid, folder) }
+    }
+
     /** Merker für eine aus dem Newsletter-Protokoll zu öffnende Mail. */
     var pendingOpen: Pair<MailFolder, MailMessage>? = null
 
@@ -336,6 +438,13 @@ object MailRepository {
     ): MailBody = withContext(Dispatchers.IO) {
         val cacheKey = "${folder.name}:$uid"
         synchronized(bodyCache) { bodyCache[cacheKey] }?.let { return@withContext it }
+        diskLoadBody(folder, uid)?.let { cached ->
+            synchronized(bodyCache) {
+                if (bodyCache.size > 12) bodyCache.clear()
+                bodyCache[cacheKey] = cached
+            }
+            return@withContext cached
+        }
         val store = openStore()
         try {
             val inbox = (resolveFolder(store, folder)
@@ -394,6 +503,7 @@ object MailRepository {
                 if (bodyCache.size > 12) bodyCache.clear() // Speicher begrenzen
                 bodyCache[cacheKey] = body
             }
+            diskSaveBody(folder, uid, body)
             body
         } finally {
             runCatching { store.close() }
@@ -417,12 +527,24 @@ object MailRepository {
         return fromHtml.takeUnless { it.isNullOrBlank() } ?: body.text
     }
 
+    /**
+     * Entfernt die Benachrichtigung einer Mail, z. B. sobald sie in der App
+     * gelesen oder gelöscht wurde. Die ID entspricht der in MailSyncService.
+     */
+    fun cancelNotification(uid: Long) {
+        appContext?.let {
+            androidx.core.app.NotificationManagerCompat.from(it)
+                .cancel((uid % Int.MAX_VALUE).toInt())
+        }
+    }
+
     suspend fun markSeen(uid: Long) = setSeen(uid, true)
 
     suspend fun setSeen(uid: Long, seen: Boolean) = withContext(Dispatchers.IO) {
         // Sofort lokal aktualisieren, damit die UI nicht auf das Netzwerk wartet
         _messages.value = sort(_messages.value.map { if (it.uid == uid) it.copy(seen = seen) else it })
         persist()
+        if (seen) cancelNotification(uid)
         try {
             val store = openStore()
             try {
@@ -442,6 +564,7 @@ object MailRepository {
         val set = uids.toSet()
         _messages.value = sort(_messages.value.map { if (it.uid in set) it.copy(seen = seen) else it })
         persist()
+        if (seen) uids.forEach { cancelNotification(it) }
         try {
             val store = openStore()
             try {
@@ -463,6 +586,7 @@ object MailRepository {
         _messages.value = _messages.value.filter { it.uid !in set }
         persist()
         synchronized(bodyCache) { set.forEach { bodyCache.remove("${folder.name}:$it") } }
+        set.forEach { diskDeleteBody(folder, it); cancelNotification(it) }
         try {
             val store = openStore()
             try {
@@ -498,6 +622,8 @@ object MailRepository {
         _messages.value = _messages.value.filter { it.uid != uid }
         persist()
         synchronized(bodyCache) { bodyCache.remove("${folder.name}:$uid") }
+        diskDeleteBody(folder, uid)
+        cancelNotification(uid)
         try {
             val store = openStore()
             try {
@@ -528,6 +654,7 @@ object MailRepository {
         _messages.value = _messages.value.filter { it.uid != uid }
         persist()
         synchronized(bodyCache) { bodyCache.remove("${source.name}:$uid") }
+        diskDeleteBody(source, uid)
         try {
             val store = openStore()
             try {
