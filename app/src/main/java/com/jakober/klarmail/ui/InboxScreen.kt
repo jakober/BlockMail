@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -94,6 +95,7 @@ fun InboxScreen(
 ) {
     val messages by MailRepository.messages.collectAsState()
     val loading by MailRepository.loading.collectAsState()
+    val canLoadMore by MailRepository.canLoadMore.collectAsState()
     val error by MailRepository.error.collectAsState()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -433,6 +435,27 @@ fun InboxScreen(
                             onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
                             modifier = Modifier.animateItem()
                         )
+                    }
+                }
+                if (canLoadMore && messages.isNotEmpty()) {
+                    item(key = "load_more") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(28.dp),
+                                strokeWidth = 3.dp
+                            )
+                        }
+                        // Wird das Lade-Icon sichtbar (Nutzer ist unten angekommen),
+                        // das nächste Paket holen; messages.size als Schlüssel löst
+                        // erneut aus, solange der Nutzer unten bleibt
+                        LaunchedEffect(messages.size) {
+                            MailRepository.loadMore()
+                        }
                     }
                 }
                 if (messages.isEmpty() && !loading) {

@@ -9,6 +9,7 @@ Schlichte, moderne Android-Mail-App für Gmail (Kotlin + Jetpack Compose, Materi
 - In der App gelesene Mails schließen ihre noch offene Benachrichtigung
 - Moderner Posteingang in Karten-Optik: Textvorschau je Mail, Akzentstreifen für Ungelesene, sanfte Listen-Animationen
 - Ungelesene oben („Neu"), gelesene nach Zeit gruppiert (Heute/Gestern/Diese Woche/Älter); Wischgesten (rechts: gelesen/ungelesen, links: löschen)
+- Endlos-Scrollen: am Listenende werden automatisch die nächsten 100 älteren Mails nachgeladen
 - HTML-Mailansicht inkl. eingebetteter Bilder; Anhänge öffnen/speichern; Anhänge mitsenden
 - Volltext-Suche (Absender/Betreff) über alle Mails
 - Ordner: Posteingang, Gesendet, Entwürfe, Archiv, Papierkorb

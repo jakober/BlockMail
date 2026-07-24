@@ -50,6 +50,8 @@ object MailRepository {
         if (_currentFolder.value == folder) return
         _currentFolder.value = folder
         _messages.value = emptyList()
+        loadLimit = MAX_MESSAGES
+        _canLoadMore.value = false
         refresh()
     }
 
@@ -105,6 +107,17 @@ object MailRepository {
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
 
+    /** Läuft gerade ein Nachladen älterer Mails (Endlos-Scrollen)? */
+    private val _loadingMore = MutableStateFlow(false)
+    val loadingMore = _loadingMore.asStateFlow()
+
+    /** Gibt es auf dem Server noch ältere Mails zum Nachladen? */
+    private val _canLoadMore = MutableStateFlow(false)
+    val canLoadMore = _canLoadMore.asStateFlow()
+
+    /** Wie viele der neuesten Mails aktuell geladen werden (wächst beim Scrollen). */
+    private var loadLimit = MAX_MESSAGES
+
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
 
@@ -149,6 +162,9 @@ object MailRepository {
                     loaded.map { m -> if (m.snippet != null) m.copy(snippet = null) else m }
                 } else loaded
                 _messages.value = sort(applyRules(cleaned))
+                // Nachgeladene Mails aus der letzten Sitzung behalten: das
+                // nächste refresh() holt wieder genauso viele vom Server
+                loadLimit = max(MAX_MESSAGES, cleaned.size)
             } catch (_: Exception) {
             }
         }
@@ -298,8 +314,10 @@ object MailRepository {
                     val total = inbox.messageCount
                     if (total == 0) {
                         _messages.value = emptyList()
+                        _canLoadMore.value = false
                     } else {
-                        val start = max(1, total - MAX_MESSAGES + 1)
+                        val start = max(1, total - loadLimit + 1)
+                        _canLoadMore.value = start > 1
                         val msgs = inbox.getMessages(start, total)
                         val fp = FetchProfile().apply {
                             add(FetchProfile.Item.ENVELOPE)
@@ -346,6 +364,61 @@ object MailRepository {
                 _error.value = friendlyError(e)
             } finally {
                 _loading.value = false
+            }
+        }
+    }
+
+    /**
+     * Endlos-Scrollen: lädt das nächste Paket älterer Mails des aktuellen
+     * Ordners nach und hängt sie an die Liste an.
+     */
+    suspend fun loadMore() = withContext(Dispatchers.IO) {
+        if (!Prefs.isConfigured) return@withContext
+        if (_loadingMore.value || !_canLoadMore.value) return@withContext
+        refreshMutex.withLock {
+            if (_loadingMore.value || !_canLoadMore.value) return@withLock
+            _loadingMore.value = true
+            try {
+                val store = openStore()
+                try {
+                    val inbox = openCurrentFolder(store, Folder.READ_ONLY)
+                    val total = inbox.messageCount
+                    val end = total - loadLimit
+                    if (end < 1) {
+                        _canLoadMore.value = false
+                        return@withLock
+                    }
+                    val start = max(1, end - MAX_MESSAGES + 1)
+                    val msgs = inbox.getMessages(start, end)
+                    val fp = FetchProfile().apply {
+                        add(FetchProfile.Item.ENVELOPE)
+                        add(FetchProfile.Item.FLAGS)
+                        add(FetchProfile.Item.CONTENT_INFO)
+                        add(UIDFolder.FetchProfileItem.UID)
+                    }
+                    inbox.fetch(msgs, fp)
+                    val older = msgs.mapNotNull { m ->
+                        try {
+                            toMailMessage(inbox.getUID(m), m)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    loadLimit += end - start + 1
+                    _messages.update { cur ->
+                        val known = cur.map { it.uid }.toSet()
+                        sort(applyRules(cur + older.filter { it.uid !in known }))
+                    }
+                    persist()
+                    _canLoadMore.value = start > 1
+                    if (_currentFolder.value == MailFolder.INBOX) backfillSnippets()
+                } finally {
+                    runCatching { store.close() }
+                }
+            } catch (e: Exception) {
+                _error.value = friendlyError(e)
+            } finally {
+                _loadingMore.value = false
             }
         }
     }
