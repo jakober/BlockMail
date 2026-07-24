@@ -140,7 +140,12 @@ object MailRepository {
         ruleScope.launch { cleanupBodyCache() }
         cacheFile?.takeIf { it.exists() }?.let {
             try {
-                _messages.value = sort(applyRules(MailMessage.listFromJson(it.readText())))
+                // Gespeicherte Vorschauen erneut durch makeSnippet schicken:
+                // ältere Stände konnten noch HTML-Reste enthalten
+                val loaded = MailMessage.listFromJson(it.readText()).map { m ->
+                    m.snippet?.let { s -> m.copy(snippet = makeSnippet(s)) } ?: m
+                }
+                _messages.value = sort(applyRules(loaded))
             } catch (_: Exception) {
             }
         }
@@ -167,10 +172,18 @@ object MailRepository {
     private fun sort(list: List<MailMessage>): List<MailMessage> =
         list.sortedWith(compareBy<MailMessage> { it.seen }.thenByDescending { it.date })
 
-    /** Kürzt den Mail-Text auf eine kompakte Vorschau (Whitespace kollabiert). */
-    private fun makeSnippet(text: String): String =
-        text.replace(Regex("\\s+"), " ").trim().take(140)
-            .takeIf { it.isNotBlank() && it != "(Kein lesbarer Textinhalt)" } ?: ""
+    /**
+     * Kürzt den Mail-Text auf eine kompakte Vorschau: HTML-Reste entfernen,
+     * Whitespace kollabieren, max. 140 Zeichen. Leerstring = "Inhalt geladen,
+     * aber kein lesbarer Text" (die UI zeigt dann "Kein Inhalt").
+     */
+    private fun makeSnippet(text: String): String {
+        val stripped = if (text.contains('<') || text.contains('&')) {
+            Html.fromHtml(text, Html.FROM_HTML_MODE_LEGACY).toString()
+        } else text
+        return stripped.replace('\u00A0', ' ').replace(Regex("\\s+"), " ").trim().take(140)
+            .takeIf { it != "(Kein lesbarer Textinhalt)" } ?: ""
+    }
 
     /**
      * Trägt die Textvorschau einer Posteingangs-Mail in die angezeigte Liste ein.
@@ -179,7 +192,8 @@ object MailRepository {
      */
     private fun updateSnippet(uid: Long, text: String) {
         if (_currentFolder.value != MailFolder.INBOX) return
-        val snip = makeSnippet(text).takeIf { it.isNotEmpty() } ?: return
+        // Auch der Leerstring wird gespeichert: er markiert "geladen, ohne Text"
+        val snip = makeSnippet(text)
         var changed = false
         // update {} statt value = …: läuft parallel zu setSeen/deleteMail aus
         // UI- und Prefetch-Coroutinen; ein Read-Modify-Write würde Updates verlieren
@@ -199,9 +213,10 @@ object MailRepository {
         ruleScope.launch {
             val missing = _messages.value.filter { it.snippet == null }
             if (missing.isEmpty()) return@launch
+            // Leerstring bleibt erhalten: markiert "geladen, aber ohne Text"
             val found = missing.mapNotNull { m ->
                 diskLoadBody(MailFolder.INBOX, m.uid)?.let { m.uid to makeSnippet(it.text) }
-            }.filter { it.second.isNotEmpty() }.toMap()
+            }.toMap()
             if (found.isEmpty()) return@launch
             if (_currentFolder.value != MailFolder.INBOX) return@launch
             _messages.update { list ->

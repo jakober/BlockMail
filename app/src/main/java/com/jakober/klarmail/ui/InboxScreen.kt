@@ -70,6 +70,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -714,16 +715,19 @@ private fun MailRowContent(mail: MailMessage, selected: Boolean, selectionMode: 
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            mail.snippet?.takeIf { it.isNotBlank() }?.let { snip ->
-                Text(
-                    text = snip,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
+            // Vorschau immer als genau eine Zeile rendern, damit alle Karten
+            // gleich hoch sind: null = noch nicht geladen (leere Zeile),
+            // Leerstring = geladen ohne Text ("Kein Inhalt"), sonst der Text.
+            val snip = mail.snippet
+            Text(
+                text = if (snip != null && snip.isBlank()) "Kein Inhalt" else snip.orEmpty(),
+                style = MaterialTheme.typography.bodySmall,
+                fontStyle = if (snip != null && snip.isBlank()) FontStyle.Italic else FontStyle.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
+            )
         }
         Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End) {
