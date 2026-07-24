@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- BlockMail-Logo aus mail-logo-2a.svg, zentriert mit 25% Rand
+<!-- BlockMail-Logo: vier Blöcke (rechts oben gelb), die zusammen mit der
+     Briefklappe ein Mailsymbol ergeben. Zentriert mit 25% Rand
      (Logo-Inhalt 27..81 in der 108dp-Fläche). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -7,13 +8,10 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Vier orange Eck-Blöcke -->
+    <!-- Drei orange Eck-Blöcke -->
     <path
         android:fillColor="#E85510"
         android:pathData="M32.93,27 L46.09,27 A5.93,5.93 0 0 1 52.02,32.93 L52.02,46.09 A5.93,5.93 0 0 1 46.09,52.02 L32.93,52.02 A5.93,5.93 0 0 1 27,46.09 L27,32.93 A5.93,5.93 0 0 1 32.93,27 Z" />
-    <path
-        android:fillColor="#E85510"
-        android:pathData="M61.91,27 L75.07,27 A5.93,5.93 0 0 1 81,32.93 L81,46.09 A5.93,5.93 0 0 1 75.07,52.02 L61.91,52.02 A5.93,5.93 0 0 1 55.98,46.09 L55.98,32.93 A5.93,5.93 0 0 1 61.91,27 Z" />
     <path
         android:fillColor="#E85510"
         android:pathData="M32.93,55.98 L46.09,55.98 A5.93,5.93 0 0 1 52.02,61.91 L52.02,75.07 A5.93,5.93 0 0 1 46.09,81 L32.93,81 A5.93,5.93 0 0 1 27,75.07 L27,61.91 A5.93,5.93 0 0 1 32.93,55.98 Z" />
@@ -21,17 +19,18 @@
         android:fillColor="#E85510"
         android:pathData="M61.91,55.98 L75.07,55.98 A5.93,5.93 0 0 1 81,61.91 L81,75.07 A5.93,5.93 0 0 1 75.07,81 L61.91,81 A5.93,5.93 0 0 1 55.98,75.07 L55.98,61.91 A5.93,5.93 0 0 1 61.91,55.98 Z" />
 
-    <!-- Gelber Umschlag-Block -->
+    <!-- Gelber Block rechts oben -->
     <path
         android:fillColor="#F5B91E"
-        android:pathData="M45.44,37.54 L62.57,37.54 A7.9,7.9 0 0 1 70.47,45.44 L70.47,62.57 A7.9,7.9 0 0 1 62.57,70.47 L45.44,70.47 A7.9,7.9 0 0 1 37.54,62.57 L37.54,45.44 A7.9,7.9 0 0 1 45.44,37.54 Z" />
+        android:pathData="M61.91,27 L75.07,27 A5.93,5.93 0 0 1 81,32.93 L81,46.09 A5.93,5.93 0 0 1 75.07,52.02 L61.91,52.02 A5.93,5.93 0 0 1 55.98,46.09 L55.98,32.93 A5.93,5.93 0 0 1 61.91,27 Z" />
 
-    <!-- Briefklappe, auf den gelben Block beschnitten -->
+    <!-- Briefklappe über alle vier Blöcke, auf die Blöcke beschnitten,
+         damit die Zwischenräume sichtbar bleiben -->
     <group>
         <clip-path
-            android:pathData="M45.44,37.54 L62.57,37.54 A7.9,7.9 0 0 1 70.47,45.44 L70.47,62.57 A7.9,7.9 0 0 1 62.57,70.47 L45.44,70.47 A7.9,7.9 0 0 1 37.54,62.57 L37.54,45.44 A7.9,7.9 0 0 1 45.44,37.54 Z" />
+            android:pathData="M32.93,27 L46.09,27 A5.93,5.93 0 0 1 52.02,32.93 L52.02,46.09 A5.93,5.93 0 0 1 46.09,52.02 L32.93,52.02 A5.93,5.93 0 0 1 27,46.09 L27,32.93 A5.93,5.93 0 0 1 32.93,27 Z M61.91,27 L75.07,27 A5.93,5.93 0 0 1 81,32.93 L81,46.09 A5.93,5.93 0 0 1 75.07,52.02 L61.91,52.02 A5.93,5.93 0 0 1 55.98,46.09 L55.98,32.93 A5.93,5.93 0 0 1 61.91,27 Z M32.93,55.98 L46.09,55.98 A5.93,5.93 0 0 1 52.02,61.91 L52.02,75.07 A5.93,5.93 0 0 1 46.09,81 L32.93,81 A5.93,5.93 0 0 1 27,75.07 L27,61.91 A5.93,5.93 0 0 1 32.93,55.98 Z M61.91,55.98 L75.07,55.98 A5.93,5.93 0 0 1 81,61.91 L81,75.07 A5.93,5.93 0 0 1 75.07,81 L61.91,81 A5.93,5.93 0 0 1 55.98,75.07 L55.98,61.91 A5.93,5.93 0 0 1 61.91,55.98 Z" />
         <path
             android:fillColor="#8CFFFFFF"
-            android:pathData="M37.54,37.54 L70.47,37.54 L54,52.02 Z" />
+            android:pathData="M27,27 L81,27 L54,58 Z" />
     </group>
 </vector>
