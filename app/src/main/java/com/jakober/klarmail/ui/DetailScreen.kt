@@ -113,9 +113,12 @@ fun DetailScreen(
     var loadError by remember(uid) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uid) {
-        // Nur im normalen Posteingang automatisch als gelesen markieren
+        // Nur im normalen Posteingang automatisch als gelesen markieren.
+        // Parallel starten: Die Server-Meldung baut eine eigene IMAP-Verbindung
+        // auf und darf die Anzeige des (oft schon vorgeladenen) Inhalts nicht
+        // um Sekunden verzögern.
         if (folder == null && mail != null && !mail.seen) {
-            MailRepository.markSeen(uid)
+            launch { MailRepository.markSeen(uid) }
         }
         try {
             body = MailRepository.loadBodyContent(uid, folder ?: MailRepository.currentFolder.value)

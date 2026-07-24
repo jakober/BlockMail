@@ -426,7 +426,70 @@ object MailRepository {
      */
     suspend fun prefetchBody(uid: Long, folder: MailFolder = MailFolder.INBOX) {
         if (hasCachedBody(uid, folder)) return
-        runCatching { loadBodyContent(uid, folder) }
+        runCatching { loadBodyContent(uid, folder, inlineRemoteImages = true) }
+    }
+
+    private val imageClient by lazy {
+        okhttp3.OkHttpClient.Builder()
+            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
+    /** Liest einen Stream mit Obergrenze; null, wenn er größer ist. */
+    private fun readBounded(input: java.io.InputStream, maxBytes: Int): ByteArray? {
+        val out = ByteArrayOutputStream()
+        val buf = ByteArray(16 * 1024)
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            out.write(buf, 0, n)
+            if (out.size() > maxBytes) return null
+        }
+        return out.toByteArray()
+    }
+
+    /**
+     * Lädt extern verlinkte Bilder (http/https) herunter und bettet sie als
+     * Daten-URIs ins HTML ein. Wird nur beim Vorladen im Hintergrund genutzt:
+     * Die Mail ist danach komplett offline anzeigbar, und beim Öffnen muss
+     * die Ansicht keine Bilder mehr aus dem Netz nachladen.
+     */
+    private fun embedRemoteImages(htmlIn: String): String {
+        var html = htmlIn
+        val regex = Regex(
+            "<img[^>]+src\\s*=\\s*[\"'](https?://[^\"']+)[\"']",
+            RegexOption.IGNORE_CASE
+        )
+        // &amp; im Attribut ist ein kodiertes &; zum Laden dekodieren
+        val urls = regex.findAll(html).map { it.groupValues[1] }.distinct().take(20)
+        var budget = 8_000_000
+        for (rawUrl in urls) {
+            if (budget <= 0) break
+            try {
+                val fetchUrl = rawUrl.replace("&amp;", "&")
+                val resp = imageClient.newCall(
+                    okhttp3.Request.Builder().url(fetchUrl).build()
+                ).execute()
+                resp.use {
+                    val respBody = it.body
+                    if (!it.isSuccessful || respBody == null) return@use
+                    val mime = (it.header("Content-Type") ?: "")
+                        .substringBefore(';').trim().lowercase()
+                    if (!mime.startsWith("image/")) return@use
+                    val cap = minOf(1_500_000, budget)
+                    val bytes = readBounded(respBody.byteStream(), cap) ?: return@use
+                    if (bytes.isEmpty()) return@use
+                    budget -= bytes.size
+                    val dataUri = "data:$mime;base64," +
+                        android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                    html = html.replace("\"$rawUrl\"", "\"$dataUri\"")
+                        .replace("'$rawUrl'", "'$dataUri'")
+                }
+            } catch (_: Exception) {
+            }
+        }
+        return html
     }
 
     /** Merker für eine aus dem Newsletter-Protokoll zu öffnende Mail. */
@@ -434,7 +497,8 @@ object MailRepository {
 
     suspend fun loadBodyContent(
         uid: Long,
-        folder: MailFolder = _currentFolder.value
+        folder: MailFolder = _currentFolder.value,
+        inlineRemoteImages: Boolean = false
     ): MailBody = withContext(Dispatchers.IO) {
         val cacheKey = "${folder.name}:$uid"
         synchronized(bodyCache) { bodyCache[cacheKey] }?.let { return@withContext it }
@@ -491,6 +555,11 @@ object MailRepository {
                         html = embedImages(html!!, more.filter { it.cid != null })
                     }
                 }
+            }
+            // Nur beim Hintergrund-Vorladen: extern verlinkte Bilder mit
+            // herunterladen, damit die Mail später komplett aus dem Cache kommt.
+            if (inlineRemoteImages && html != null) {
+                html = embedRemoteImages(html!!)
             }
             val body = MailBody(
                 html = html,

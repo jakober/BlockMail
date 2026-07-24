@@ -5,7 +5,7 @@ Schlichte, moderne Android-Mail-App für Gmail (Kotlin + Jetpack Compose, Materi
 ## Funktionen
 - Gmail-Anbindung per Google-Anmeldung (OAuth) oder App-Passwort
 - Echtzeit-Push (IMAP IDLE) mit „Als gelesen"-Aktion in der Benachrichtigung
-- Neue Mails werden beim Empfang komplett vorgeladen (Öffnen ohne Wartezeit); Cache wird nach einer Woche automatisch geleert
+- Neue Mails werden beim Empfang komplett vorgeladen — inklusive extern verlinkter Bilder (Öffnen ohne Wartezeit, auch offline); Cache wird nach einer Woche automatisch geleert
 - In der App gelesene Mails schließen ihre noch offene Benachrichtigung
 - Ungelesene oben, gelesene darunter; Wischgesten (rechts: gelesen/ungelesen, links: löschen)
 - HTML-Mailansicht inkl. eingebetteter Bilder; Anhänge öffnen/speichern; Anhänge mitsenden
