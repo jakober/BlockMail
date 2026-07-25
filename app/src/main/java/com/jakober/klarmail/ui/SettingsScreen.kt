@@ -29,7 +29,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +68,28 @@ import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 
+/** Vordefinierte Mail-Anbieter (Server werden automatisch gesetzt). */
+private data class MailProvider(
+    val id: String,
+    val label: String,
+    val imap: String,
+    val imapPort: Int,
+    val smtp: String,
+    val smtpPort: Int
+)
+
+private val mailProviders = listOf(
+    MailProvider("gmail", "Gmail", "imap.gmail.com", 993, "smtp.gmail.com", 465),
+    MailProvider("webde", "Web.de", "imap.web.de", 993, "smtp.web.de", 587),
+    MailProvider("gmx", "GMX", "imap.gmx.net", 993, "mail.gmx.net", 587),
+    MailProvider("outlook", "Outlook / Office 365", "outlook.office365.com", 993, "smtp.office365.com", 587),
+    MailProvider("custom", "Eigenes (IMAP)", "", 0, "", 0)
+)
+
+private fun providerIdFor(imapHost: String): String =
+    mailProviders.firstOrNull { it.imap.isNotBlank() && it.imap.equals(imapHost, ignoreCase = true) }
+        ?.id ?: "custom"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
@@ -86,6 +111,12 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
     val darkMode by Prefs.darkModeFlow.collectAsState()
     val conversationView by Prefs.conversationViewFlow.collectAsState()
     var accountList by remember { mutableStateOf(Prefs.accounts()) }
+    var providerId by remember { mutableStateOf(providerIdFor(Prefs.imapHost)) }
+    var providerMenuOpen by remember { mutableStateOf(false) }
+    var imapHostField by remember { mutableStateOf(Prefs.imapHost) }
+    var imapPortField by remember { mutableStateOf(Prefs.imapPort.toString()) }
+    var smtpHostField by remember { mutableStateOf(Prefs.smtpHost) }
+    var smtpPortField by remember { mutableStateOf(Prefs.smtpPort.toString()) }
     var signatureText by remember { mutableStateOf(Prefs.signature) }
     var templates by remember { mutableStateOf(Prefs.mailTemplates()) }
     var showTemplateDialog by remember { mutableStateOf(false) }
@@ -178,6 +209,11 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 val mail = GoogleAuth.emailFromIdToken(tokenResp.idToken)
                 if (mail != null) Prefs.email = mail
                 Prefs.authMethod = "oauth"
+                // Google-Anmeldung nutzt immer die Gmail-Server
+                Prefs.imapHost = "imap.gmail.com"
+                Prefs.imapPort = 993
+                Prefs.smtpHost = "smtp.gmail.com"
+                Prefs.smtpPort = 465
                 // Neues Konto ebenfalls in die Kontenliste aufnehmen
                 Prefs.snapshotActiveAccount()
                 onSignedIn(mail ?: Prefs.email)
@@ -275,15 +311,53 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
 
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "Alternative: manuell mit App-Passwort",
+                    "Alternative: manuell mit Anbieter & App-Passwort",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
+                // Anbieter-Auswahl: setzt die IMAP-/SMTP-Server automatisch
+                Box {
+                    OutlinedTextField(
+                        value = mailProviders.firstOrNull { it.id == providerId }?.label ?: "Eigenes (IMAP)",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Anbieter") },
+                        trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // Unsichtbare Klickfläche über dem schreibgeschützten Feld
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { providerMenuOpen = true }
+                    )
+                    DropdownMenu(
+                        expanded = providerMenuOpen,
+                        onDismissRequest = { providerMenuOpen = false }
+                    ) {
+                        mailProviders.forEach { p ->
+                            DropdownMenuItem(
+                                text = { Text(p.label) },
+                                onClick = {
+                                    providerMenuOpen = false
+                                    providerId = p.id
+                                    if (p.imap.isNotBlank()) {
+                                        imapHostField = p.imap
+                                        imapPortField = p.imapPort.toString()
+                                        smtpHostField = p.smtp
+                                        smtpPortField = p.smtpPort.toString()
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Gmail-Adresse") },
+                    label = { Text("E-Mail-Adresse") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -291,18 +365,63 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("App-Passwort") },
+                    label = { Text("Passwort / App-Passwort") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
                 )
-                TextButton(onClick = { uriHandler.openUri("https://myaccount.google.com/apppasswords") }) {
-                    Text("App-Passwort bei Google erstellen")
-                    Spacer(Modifier.width(6.dp))
-                    Icon(
-                        Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                if (providerId == "custom") {
+                    Spacer(Modifier.height(10.dp))
+                    Row {
+                        OutlinedTextField(
+                            value = imapHostField,
+                            onValueChange = { imapHostField = it },
+                            label = { Text("IMAP-Server") },
+                            singleLine = true,
+                            modifier = Modifier.weight(0.7f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedTextField(
+                            value = imapPortField,
+                            onValueChange = { imapPortField = it },
+                            label = { Text("Port") },
+                            singleLine = true,
+                            modifier = Modifier.weight(0.3f)
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row {
+                        OutlinedTextField(
+                            value = smtpHostField,
+                            onValueChange = { smtpHostField = it },
+                            label = { Text("SMTP-Server") },
+                            singleLine = true,
+                            modifier = Modifier.weight(0.7f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedTextField(
+                            value = smtpPortField,
+                            onValueChange = { smtpPortField = it },
+                            label = { Text("Port") },
+                            singleLine = true,
+                            modifier = Modifier.weight(0.3f)
+                        )
+                    }
+                    Text(
+                        "SMTP-Port 465 = TLS, 587 = STARTTLS (wird automatisch passend verwendet).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+                if (providerId == "gmail") {
+                    TextButton(onClick = { uriHandler.openUri("https://myaccount.google.com/apppasswords") }) {
+                        Text("App-Passwort bei Google erstellen")
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
 
@@ -603,6 +722,10 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                         Prefs.snapshotActiveAccount()
                         Prefs.email = email
                         Prefs.appPassword = password
+                        Prefs.imapHost = imapHostField.trim()
+                        Prefs.imapPort = imapPortField.trim().toIntOrNull() ?: 993
+                        Prefs.smtpHost = smtpHostField.trim()
+                        Prefs.smtpPort = smtpPortField.trim().toIntOrNull() ?: 465
                         if (password.isNotBlank()) Prefs.authMethod = "password"
                         Prefs.snapshotActiveAccount()
                     }

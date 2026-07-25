@@ -3,7 +3,7 @@
 Schlichte, moderne Android-Mail-App für Gmail (Kotlin + Jetpack Compose, Material 3).
 
 ## Funktionen
-- Gmail-Anbindung per Google-Anmeldung (OAuth) oder App-Passwort; mehrere Konten mit Wechsler im Ordner-Menü
+- Gmail per Google-Anmeldung (OAuth); außerdem Web.de, GMX, Outlook/Office 365 und beliebige IMAP-Anbieter per Passwort/App-Passwort; mehrere Konten mit Wechsler im Ordner-Menü
 - Geplantes Senden (Sendezeitpunkt im Verfassen-Fenster wählbar)
 - Schnellantwort direkt aus der Benachrichtigung; Claude-Zusammenfassung in der Mail-Ansicht
 - Echtzeit-Push (IMAP IDLE) mit „Als gelesen"-Aktion in der Benachrichtigung; 15-Minuten-Wächter belebt den Dienst nach System-Abwürgen wieder und meldet verpasste Mails nach

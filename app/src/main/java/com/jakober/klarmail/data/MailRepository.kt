@@ -104,19 +104,32 @@ object MailRepository {
         MailFolder.INBOX -> store.getFolder("INBOX")
         MailFolder.SENT -> gmailSpecial(
             store, "\\Sent",
-            listOf("[Gmail]/Gesendet", "[Gmail]/Sent Mail", "[Google Mail]/Gesendet", "[Google Mail]/Sent Mail")
+            listOf(
+                "[Gmail]/Gesendet", "[Gmail]/Sent Mail", "[Google Mail]/Gesendet", "[Google Mail]/Sent Mail",
+                // Generische Namen anderer Anbieter (web.de, GMX, Outlook, …)
+                "Gesendet", "Sent", "Sent Items", "Gesendete Objekte", "Gesendete Elemente"
+            )
         )
         MailFolder.DRAFTS -> gmailSpecial(
             store, "\\Drafts",
-            listOf("[Gmail]/Entwürfe", "[Gmail]/Drafts", "[Google Mail]/Entwürfe", "[Google Mail]/Drafts")
+            listOf(
+                "[Gmail]/Entwürfe", "[Gmail]/Drafts", "[Google Mail]/Entwürfe", "[Google Mail]/Drafts",
+                "Entwürfe", "Drafts", "Entwurf"
+            )
         )
         MailFolder.ARCHIVE -> gmailSpecial(
             store, "\\All",
-            listOf("[Gmail]/Alle Nachrichten", "[Gmail]/All Mail", "[Google Mail]/Alle Nachrichten", "[Google Mail]/All Mail")
+            listOf(
+                "[Gmail]/Alle Nachrichten", "[Gmail]/All Mail", "[Google Mail]/Alle Nachrichten", "[Google Mail]/All Mail",
+                "Archiv", "Archive"
+            )
         )
         MailFolder.TRASH -> gmailSpecial(
             store, "\\Trash",
-            listOf("[Gmail]/Papierkorb", "[Gmail]/Trash", "[Google Mail]/Papierkorb", "[Google Mail]/Trash")
+            listOf(
+                "[Gmail]/Papierkorb", "[Gmail]/Trash", "[Google Mail]/Papierkorb", "[Google Mail]/Trash",
+                "Papierkorb", "Trash", "Deleted Items", "Gelöschte Elemente", "Gelöscht"
+            )
         )
         MailFolder.NEWSLETTER -> store.getFolder("Newsletter")
     }
@@ -315,8 +328,8 @@ object MailRepository {
 
     private fun imapProps(idleMode: Boolean = false) = Properties().apply {
         put("mail.store.protocol", "imaps")
-        put("mail.imaps.host", "imap.gmail.com")
-        put("mail.imaps.port", "993")
+        put("mail.imaps.host", Prefs.imapHost)
+        put("mail.imaps.port", Prefs.imapPort.toString())
         put("mail.imaps.connectiontimeout", "15000")
         // Für die IDLE-Push-Verbindung ein langes Lese-Timeout: Gmail schickt im
         // Leerlauf minutenlang nichts — ein kurzes Timeout würde die Verbindung
@@ -337,7 +350,7 @@ object MailRepository {
         }
         val session = Session.getInstance(props)
         val store = session.getStore("imaps")
-        store.connect("imap.gmail.com", Prefs.email, password)
+        store.connect(Prefs.imapHost, Prefs.email, password)
         return store
     }
 
@@ -1083,11 +1096,18 @@ object MailRepository {
         bcc: String = "",
         attachments: List<OutAttachment> = emptyList()
     ) = withContext(Dispatchers.IO) {
+        val smtpPort = Prefs.smtpPort
         val props = Properties().apply {
-            put("mail.smtp.host", "smtp.gmail.com")
-            put("mail.smtp.port", "465")
+            put("mail.smtp.host", Prefs.smtpHost)
+            put("mail.smtp.port", smtpPort.toString())
             put("mail.smtp.auth", "true")
-            put("mail.smtp.ssl.enable", "true")
+            // Port 465 = direktes TLS; alles andere (587) = STARTTLS
+            if (smtpPort == 465) {
+                put("mail.smtp.ssl.enable", "true")
+            } else {
+                put("mail.smtp.starttls.enable", "true")
+                put("mail.smtp.starttls.required", "true")
+            }
             put("mail.smtp.connectiontimeout", "15000")
             put("mail.smtp.timeout", "60000")
         }
@@ -1145,7 +1165,7 @@ object MailRepository {
         }
         val transport = session.getTransport("smtp")
         try {
-            transport.connect("smtp.gmail.com", Prefs.email, password)
+            transport.connect(Prefs.smtpHost, Prefs.email, password)
             transport.sendMessage(msg, msg.allRecipients)
         } finally {
             runCatching { transport.close() }

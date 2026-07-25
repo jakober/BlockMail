@@ -169,12 +169,33 @@ object Prefs {
         get() = sp.getLong(pushUidKey(), sp.getLong("last_push_uid", 0L))
         set(v) = sp.edit().putLong(pushUidKey(), v).apply()
 
+    // Mail-Server des aktiven Kontos (Standard: Gmail)
+    var imapHost: String
+        get() = sp.getString("imap_host", "imap.gmail.com") ?: "imap.gmail.com"
+        set(v) = sp.edit().putString("imap_host", v.trim()).apply()
+
+    var imapPort: Int
+        get() = sp.getInt("imap_port", 993)
+        set(v) = sp.edit().putInt("imap_port", v).apply()
+
+    var smtpHost: String
+        get() = sp.getString("smtp_host", "smtp.gmail.com") ?: "smtp.gmail.com"
+        set(v) = sp.edit().putString("smtp_host", v.trim()).apply()
+
+    var smtpPort: Int
+        get() = sp.getInt("smtp_port", 465)
+        set(v) = sp.edit().putInt("smtp_port", v).apply()
+
     /** Gespeichertes Mail-Konto (Profil) für den Konten-Wechsler. */
     data class Account(
         val email: String,
         val authMethod: String,
         val appPassword: String,
-        val refreshToken: String
+        val refreshToken: String,
+        val imapHost: String = "imap.gmail.com",
+        val imapPort: Int = 993,
+        val smtpHost: String = "smtp.gmail.com",
+        val smtpPort: Int = 465
     )
 
     fun accounts(): List<Account> = try {
@@ -185,7 +206,11 @@ object Prefs {
                 email = o.optString("email"),
                 authMethod = o.optString("authMethod", "password"),
                 appPassword = o.optString("appPassword"),
-                refreshToken = o.optString("refreshToken")
+                refreshToken = o.optString("refreshToken"),
+                imapHost = o.optString("imapHost", "imap.gmail.com"),
+                imapPort = o.optInt("imapPort", 993),
+                smtpHost = o.optString("smtpHost", "smtp.gmail.com"),
+                smtpPort = o.optInt("smtpPort", 465)
             )
         }.filter { it.email.isNotBlank() }
     } catch (e: Exception) {
@@ -198,6 +223,8 @@ object Prefs {
             arr.put(org.json.JSONObject().apply {
                 put("email", a.email); put("authMethod", a.authMethod)
                 put("appPassword", a.appPassword); put("refreshToken", a.refreshToken)
+                put("imapHost", a.imapHost); put("imapPort", a.imapPort)
+                put("smtpHost", a.smtpHost); put("smtpPort", a.smtpPort)
             })
         }
         sp.edit().putString("accounts", arr.toString()).apply()
@@ -206,7 +233,10 @@ object Prefs {
     /** Sichert die aktuellen Zugangsdaten als Konto in der Kontenliste (Upsert). */
     fun snapshotActiveAccount() {
         if (email.isBlank() || !isConfigured) return
-        val acc = Account(email, authMethod, appPassword, refreshToken)
+        val acc = Account(
+            email, authMethod, appPassword, refreshToken,
+            imapHost, imapPort, smtpHost, smtpPort
+        )
         saveAccounts(accounts().filter { !it.email.equals(acc.email, ignoreCase = true) } + acc)
     }
 
@@ -220,6 +250,10 @@ object Prefs {
         authMethod = acc.authMethod
         appPassword = acc.appPassword
         refreshToken = acc.refreshToken
+        imapHost = acc.imapHost
+        imapPort = acc.imapPort
+        smtpHost = acc.smtpHost
+        smtpPort = acc.smtpPort
         accessToken = ""
         accessTokenExpiry = 0
         snoozedFlow.value = snoozes().map { it.uid }.toSet()
