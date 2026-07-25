@@ -797,8 +797,14 @@ private fun SwipeableMailRow(
                     dismissState.reset()
                 }
                 SwipeToDismissBoxValue.EndToStart -> {
+                    // Zustand SOFORT (ohne Animation) zurücksetzen, bevor die
+                    // Zeile aus der Liste verschwindet: rememberSaveable
+                    // konserviert den Wisch-Zustand pro Listen-Key — beim
+                    // Wiederherstellen über "Rückgängig" käme die Zeile sonst
+                    // bereits "weggewischt" zurück und würde sich sofort
+                    // erneut löschen (Endlosschleife).
+                    dismissState.snapshotTo(SwipeToDismissBoxValue.Settled)
                     onDelete()
-                    dismissState.reset()
                 }
                 else -> {}
             }
