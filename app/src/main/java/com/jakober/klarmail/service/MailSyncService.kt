@@ -286,7 +286,9 @@ class MailSyncService : Service() {
                             else -> {
                                 MailRepository.onNewMessage(mail)
                                 if (!mail.seen) {
-                                    showNewMailNotification(mail.uid, mail.from, mail.subject)
+                                    showNewMailNotification(
+                                        mail.uid, mail.from, mail.fromAddress, mail.subject
+                                    )
                                 }
                                 toPrefetch.add(uid)
                                 newCount++
@@ -340,8 +342,13 @@ class MailSyncService : Service() {
         }
     }
 
-    private fun showNewMailNotification(uid: Long, from: String, subject: String) {
+    private fun showNewMailNotification(uid: Long, from: String, fromAddress: String, subject: String) {
         val notifId = (uid % Int.MAX_VALUE).toInt()
+        // Absender-Avatar wie in der Mail-Liste (lädt ggf. aus dem Netz —
+        // wir laufen hier bereits auf einem IO-Thread)
+        val avatar = runCatching {
+            NotificationUtil.senderAvatarBitmap(from, fromAddress)
+        }.getOrNull() ?: NotificationUtil.logoBitmap(this)
 
         val markReadIntent = Intent(this, MarkReadReceiver::class.java).apply {
             action = "com.jakober.klarmail.MARK_READ"
@@ -363,7 +370,7 @@ class MailSyncService : Service() {
 
         val notification = NotificationCompat.Builder(this, MailApp.CHANNEL_NEW_MAIL)
             .setSmallIcon(R.drawable.ic_notif_mail)
-            .setLargeIcon(NotificationUtil.logoBitmap(this))
+            .setLargeIcon(avatar)
             .setColor(0xFFE85510.toInt())
             .setContentTitle(from)
             .setContentText(subject)
