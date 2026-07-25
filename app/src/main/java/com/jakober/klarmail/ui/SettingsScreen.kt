@@ -192,6 +192,7 @@ fun SettingsScreen(
     val selectedScheme by Prefs.colorSchemeFlow.collectAsState()
     val darkMode by Prefs.darkModeFlow.collectAsState()
     val conversationView by Prefs.conversationViewFlow.collectAsState()
+    val devMode by Prefs.devModeFlow.collectAsState()
     var accountList by remember { mutableStateOf(Prefs.accounts()) }
     var providerId by remember { mutableStateOf(providerIdFor(Prefs.imapHost)) }
     var providerMenuOpen by remember { mutableStateOf(false) }
@@ -422,32 +423,38 @@ fun SettingsScreen(
                     }) { Text("Abbrechen — aktuelles Konto behalten") }
                     Spacer(Modifier.height(4.dp))
                 }
-                Button(
-                    onClick = {
-                        try {
-                            authLauncher.launch(
-                                authService.getAuthorizationRequestIntent(GoogleAuth.buildAuthRequest())
-                            )
-                        } catch (e: Exception) {
-                            scope.launch { snackbar.showSnackbar("Konnte Anmeldung nicht starten: ${e.message}") }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Filled.AccountCircle, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Mit Google anmelden")
+                // Google-Anmeldung nur im Entwicklermodus (7-mal auf die
+                // Versionsnummer tippen): Ohne Google-Überprüfung funktioniert
+                // sie ausschließlich für eingetragene Testnutzer — normale
+                // Nutzer würden nur eine Google-Fehlermeldung sehen.
+                if (devMode) {
+                    Button(
+                        onClick = {
+                            try {
+                                authLauncher.launch(
+                                    authService.getAuthorizationRequestIntent(GoogleAuth.buildAuthRequest())
+                                )
+                            } catch (e: Exception) {
+                                scope.launch { snackbar.showSnackbar("Konnte Anmeldung nicht starten: ${e.message}") }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.AccountCircle, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Mit Google anmelden")
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Es öffnet sich das Google-Fenster, in dem du dein Konto auswählst.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(16.dp))
                 }
-                Spacer(Modifier.height(4.dp))
                 Text(
-                    "Es öffnet sich das Google-Fenster, in dem du dein Konto auswählst.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    "Alternative: manuell mit Anbieter & App-Passwort",
+                    if (devMode) "Alternative: manuell mit Anbieter & App-Passwort"
+                    else "Manuell mit Anbieter & App-Passwort",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1123,11 +1130,32 @@ fun SettingsScreen(
                 Text("Speichern")
             }
             Spacer(Modifier.height(16.dp))
+            // 7-mal tippen schaltet den Entwicklermodus um (Google-Anmeldung)
+            var versionTaps by remember { mutableStateOf(0) }
             Text(
-                "BlockMail Version ${com.jakober.klarmail.BuildConfig.VERSION_NAME}",
+                "BlockMail Version ${com.jakober.klarmail.BuildConfig.VERSION_NAME}" +
+                    if (devMode) " · Entwicklermodus" else "",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        versionTaps++
+                        if (versionTaps >= 7) {
+                            versionTaps = 0
+                            val newState = !Prefs.devMode
+                            Prefs.devMode = newState
+                            scope.launch {
+                                snackbar.showSnackbar(
+                                    if (newState) {
+                                        "Entwicklermodus aktiviert — Google-Anmeldung sichtbar"
+                                    } else {
+                                        "Entwicklermodus deaktiviert"
+                                    }
+                                )
+                            }
+                        }
+                    },
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Spacer(Modifier.height(24.dp))

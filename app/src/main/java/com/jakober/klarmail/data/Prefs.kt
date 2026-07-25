@@ -17,6 +17,7 @@ object Prefs {
     val aiEngineFlow = MutableStateFlow("auto")
     val swipeLeftFlow = MutableStateFlow("delete")
     val swipeRightFlow = MutableStateFlow("read")
+    val devModeFlow = MutableStateFlow(false)
 
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
@@ -54,6 +55,7 @@ object Prefs {
         aiEngineFlow.value = aiEngine
         swipeLeftFlow.value = swipeLeftAction
         swipeRightFlow.value = swipeRightAction
+        devModeFlow.value = devMode
         // Aktives Konto in der Kontenliste sichern (für den Konten-Wechsler)
         snapshotActiveAccount()
         mutedFlow.value = loadSet("muted_senders")
@@ -427,6 +429,18 @@ object Prefs {
         set(v) {
             sp.edit().putString("ai_engine", v).apply()
             aiEngineFlow.value = v
+        }
+
+    /**
+     * Entwicklermodus (7-mal auf die Versionsnummer tippen): zeigt die
+     * Google-Anmeldung, die ohne Google-Überprüfung nur für Testnutzer
+     * des Entwicklers funktioniert.
+     */
+    var devMode: Boolean
+        get() = sp.getBoolean("dev_mode", false)
+        set(v) {
+            sp.edit().putBoolean("dev_mode", v).apply()
+            devModeFlow.value = v
         }
 
     /** Wisch-Aktion nach links: "delete", "archive", "read" oder "snooze". */
