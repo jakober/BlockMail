@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Newspaper
@@ -763,7 +764,8 @@ fun SettingsScreen(
                 "Gespeicherte Konten wechselst du oben im Posteingang über das Ordner-Menü. " +
                     "Ein neues Konto legst du oben über „Weiteres Konto hinzufügen“ an — " +
                     "das bisherige bleibt dabei verbunden. Tippe auf den Kreis, um dem " +
-                    "Konto eine Farbe zu geben: Sie erscheint als Balken vorne an jeder Mail.",
+                    "Konto eine Farbe zu geben (Balken vorne an jeder Mail), oder auf das " +
+                    "Ordner-Symbol, um zu wählen, welche Ordner im Ordner-Menü erscheinen.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -812,6 +814,66 @@ fun SettingsScreen(
                     }
                 )
             }
+            // Sichtbare Ordner je Konto (abgewählte verschwinden aus dem Ordner-Menü)
+            var folderPickerFor by remember { mutableStateOf<String?>(null) }
+            val hiddenVersion by Prefs.hiddenFoldersFlow.collectAsState()
+            folderPickerFor?.let { accEmail ->
+                val hidden = remember(hiddenVersion, accEmail) { Prefs.hiddenFolders(accEmail) }
+                AlertDialog(
+                    onDismissRequest = { folderPickerFor = null },
+                    title = { Text("Sichtbare Ordner") },
+                    text = {
+                        Column {
+                            Text(
+                                accEmail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Abgewählte Ordner erscheinen nicht im Ordner-Menü dieses " +
+                                    "Kontos. Der Posteingang ist immer sichtbar.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            MailRepository.MailFolder.entries
+                                .filter { it != MailRepository.MailFolder.INBOX }
+                                .forEach { f ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        androidx.compose.material3.Checkbox(
+                                            checked = f.name !in hidden,
+                                            onCheckedChange = { show ->
+                                                val newHidden =
+                                                    if (show) hidden - f.name else hidden + f.name
+                                                Prefs.setHiddenFolders(accEmail, newHidden)
+                                                // Wird der gerade geöffnete Ordner ausgeblendet,
+                                                // zurück in den Posteingang wechseln
+                                                if (!show &&
+                                                    accEmail.equals(Prefs.email, ignoreCase = true) &&
+                                                    MailRepository.currentFolder.value == f
+                                                ) {
+                                                    scope.launch {
+                                                        MailRepository.switchFolder(
+                                                            MailRepository.MailFolder.INBOX
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        )
+                                        Text(f.label, style = MaterialTheme.typography.bodyLarge)
+                                    }
+                                }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { folderPickerFor = null }) { Text("Fertig") }
+                    }
+                )
+            }
             accountList.forEach { acc ->
                 val active = acc.email.equals(Prefs.email, ignoreCase = true)
                 val dotColor = remember(colorsVersion, acc.email) {
@@ -849,6 +911,12 @@ fun SettingsScreen(
                         else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
+                    IconButton(onClick = { folderPickerFor = acc.email }) {
+                        Icon(
+                            Icons.Filled.Folder, contentDescription = "Sichtbare Ordner wählen",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     if (!active) {
                         IconButton(onClick = {
                             Prefs.removeAccount(acc.email)

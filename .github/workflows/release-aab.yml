@@ -1,0 +1,77 @@
+name: Play-Store-Bundle bauen
+
+# Baut das signierte App-Bundle (AAB) für den Play Store.
+# Manuell starten unter Actions → "Play-Store-Bundle bauen" → "Run workflow".
+#
+# Benötigte GitHub-Secrets (Repo → Settings → Secrets and variables → Actions):
+#   UPLOAD_KEYSTORE_BASE64   – Inhalt der Datei blockmail-upload.keystore.base64.txt
+#   UPLOAD_KEYSTORE_PASSWORD – das zugehörige Passwort
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Secrets prüfen
+        env:
+          KS: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS" ]; then
+            echo "::error::Secret UPLOAD_KEYSTORE_BASE64 fehlt. Bitte den Upload-Schlüssel als Secret hinterlegen (Anleitung in docs/playstore.md)."
+            exit 1
+          fi
+
+      - name: JDK 17 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Gradle-Cache
+        uses: gradle/actions/setup-gradle@v4
+        continue-on-error: true
+
+      - name: Upload-Schlüssel entpacken
+        run: |
+          echo "${{ secrets.UPLOAD_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.keystore"
+
+      - name: Signiertes Bundle bauen
+        env:
+          UPLOAD_KEYSTORE_FILE: ${{ runner.temp }}/upload.keystore
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew bundleRelease --no-daemon
+
+      - name: Versionsname auslesen
+        id: version
+        run: |
+          V=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "name=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Bundle als Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockMail-v${{ steps.version.outputs.name }}-store-aab
+          path: app/build/outputs/bundle/release/app-release.aab
+
+      - name: Bundle an Store-Release anhängen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ steps.version.outputs.name }}"
+          cp app/build/outputs/bundle/release/app-release.aab "BlockMail-v$V-store.aab"
+          if gh release view "store-v$V" >/dev/null 2>&1; then
+            gh release upload "store-v$V" "BlockMail-v$V-store.aab" --clobber
+          else
+            gh release create "store-v$V" "BlockMail-v$V-store.aab" \
+              --title "BlockMail v$V (Play-Store-Bundle)" \
+              --notes "Signiertes App-Bundle (AAB) der Version $V für den Play Store."
+          fi

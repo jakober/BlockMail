@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BlockMail – Datenschutzerklärung</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 760px;
+         margin: 0 auto; padding: 24px; line-height: 1.6; color: #222; }
+  h1 { color: #b45309; }
+  h2 { margin-top: 1.6em; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #111; color: #ddd; }
+    h1 { color: #f59e0b; }
+    a { color: #fbbf24; }
+  }
+</style>
+</head>
+<body>
+<h1>Datenschutzerklärung – BlockMail</h1>
+<p>Stand: Juli 2026</p>
+
+<h2>Kurz gesagt</h2>
+<p>BlockMail ist eine E-Mail-App, die direkt auf deinem Gerät arbeitet.
+Es gibt <strong>keine BlockMail-Server</strong>: Deine Mails und Zugangsdaten
+werden ausschließlich auf deinem Gerät gespeichert und direkt zwischen deinem
+Gerät und deinem E-Mail-Anbieter übertragen. Die App enthält
+<strong>keine Werbung, kein Tracking und keine Analyse-Dienste</strong>.</p>
+
+<h2>Verantwortlicher</h2>
+<p>Mathias Jakober<br>
+Kontakt: <a href="mailto:mat.jakober@gmail.com">mat.jakober@gmail.com</a></p>
+
+<h2>Welche Daten die App verarbeitet</h2>
+<ul>
+  <li><strong>Zugangsdaten</strong> (E-Mail-Adresse, Passwort/App-Passwort oder
+      Google-Anmelde-Token): werden verschlüsselt auf deinem Gerät gespeichert
+      (Android EncryptedSharedPreferences) und ausschließlich zur Anmeldung bei
+      deinem E-Mail-Anbieter verwendet.</li>
+  <li><strong>E-Mails</strong> (Inhalte, Anhänge, Absender): werden per
+      verschlüsselter Verbindung (TLS) direkt von den Servern deines Anbieters
+      (z.&nbsp;B. Google, Web.de, GMX, Telekom, Apple, Microsoft, Yahoo) geladen und
+      lokal auf dem Gerät zwischengespeichert. Der lokale Inhalte-Cache wird
+      automatisch nach etwa einer Woche aufgeräumt.</li>
+  <li><strong>Einstellungen</strong> (Farben, Regeln, Signatur usw.): nur lokal
+      auf dem Gerät.</li>
+</ul>
+
+<h2>Verbindungen zu Drittanbietern</h2>
+<ul>
+  <li><strong>Dein E-Mail-Anbieter</strong>: Abruf und Versand von Mails per
+      IMAP/SMTP über TLS. Bei Gmail optional per Google-Anmeldung (OAuth); dabei
+      gelten die Datenschutzbestimmungen von Google.</li>
+  <li><strong>Absender-Logos</strong>: Zur Anzeige von Firmenlogos neben Mails
+      fragt die App anhand der Absender-Domain (z.&nbsp;B. „amazon.de“) Logos bei
+      logo.clearbit.com und dem Google-Favicon-Dienst an. Dabei wird nur die
+      Domain übertragen, niemals Mail-Inhalte oder deine Adresse.</li>
+  <li><strong>KI-Funktionen (optional)</strong>:
+      Zusammenfassungen, Antwortvorschläge und Newsletter-Erkennung laufen
+      standardmäßig mit <strong>Gemini Nano direkt auf dem Gerät</strong> –
+      dabei verlassen keine Inhalte dein Gerät. Nur wenn du in den Einstellungen
+      einen eigenen Claude-API-Schlüssel hinterlegst, werden die Inhalte der
+      jeweils betroffenen Mail zur Verarbeitung an Anthropic (Claude API)
+      übertragen; es gelten die Datenschutzbestimmungen von Anthropic.</li>
+</ul>
+
+<h2>Berechtigungen</h2>
+<ul>
+  <li><strong>Internet</strong>: Verbindung zu deinem E-Mail-Anbieter.</li>
+  <li><strong>Benachrichtigungen</strong>: Hinweis auf neue Mails; wird lokal
+      auf dem Gerät erzeugt.</li>
+  <li><strong>Vordergrund-Dienst</strong>: hält die Verbindung für
+      Echtzeit-Benachrichtigungen offen.</li>
+</ul>
+
+<h2>Datenweitergabe und Analyse</h2>
+<p>BlockMail gibt keine Daten an Dritte weiter, verkauft keine Daten und
+enthält keine Analyse-, Werbe- oder Tracking-Bibliotheken.</p>
+
+<h2>Löschung deiner Daten</h2>
+<p>Alle von der App gespeicherten Daten liegen auf deinem Gerät. Du löschst
+sie vollständig, indem du das Konto in den Einstellungen entfernst oder die
+App deinstallierst. Bei Google-Konten kannst du der App zusätzlich unter
+<a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>
+den Zugriff entziehen.</p>
+
+<h2>Änderungen</h2>
+<p>Bei neuen Funktionen wird diese Erklärung angepasst; die jeweils aktuelle
+Fassung findest du unter dieser Adresse.</p>
+</body>
+</html>

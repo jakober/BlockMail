@@ -262,8 +262,14 @@ fun InboxScreen(
                                 offset = androidx.compose.ui.unit.DpOffset(0.dp, 8.dp),
                                 modifier = Modifier.widthIn(min = 220.dp)
                             ) {
+                                // Vom Nutzer ausgeblendete Ordner dieses Kontos weglassen
+                                val hiddenVersion by Prefs.hiddenFoldersFlow.collectAsState()
+                                val hiddenFolders = remember(hiddenVersion, folderMenuOpen) {
+                                    Prefs.hiddenFolders(Prefs.email)
+                                }
                                 MailRepository.MailFolder.entries
                                     .filter { it != MailRepository.MailFolder.NEWSLETTER }
+                                    .filter { it.name !in hiddenFolders }
                                     .forEach { f ->
                                         val active = f == currentFolder
                                         DropdownMenuItem(
@@ -294,22 +300,24 @@ fun InboxScreen(
                                             }
                                         )
                                     }
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            "Newsletter",
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                    },
-                                    leadingIcon = { Icon(Icons.Filled.Newspaper, null) },
-                                    onClick = {
-                                        folderMenuOpen = false
-                                        onOpenNewsletterLog()
-                                    }
-                                )
+                                if ("NEWSLETTER" !in hiddenFolders) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                    )
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "Newsletter",
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                        },
+                                        leadingIcon = { Icon(Icons.Filled.Newspaper, null) },
+                                        onClick = {
+                                            folderMenuOpen = false
+                                            onOpenNewsletterLog()
+                                        }
+                                    )
+                                }
                                 // Konten-Wechsler (nur bei mehreren gespeicherten Konten)
                                 val accounts = remember(folderMenuOpen) {
                                     if (folderMenuOpen) {
@@ -847,11 +855,40 @@ private fun SwipeableMailRow(
         // Der gespeicherte "weggewischt"-Zustand würde sonst beim
         // Wiederherstellen einer Mail über "Rückgängig" restauriert und die
         // Zeile sofort erneut löschen (Endlosschleife).
-        val dismissState = remember {
+        //
+        // Die Aktion wird direkt in confirmValueChange ausgelöst und der
+        // Wechsel mit "false" abgelehnt: Die Zeile schnappt von selbst zurück.
+        // Das frühere Muster (erst Zustand wechseln, dann per Effekt
+        // zurücksetzen) konnte abgebrochen werden und ließ einzelne Zeilen
+        // in einem Zustand hängen, in dem Wischen nicht mehr reagierte.
+        val currentRight = androidx.compose.runtime.rememberUpdatedState(rightSpec)
+        val currentLeft = androidx.compose.runtime.rememberUpdatedState(leftSpec)
+        // Schutz vor Doppel-Auslösung: erst wieder scharf, wenn die Zeile
+        // nahezu zurückgeschnappt ist (siehe snapshotFlow unten)
+        val triggered = remember(mail.uid) { mutableStateOf(false) }
+        val dismissState = remember(mail.uid) {
             SwipeToDismissBoxState(
                 initialValue = SwipeToDismissBoxValue.Settled,
                 density = density,
-                confirmValueChange = { true },
+                confirmValueChange = { value ->
+                    when (value) {
+                        SwipeToDismissBoxValue.StartToEnd -> {
+                            if (!triggered.value) {
+                                triggered.value = true
+                                currentRight.value.onTrigger()
+                            }
+                            false
+                        }
+                        SwipeToDismissBoxValue.EndToStart -> {
+                            if (!triggered.value) {
+                                triggered.value = true
+                                currentLeft.value.onTrigger()
+                            }
+                            false
+                        }
+                        else -> true
+                    }
+                },
                 // Erst ab 30 % Wischstrecke auslösen; vorher schnappt die Zeile zurück
                 positionalThreshold = { totalDistance -> totalDistance * SWIPE_THRESHOLD }
             )
@@ -872,21 +909,8 @@ private fun SwipeableMailRow(
                 } else if (fraction < SWIPE_THRESHOLD - 0.04f && thresholdReached) {
                     thresholdReached = false
                 }
-            }
-        }
-
-        // Aktion ausführen, sobald der Wisch vollendet wurde
-        LaunchedEffect(dismissState.currentValue) {
-            when (dismissState.currentValue) {
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    rightSpec.onTrigger()
-                    dismissState.reset()
-                }
-                SwipeToDismissBoxValue.EndToStart -> {
-                    leftSpec.onTrigger()
-                    dismissState.reset()
-                }
-                else -> {}
+                // Zeile ist (fast) zurückgeschnappt: nächste Auslösung freigeben
+                if (fraction < 0.05f) triggered.value = false
             }
         }
 

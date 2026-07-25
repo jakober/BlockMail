@@ -21,6 +21,9 @@ object Prefs {
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
+    /** Änderungszähler der ausgeblendeten Ordner je Konto. */
+    val hiddenFoldersFlow = MutableStateFlow(0)
+
     /** Stumm geschaltete Absender: als gelesen markieren, keine Benachrichtigung. */
     val mutedFlow = MutableStateFlow<Set<String>>(emptySet())
 
@@ -453,6 +456,27 @@ object Prefs {
         if (color == null) sp.edit().remove(key).apply()
         else sp.edit().putInt(key, color).apply()
         accountColorsFlow.value++
+    }
+
+    /**
+     * Im Ordner-Menü ausgeblendete Ordner eines Kontos (MailFolder-Namen,
+     * z. B. "ARCHIVE"). Standard: leer — alle Ordner sichtbar wie bisher.
+     */
+    fun hiddenFolders(accountEmail: String): Set<String> = try {
+        val a = org.json.JSONArray(
+            sp.getString("hidden_folders_" + accountEmail.trim().lowercase(), "[]") ?: "[]"
+        )
+        (0 until a.length()).map { a.getString(it) }.toSet()
+    } catch (e: Exception) {
+        emptySet()
+    }
+
+    fun setHiddenFolders(accountEmail: String, hidden: Set<String>) {
+        sp.edit().putString(
+            "hidden_folders_" + accountEmail.trim().lowercase(),
+            org.json.JSONArray(hidden.toList()).toString()
+        ).apply()
+        hiddenFoldersFlow.value++
     }
 
     /** Erscheinungsbild: "system" (Gerät folgt), "light" oder "dark". */

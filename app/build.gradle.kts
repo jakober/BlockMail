@@ -12,8 +12,8 @@ android {
         applicationId = "com.jakober.klarmail"
         minSdk = 26
         targetSdk = 34
-        versionCode = 78
-        versionName = "2.75"
+        versionCode = 79
+        versionName = "2.76"
 
         // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
         manifestPlaceholders["appAuthRedirectScheme"] =
@@ -23,12 +23,24 @@ android {
     // Fester Signatur-Schlüssel für alle Builds (lokal wie CI): Ohne ihn erzeugt
     // jeder Build-Rechner einen eigenen Debug-Schlüssel, und Android verweigert
     // dann das Update über eine bestehende Installation ("Paket im Konflikt").
+    // Play-Store-Upload-Schlüssel: kommt NICHT ins Repo, sondern per
+    // GitHub-Secrets in den Release-Workflow (siehe release-aab.yml)
+    val uploadKeystorePath: String? = System.getenv("UPLOAD_KEYSTORE_FILE")
+
     signingConfigs {
         create("shared") {
             storeFile = rootProject.file("keystore/blockmail-debug.keystore")
             storePassword = "blockmail1"
             keyAlias = "blockmail"
             keyPassword = "blockmail1"
+        }
+        if (uploadKeystorePath != null) {
+            create("upload") {
+                storeFile = file(uploadKeystorePath)
+                storePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("UPLOAD_KEY_ALIAS") ?: "upload"
+                keyPassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+            }
         }
     }
 
@@ -38,7 +50,9 @@ android {
         }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("shared")
+            signingConfig = signingConfigs.getByName(
+                if (uploadKeystorePath != null) "upload" else "shared"
+            )
         }
     }
     compileOptions {
