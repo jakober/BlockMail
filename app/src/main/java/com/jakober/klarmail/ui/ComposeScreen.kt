@@ -488,7 +488,7 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                                     aiMenuOpen = false
                                     runAi("Claude formuliert eine Antwort …", showLanguage = true) {
                                         val origBody = try {
-                                            MailRepository.loadVisibleText(original.uid)
+                                            MailRepository.loadVisibleText(original.uid, original.account)
                                         } catch (e: Exception) {
                                             ""
                                         }
@@ -564,6 +564,20 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
+                // Hinweis im Sammel-Posteingang: gesendet wird immer über das
+                // aktive Konto — bei Antworten auf Mails eines anderen Kontos
+                // soll das nicht überraschen
+                if (original != null && original.account.isNotBlank() &&
+                    !original.account.equals(Prefs.email, ignoreCase = true)
+                ) {
+                    Text(
+                        "Hinweis: Diese Antwort wird über dein aktives Konto " +
+                            "(${Prefs.email}) gesendet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
                 RecipientRow(
                     label = "AN:",
                     value = to,

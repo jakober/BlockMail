@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachFile
@@ -116,6 +117,7 @@ fun InboxScreen(
     val selected = remember { androidx.compose.runtime.mutableStateListOf<Long>() }
     val selectionMode = selected.isNotEmpty()
     val conversationView by Prefs.conversationViewFlow.collectAsState()
+    val unified by MailRepository.unified.collectAsState()
     val expandedThreads = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     androidx.activity.compose.BackHandler(enabled = selectionMode) { selected.clear() }
     fun toggleSelect(uid: Long) {
@@ -246,7 +248,10 @@ fun InboxScreen(
                                     folderMenuOpen = true
                                 }
                             ) {
-                                Text(currentFolder.label, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    if (unified) "Alle Konten" else currentFolder.label,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                                 if (configured) {
                                     Icon(
                                         Icons.Filled.ArrowDropDown,
@@ -271,7 +276,7 @@ fun InboxScreen(
                                     .filter { it != MailRepository.MailFolder.NEWSLETTER }
                                     .filter { it.name !in hiddenFolders }
                                     .forEach { f ->
-                                        val active = f == currentFolder
+                                        val active = !unified && f == currentFolder
                                         DropdownMenuItem(
                                             text = {
                                                 Text(
@@ -296,7 +301,18 @@ fun InboxScreen(
                                             },
                                             onClick = {
                                                 folderMenuOpen = false
-                                                scope.launch { MailRepository.switchFolder(f) }
+                                                scope.launch {
+                                                    if (MailRepository.unified.value) {
+                                                        if (f == MailRepository.MailFolder.INBOX) {
+                                                            MailRepository.setUnified(false)
+                                                        } else {
+                                                            MailRepository.setUnified(false, reload = false)
+                                                            MailRepository.switchFolder(f)
+                                                        }
+                                                    } else {
+                                                        MailRepository.switchFolder(f)
+                                                    }
+                                                }
                                             }
                                         )
                                     }
@@ -329,8 +345,39 @@ fun InboxScreen(
                                     HorizontalDivider(
                                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                                     )
+                                    // Sammel-Posteingang: alle Konten in einer Liste
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "Alle Konten",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = if (unified) FontWeight.SemiBold
+                                                else FontWeight.Normal
+                                            )
+                                        },
+                                        leadingIcon = { Icon(Icons.Filled.AllInbox, null) },
+                                        trailingIcon = if (unified) {
+                                            { Icon(Icons.Filled.Check, null) }
+                                        } else null,
+                                        colors = if (unified) {
+                                            androidx.compose.material3.MenuDefaults.itemColors(
+                                                textColor = MaterialTheme.colorScheme.primary,
+                                                leadingIconColor = MaterialTheme.colorScheme.primary,
+                                                trailingIconColor = MaterialTheme.colorScheme.primary
+                                            )
+                                        } else {
+                                            androidx.compose.material3.MenuDefaults.itemColors()
+                                        },
+                                        onClick = {
+                                            folderMenuOpen = false
+                                            if (!unified) {
+                                                scope.launch { MailRepository.setUnified(true) }
+                                            }
+                                        }
+                                    )
                                     accounts.forEach { acc ->
-                                        val active = acc.email.equals(Prefs.email, ignoreCase = true)
+                                        val active = !unified &&
+                                            acc.email.equals(Prefs.email, ignoreCase = true)
                                         DropdownMenuItem(
                                             text = {
                                                 Text(
@@ -369,7 +416,19 @@ fun InboxScreen(
                                             onClick = {
                                                 folderMenuOpen = false
                                                 if (!active) {
-                                                    scope.launch { MailRepository.switchAccount(acc) }
+                                                    scope.launch {
+                                                        val sameAccount = acc.email
+                                                            .equals(Prefs.email, ignoreCase = true)
+                                                        if (sameAccount) {
+                                                            // Nur den Sammel-Modus verlassen
+                                                            MailRepository.setUnified(false)
+                                                        } else {
+                                                            MailRepository.setUnified(
+                                                                false, reload = false
+                                                            )
+                                                            MailRepository.switchAccount(acc)
+                                                        }
+                                                    }
                                                 }
                                             }
                                         )
@@ -514,7 +573,7 @@ fun InboxScreen(
         // erst nach deren Ablauf wirklich am Server löschen
         val deleteWithUndo: (MailMessage) -> Unit = { mail ->
             scope.launch {
-                MailRepository.hideLocally(mail.uid)
+                MailRepository.hideLocally(mail.uid, mail.account)
                 val result = snackbar.showSnackbar(
                     message = "Mail gelöscht",
                     actionLabel = "Rückgängig",
@@ -523,7 +582,7 @@ fun InboxScreen(
                 if (result == SnackbarResult.ActionPerformed) {
                     MailRepository.restoreLocally(mail)
                 } else {
-                    MailRepository.deleteMail(mail.uid)
+                    MailRepository.deleteMail(mail.uid, mail.account)
                 }
             }
         }
@@ -531,7 +590,7 @@ fun InboxScreen(
         // Archivieren mit Rückgängig: gleiches Muster wie beim Löschen
         val archiveWithUndo: (MailMessage) -> Unit = { mail ->
             scope.launch {
-                MailRepository.hideLocally(mail.uid)
+                MailRepository.hideLocally(mail.uid, mail.account)
                 val result = snackbar.showSnackbar(
                     message = "Mail archiviert",
                     actionLabel = "Rückgängig",
@@ -540,7 +599,9 @@ fun InboxScreen(
                 if (result == SnackbarResult.ActionPerformed) {
                     MailRepository.restoreLocally(mail)
                 } else {
-                    MailRepository.moveMail(mail.uid, MailRepository.MailFolder.ARCHIVE)
+                    MailRepository.moveMail(
+                        mail.uid, MailRepository.MailFolder.ARCHIVE, mail.account
+                    )
                 }
             }
         }
@@ -587,7 +648,7 @@ fun InboxScreen(
                     if (mail.seen) "Als ungelesen markieren" else "Als gelesen markieren",
                     if (mail.seen) Icons.Filled.MarkEmailUnread else Icons.Filled.Drafts
                 ) {
-                    scope.launch { MailRepository.setSeen(mail.uid, !mail.seen) }
+                    scope.launch { MailRepository.setSeen(mail.uid, !mail.seen, mail.account) }
                 }
                 "snooze" -> SwipeSpec("Morgen erinnern", Icons.Filled.Schedule) {
                     snoozeWithUndo(mail)
@@ -614,7 +675,7 @@ fun InboxScreen(
                         item(key = "header_unread") {
                             SectionHeader("Neu (${unread.size})", Modifier.animateItem())
                         }
-                        items(unread, key = { it.uid }, contentType = { "mail" }) { mail ->
+                        items(unread, key = { "${it.account}:${it.uid}" }, contentType = { "mail" }) { mail ->
                             SwipeableMailRow(
                                 mail = mail,
                                 onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
@@ -631,7 +692,7 @@ fun InboxScreen(
                         item(key = "header_$label") {
                             SectionHeader(label, Modifier.animateItem())
                         }
-                        items(mails, key = { it.uid }, contentType = { "mail" }) { mail ->
+                        items(mails, key = { "${it.account}:${it.uid}" }, contentType = { "mail" }) { mail ->
                             SwipeableMailRow(
                                 mail = mail,
                                 onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
@@ -651,7 +712,7 @@ fun InboxScreen(
                     fun renderThread(t: MailThread) {
                         if (t.mails.size == 1) {
                             val mail = t.mails.first()
-                            item(key = mail.uid) {
+                            item(key = "${mail.account}:${mail.uid}") {
                                 SwipeableMailRow(
                                     mail = mail,
                                     onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
@@ -681,7 +742,11 @@ fun InboxScreen(
                                 )
                             }
                             if (expandedThreads.contains(t.key)) {
-                                items(t.mails, key = { it.uid }, contentType = { "mail" }) { mail ->
+                                items(
+                                    t.mails,
+                                    key = { "${it.account}:${it.uid}" },
+                                    contentType = { "mail" }
+                                ) { mail ->
                                     SwipeableMailRow(
                                         mail = mail,
                                         onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
@@ -1032,10 +1097,11 @@ private fun MailRow(
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {
         // Balken vorne: Konto-Farbe (falls gewählt) kennzeichnet das Postfach;
-        // ohne Konto-Farbe zeigt er wie bisher nur Ungelesene in Primärfarbe an
+        // ohne Konto-Farbe zeigt er wie bisher nur Ungelesene in Primärfarbe an.
+        // Im Sammel-Posteingang gilt die Farbe des Kontos der jeweiligen Mail.
         val colorsVersion by Prefs.accountColorsFlow.collectAsState()
-        val accountColor = remember(colorsVersion) {
-            Prefs.accountColor(Prefs.email)?.let { Color(it) }
+        val accountColor = remember(colorsVersion, mail.account) {
+            Prefs.accountColor(mail.account.ifBlank { Prefs.email })?.let { Color(it) }
         }
         val barColor = accountColor
             ?: if (!mail.seen && !selected) MaterialTheme.colorScheme.primary else null

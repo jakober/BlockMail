@@ -11,7 +11,9 @@ data class MailMessage(
     val date: Long,
     val seen: Boolean,
     val hasAttachments: Boolean = false,
-    val snippet: String? = null
+    val snippet: String? = null,
+    /** Konto-Zuordnung im Sammel-Posteingang ("" = aktives Konto). */
+    val account: String = ""
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("uid", uid)
@@ -22,6 +24,7 @@ data class MailMessage(
         put("seen", seen)
         put("hasAttachments", hasAttachments)
         snippet?.let { put("snippet", it) }
+        if (account.isNotBlank()) put("account", account)
     }
 
     companion object {
@@ -34,7 +37,8 @@ data class MailMessage(
             seen = o.optBoolean("seen", true),
             hasAttachments = o.optBoolean("hasAttachments", false),
             // has()-Check statt optString: "" würde als "Vorschau vorhanden" gelten
-            snippet = if (o.has("snippet")) o.getString("snippet") else null
+            snippet = if (o.has("snippet")) o.getString("snippet") else null,
+            account = o.optString("account")
         )
 
         fun listToJson(list: List<MailMessage>): String {

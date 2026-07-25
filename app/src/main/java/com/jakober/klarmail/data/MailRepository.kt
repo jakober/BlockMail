@@ -47,6 +47,55 @@ object MailRepository {
     private val _currentFolder = MutableStateFlow(MailFolder.INBOX)
     val currentFolder = _currentFolder.asStateFlow()
 
+    /** Sammel-Posteingang: Mails aller gespeicherten Konten in einer Liste. */
+    private val _unified = MutableStateFlow(false)
+    val unified = _unified.asStateFlow()
+
+    /** Wie viele der neuesten Mails je Konto der Sammel-Posteingang lädt. */
+    private const val UNIFIED_PER_ACCOUNT = 50
+
+    /**
+     * Schaltet den Sammel-Posteingang ein/aus. Beim Einschalten wird sofort
+     * aus den Konto-Caches zusammengesetzt und dann frisch geladen; beim
+     * Ausschalten kehrt die Ansicht zum Posteingang des aktiven Kontos zurück.
+     */
+    suspend fun setUnified(on: Boolean, reload: Boolean = true) {
+        if (_unified.value == on) return
+        _unified.value = on
+        _currentFolder.value = MailFolder.INBOX
+        loadLimit = MAX_MESSAGES
+        _canLoadMore.value = false
+        _error.value = null
+        if (!reload) return
+        if (on) {
+            _messages.value = sort(applyRules(loadUnifiedFromCaches()))
+            refresh()
+        } else {
+            _messages.value = runCatching {
+                cacheFile?.takeIf { it.exists() }
+                    ?.let { sort(applyRules(MailMessage.listFromJson(it.readText()))) }
+            }.getOrNull() ?: emptyList()
+            refresh()
+        }
+    }
+
+    /** Posteingangs-Cache-Datei eines beliebigen Kontos. */
+    private fun cacheFileFor(email: String): File? = appContext?.let {
+        val safe = email.trim().lowercase().replace(Regex("[^a-z0-9@._-]"), "_")
+        File(it.filesDir, "inbox_cache_$safe.json")
+    }
+
+    /** Baut die Sammel-Liste aus den vorhandenen Konto-Caches (sofortige Anzeige). */
+    private fun loadUnifiedFromCaches(): List<MailMessage> =
+        Prefs.accounts().flatMap { acc ->
+            runCatching {
+                cacheFileFor(acc.email)?.takeIf { it.exists() }
+                    ?.let { MailMessage.listFromJson(it.readText()) }
+            }.getOrNull().orEmpty()
+                .take(UNIFIED_PER_ACCOUNT)
+                .map { it.copy(account = acc.email.lowercase()) }
+        }
+
     /**
      * Wechselt zum angegebenen Konto: Zugangsdaten aktivieren, alle Caches des
      * alten Kontos verwerfen, Posteingang des neuen Kontos laden, Push neu
@@ -54,6 +103,7 @@ object MailRepository {
      */
     suspend fun switchAccount(acc: Prefs.Account) = withContext(Dispatchers.IO) {
         refreshMutex.withLock {
+            _unified.value = false
             Prefs.activateAccount(acc)
             synchronized(bodyCache) { bodyCache.clear() }
             synchronized(attachmentCache) { attachmentCache.clear() }
@@ -225,7 +275,9 @@ object MailRepository {
                 Prefs.mutedFlow, Prefs.blockedFlow, Prefs.snoozedFlow
             ) { m, b, s -> Triple(m, b, s) }
                 .collect { (muted, blocked, _) ->
-                    if (_currentFolder.value == MailFolder.INBOX) {
+                    // Serverseitig nur außerhalb des Sammel-Posteingangs
+                    // aufräumen: dort wären die UIDs nicht eindeutig zuordenbar
+                    if (_currentFolder.value == MailFolder.INBOX && !_unified.value) {
                         val current = _messages.value
                         current.filter { it.fromAddress.lowercase() in blocked }.forEach { msg ->
                             ruleScope.launch { deleteInboxByUid(msg.uid) }
@@ -280,6 +332,9 @@ object MailRepository {
      */
     private fun updateSnippet(uid: Long, body: MailBody) {
         if (_currentFolder.value != MailFolder.INBOX) return
+        // Im Sammel-Posteingang könnten gleiche UIDs verschiedener Konten
+        // kollidieren — Vorschauen dort nicht nachtragen
+        if (_unified.value) return
         // Auch der Leerstring wird gespeichert: er markiert "geladen, ohne Text"
         val snip = makeSnippet(body)
         var changed = false
@@ -298,6 +353,7 @@ object MailRepository {
     /** Ergänzt fehlende Vorschauen aus bereits auf der Platte gecachten Inhalten. */
     private fun backfillSnippets() {
         if (_currentFolder.value != MailFolder.INBOX) return
+        if (_unified.value) return
         ruleScope.launch {
             val missing = _messages.value.filter { it.snippet == null }
             if (missing.isEmpty()) return@launch
@@ -318,6 +374,9 @@ object MailRepository {
 
     private fun persist() {
         if (_currentFolder.value != MailFolder.INBOX) return
+        // Sammel-Ansicht nie in den Konto-Cache schreiben: Er gehört dem
+        // aktiven Konto und würde sonst Mails fremder Konten enthalten
+        if (_unified.value) return
         try {
             cacheFile?.writeText(MailMessage.listToJson(_messages.value))
             // Homescreen-Widget mit dem frischen Stand versorgen
@@ -354,6 +413,39 @@ object MailRepository {
         return store
     }
 
+    /** Ist die Konto-Angabe leer oder das aktive Konto? */
+    private fun isActiveAccount(account: String): Boolean =
+        account.isBlank() || account.equals(Prefs.email, ignoreCase = true)
+
+    /**
+     * Verbindung zu einem beliebigen gespeicherten Konto (Sammel-Posteingang).
+     * Für das aktive Konto wird der normale Weg genutzt.
+     */
+    private fun openStoreFor(account: String): Store {
+        if (isActiveAccount(account)) return openStore()
+        val acc = Prefs.accounts().firstOrNull { it.email.equals(account, ignoreCase = true) }
+            ?: throw IllegalStateException("Konto $account nicht gefunden")
+        val props = Properties().apply {
+            put("mail.store.protocol", "imaps")
+            put("mail.imaps.host", acc.imapHost)
+            put("mail.imaps.port", acc.imapPort.toString())
+            put("mail.imaps.connectiontimeout", "15000")
+            put("mail.imaps.timeout", "60000")
+            put("mail.imaps.ssl.enable", "true")
+            put("mail.imaps.partialfetch", "false")
+        }
+        val password = if (acc.authMethod == "oauth") {
+            props.put("mail.imaps.auth.mechanisms", "XOAUTH2")
+            GoogleAuth.freshAccessTokenFor(acc.refreshToken)
+        } else {
+            acc.appPassword
+        }
+        val session = Session.getInstance(props)
+        val store = session.getStore("imaps")
+        store.connect(acc.imapHost, acc.email, password)
+        return store
+    }
+
     /**
      * Testet IMAP-Zugangsdaten, ohne etwas zu speichern (für den
      * Einrichtungsassistenten). Liefert null bei Erfolg, sonst den Fehlertext.
@@ -385,6 +477,10 @@ object MailRepository {
 
     suspend fun refresh() = withContext(Dispatchers.IO) {
         if (!Prefs.isConfigured) return@withContext
+        if (_unified.value) {
+            refreshUnified()
+            return@withContext
+        }
         refreshMutex.withLock {
             _loading.value = true
             _error.value = null
@@ -449,12 +545,69 @@ object MailRepository {
         }
     }
 
+    /** Frischer Abruf des Sammel-Posteingangs: alle Konten nacheinander. */
+    private suspend fun refreshUnified() = withContext(Dispatchers.IO) {
+        refreshMutex.withLock {
+            if (!_unified.value) return@withLock
+            _loading.value = true
+            _error.value = null
+            val all = mutableListOf<MailMessage>()
+            var firstError: String? = null
+            for (acc in Prefs.accounts()) {
+                try {
+                    val store = openStoreFor(acc.email)
+                    try {
+                        val inbox = store.getFolder("INBOX") as IMAPFolder
+                        inbox.open(Folder.READ_ONLY)
+                        val total = inbox.messageCount
+                        if (total > 0) {
+                            val start = max(1, total - UNIFIED_PER_ACCOUNT + 1)
+                            val msgs = inbox.getMessages(start, total)
+                            val fp = FetchProfile().apply {
+                                add(FetchProfile.Item.ENVELOPE)
+                                add(FetchProfile.Item.FLAGS)
+                                add(FetchProfile.Item.CONTENT_INFO)
+                                add(UIDFolder.FetchProfileItem.UID)
+                            }
+                            inbox.fetch(msgs, fp)
+                            all += msgs.mapNotNull { m ->
+                                try {
+                                    toMailMessage(inbox.getUID(m), m)
+                                } catch (e: Exception) {
+                                    null
+                                }
+                            }.map { it.copy(account = acc.email.lowercase()) }
+                        }
+                    } finally {
+                        runCatching { store.close() }
+                    }
+                } catch (e: Exception) {
+                    if (firstError == null) firstError = "${acc.email}: ${friendlyError(e)}"
+                }
+            }
+            // Vorhandene Vorschauen (aus den Konto-Caches) übernehmen
+            val prevSnippets = _messages.value
+                .filter { it.snippet != null }
+                .associate { "${it.account}:${it.uid}" to it.snippet }
+            val merged = all.map { m ->
+                prevSnippets["${m.account}:${m.uid}"]?.let { m.copy(snippet = it) } ?: m
+            }
+            if (_unified.value) {
+                _messages.value = sort(applyRules(merged))
+                _canLoadMore.value = false
+            }
+            _error.value = firstError
+            _loading.value = false
+        }
+    }
+
     /**
      * Endlos-Scrollen: lädt das nächste Paket älterer Mails des aktuellen
      * Ordners nach und hängt sie an die Liste an.
      */
     suspend fun loadMore() = withContext(Dispatchers.IO) {
         if (!Prefs.isConfigured) return@withContext
+        if (_unified.value) return@withContext
         if (_loadingMore.value || !_canLoadMore.value) return@withContext
         refreshMutex.withLock {
             if (_loadingMore.value || !_canLoadMore.value) return@withLock
@@ -595,8 +748,16 @@ object MailRepository {
     /** Wie lange vorgeladene Mail-Inhalte auf der Platte behalten werden. */
     private const val BODY_CACHE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
 
-    private fun bodyCacheFile(folder: MailFolder, uid: Long): File? =
-        bodyCacheDir?.let { File(it, "${folder.name}_$uid.json") }
+    /** Schlüssel-Zusatz für Mails fremder Konten (Sammel-Posteingang). */
+    private fun accountKeyPart(account: String): String =
+        if (isActiveAccount(account)) ""
+        else "@" + account.trim().lowercase()
+
+    private fun bodyCacheFile(folder: MailFolder, uid: Long, account: String = ""): File? =
+        bodyCacheDir?.let {
+            val part = accountKeyPart(account).replace(Regex("[^a-z0-9@._-]"), "_")
+            File(it, "${folder.name}${part}_$uid.json")
+        }
 
     private fun bodyToJson(body: MailBody): String = org.json.JSONObject().apply {
         put("html", body.html ?: org.json.JSONObject.NULL)
@@ -634,27 +795,28 @@ object MailRepository {
         )
     }
 
-    private fun diskLoadBody(folder: MailFolder, uid: Long): MailBody? = try {
-        bodyCacheFile(folder, uid)?.takeIf { it.exists() }?.let { bodyFromJson(it.readText()) }
+    private fun diskLoadBody(folder: MailFolder, uid: Long, account: String = ""): MailBody? = try {
+        bodyCacheFile(folder, uid, account)?.takeIf { it.exists() }?.let { bodyFromJson(it.readText()) }
     } catch (_: Exception) {
         null
     }
 
-    private fun diskSaveBody(folder: MailFolder, uid: Long, body: MailBody) {
+    private fun diskSaveBody(folder: MailFolder, uid: Long, body: MailBody, account: String = "") {
         try {
-            bodyCacheFile(folder, uid)?.writeText(bodyToJson(body))
+            bodyCacheFile(folder, uid, account)?.writeText(bodyToJson(body))
         } catch (_: Exception) {
         }
     }
 
-    private fun diskDeleteBody(folder: MailFolder, uid: Long) {
-        runCatching { bodyCacheFile(folder, uid)?.delete() }
+    private fun diskDeleteBody(folder: MailFolder, uid: Long, account: String = "") {
+        runCatching { bodyCacheFile(folder, uid, account)?.delete() }
     }
 
     /** Ist der Inhalt einer Mail bereits lokal vorhanden (Speicher oder Platte)? */
-    fun hasCachedBody(uid: Long, folder: MailFolder = MailFolder.INBOX): Boolean =
-        synchronized(bodyCache) { bodyCache.containsKey("${folder.name}:$uid") } ||
-            bodyCacheFile(folder, uid)?.exists() == true
+    fun hasCachedBody(uid: Long, folder: MailFolder = MailFolder.INBOX, account: String = ""): Boolean =
+        synchronized(bodyCache) {
+            bodyCache.containsKey("${folder.name}${accountKeyPart(account)}:$uid")
+        } || bodyCacheFile(folder, uid, account)?.exists() == true
 
     /** Löscht vorgeladene Inhalte, die älter als eine Woche sind. */
     fun cleanupBodyCache() {
@@ -672,9 +834,9 @@ object MailRepository {
      * sofort aus dem Cache bedient wird. Fehler sind unkritisch — dann wird
      * beim Öffnen ganz normal nachgeladen.
      */
-    suspend fun prefetchBody(uid: Long, folder: MailFolder = MailFolder.INBOX) {
-        if (hasCachedBody(uid, folder)) return
-        runCatching { loadBodyContent(uid, folder, inlineRemoteImages = true) }
+    suspend fun prefetchBody(uid: Long, folder: MailFolder = MailFolder.INBOX, account: String = "") {
+        if (hasCachedBody(uid, folder, account)) return
+        runCatching { loadBodyContent(uid, folder, inlineRemoteImages = true, account = account) }
     }
 
     private val imageClient by lazy {
@@ -746,11 +908,12 @@ object MailRepository {
     suspend fun loadBodyContent(
         uid: Long,
         folder: MailFolder = _currentFolder.value,
-        inlineRemoteImages: Boolean = false
+        inlineRemoteImages: Boolean = false,
+        account: String = ""
     ): MailBody = withContext(Dispatchers.IO) {
-        val cacheKey = "${folder.name}:$uid"
+        val cacheKey = "${folder.name}${accountKeyPart(account)}:$uid"
         synchronized(bodyCache) { bodyCache[cacheKey] }?.let { return@withContext it }
-        diskLoadBody(folder, uid)?.let { cached ->
+        diskLoadBody(folder, uid, account)?.let { cached ->
             synchronized(bodyCache) {
                 if (bodyCache.size > 12) bodyCache.clear()
                 bodyCache[cacheKey] = cached
@@ -758,7 +921,7 @@ object MailRepository {
             if (folder == MailFolder.INBOX) updateSnippet(uid, cached)
             return@withContext cached
         }
-        val store = openStore()
+        val store = openStoreFor(account)
         try {
             val inbox = (resolveFolder(store, folder)
                 ?: throw IllegalStateException("Ordner nicht gefunden")).let {
@@ -821,7 +984,7 @@ object MailRepository {
                 if (bodyCache.size > 12) bodyCache.clear() // Speicher begrenzen
                 bodyCache[cacheKey] = body
             }
-            diskSaveBody(folder, uid, body)
+            diskSaveBody(folder, uid, body, account)
             if (folder == MailFolder.INBOX) updateSnippet(uid, body)
             body
         } finally {
@@ -830,7 +993,8 @@ object MailRepository {
     }
 
     /** Nur-Text-Variante, z. B. als Kontext für Claude. */
-    suspend fun loadBody(uid: Long): String = loadBodyContent(uid).text
+    suspend fun loadBody(uid: Long, account: String = ""): String =
+        loadBodyContent(uid, account = account).text
 
     /**
      * Der sichtbare Inhalt der Mail als Text — aus der HTML-Ansicht abgeleitet,
@@ -838,8 +1002,8 @@ object MailRepository {
      * System-Mails ist oft nur (englisches) Vorlagen-Gerüst und entspricht
      * nicht dem, was der Nutzer tatsächlich liest.
      */
-    suspend fun loadVisibleText(uid: Long): String {
-        val body = loadBodyContent(uid)
+    suspend fun loadVisibleText(uid: Long, account: String = ""): String {
+        val body = loadBodyContent(uid, account = account)
         val fromHtml = body.html?.let {
             Html.fromHtml(it, Html.FROM_HTML_MODE_LEGACY).toString().trim()
         }
@@ -857,17 +1021,27 @@ object MailRepository {
         }
     }
 
-    suspend fun markSeen(uid: Long) = setSeen(uid, true)
+    suspend fun markSeen(uid: Long, account: String = "") = setSeen(uid, true, account)
 
-    suspend fun setSeen(uid: Long, seen: Boolean) = withContext(Dispatchers.IO) {
+    suspend fun setSeen(uid: Long, seen: Boolean, account: String = "") = withContext(Dispatchers.IO) {
         // Sofort lokal aktualisieren, damit die UI nicht auf das Netzwerk wartet
-        _messages.value = sort(_messages.value.map { if (it.uid == uid) it.copy(seen = seen) else it })
+        _messages.value = sort(
+            _messages.value.map {
+                if (it.uid == uid && (account.isBlank() || it.account == account.lowercase())) {
+                    it.copy(seen = seen)
+                } else it
+            }
+        )
         persist()
         if (seen) cancelNotification(uid)
         try {
-            val store = openStore()
+            val store = openStoreFor(account)
             try {
-                val inbox = openCurrentFolder(store, Folder.READ_WRITE)
+                val inbox = if (isActiveAccount(account)) {
+                    openCurrentFolder(store, Folder.READ_WRITE)
+                } else {
+                    (store.getFolder("INBOX") as IMAPFolder).apply { open(Folder.READ_WRITE) }
+                }
                 inbox.getMessageByUID(uid)?.setFlag(Flags.Flag.SEEN, seen)
             } finally {
                 runCatching { store.close() }
@@ -881,19 +1055,29 @@ object MailRepository {
     suspend fun setSeenBatch(uids: List<Long>, seen: Boolean) = withContext(Dispatchers.IO) {
         if (uids.isEmpty()) return@withContext
         val set = uids.toSet()
+        // Vor dem lokalen Update die Konto-Zuordnung sichern (Sammel-Posteingang)
+        val byAccount = _messages.value.filter { it.uid in set }.groupBy { it.account }
         _messages.value = sort(_messages.value.map { if (it.uid in set) it.copy(seen = seen) else it })
         persist()
         if (seen) uids.forEach { cancelNotification(it) }
-        try {
-            val store = openStore()
+        val groups = byAccount.ifEmpty { mapOf("" to emptyList()) }
+        for ((account, mails) in groups) {
             try {
-                val inbox = openCurrentFolder(store, Folder.READ_WRITE)
-                uids.forEach { inbox.getMessageByUID(it)?.setFlag(Flags.Flag.SEEN, seen) }
-            } finally {
-                runCatching { store.close() }
+                val store = openStoreFor(account)
+                try {
+                    val inbox = if (isActiveAccount(account)) {
+                        openCurrentFolder(store, Folder.READ_WRITE)
+                    } else {
+                        (store.getFolder("INBOX") as IMAPFolder).apply { open(Folder.READ_WRITE) }
+                    }
+                    val target = if (mails.isEmpty()) uids else mails.map { it.uid }
+                    target.forEach { inbox.getMessageByUID(it)?.setFlag(Flags.Flag.SEEN, seen) }
+                } finally {
+                    runCatching { store.close() }
+                }
+            } catch (e: Exception) {
+                if (isConnectivityError(e)) _error.value = friendlyError(e)
             }
-        } catch (e: Exception) {
-            if (isConnectivityError(e)) _error.value = friendlyError(e)
         }
     }
 
@@ -902,29 +1086,42 @@ object MailRepository {
         if (uids.isEmpty()) return@withContext
         val folder = _currentFolder.value
         val set = uids.toSet()
+        val byAccount = _messages.value.filter { it.uid in set }.groupBy { it.account }
         _messages.value = _messages.value.filter { it.uid !in set }
         persist()
-        synchronized(bodyCache) { set.forEach { bodyCache.remove("${folder.name}:$it") } }
-        set.forEach { diskDeleteBody(folder, it); cancelNotification(it) }
-        try {
-            val store = openStore()
-            try {
-                val inbox = openCurrentFolder(store, Folder.READ_WRITE)
-                val msgs = uids.mapNotNull { inbox.getMessageByUID(it) }.toTypedArray()
-                if (msgs.isNotEmpty()) {
-                    if (folder != MailFolder.TRASH) {
-                        resolveFolder(store, MailFolder.TRASH)?.let { inbox.copyMessages(msgs, it) }
-                    }
-                    runCatching {
-                        msgs.forEach { it.setFlag(Flags.Flag.DELETED, true) }
-                        inbox.expunge()
-                    }
-                }
-            } finally {
-                runCatching { store.close() }
+        for ((account, mails) in byAccount) {
+            synchronized(bodyCache) {
+                mails.forEach { bodyCache.remove("${folder.name}${accountKeyPart(account)}:${it.uid}") }
             }
-        } catch (e: Exception) {
-            if (isConnectivityError(e)) _error.value = friendlyError(e)
+            mails.forEach { diskDeleteBody(folder, it.uid, account); cancelNotification(it.uid) }
+        }
+        val groups = byAccount.ifEmpty { mapOf("" to emptyList()) }
+        for ((account, mails) in groups) {
+            try {
+                val store = openStoreFor(account)
+                try {
+                    val inbox = if (isActiveAccount(account)) {
+                        openCurrentFolder(store, Folder.READ_WRITE)
+                    } else {
+                        (store.getFolder("INBOX") as IMAPFolder).apply { open(Folder.READ_WRITE) }
+                    }
+                    val target = if (mails.isEmpty()) uids else mails.map { it.uid }
+                    val msgs = target.mapNotNull { inbox.getMessageByUID(it) }.toTypedArray()
+                    if (msgs.isNotEmpty()) {
+                        if (folder != MailFolder.TRASH) {
+                            resolveFolder(store, MailFolder.TRASH)?.let { inbox.copyMessages(msgs, it) }
+                        }
+                        runCatching {
+                            msgs.forEach { it.setFlag(Flags.Flag.DELETED, true) }
+                            inbox.expunge()
+                        }
+                    }
+                } finally {
+                    runCatching { store.close() }
+                }
+            } catch (e: Exception) {
+                if (isConnectivityError(e)) _error.value = friendlyError(e)
+            }
         }
     }
 
@@ -938,32 +1135,41 @@ object MailRepository {
      * Blendet eine Mail nur lokal aus — für "Löschen mit Rückgängig":
      * Der Server-Aufruf folgt erst, wenn die Rückgängig-Frist abgelaufen ist.
      */
-    fun hideLocally(uid: Long) {
-        _messages.update { list -> list.filter { it.uid != uid } }
+    fun hideLocally(uid: Long, account: String = "") {
+        _messages.update { list ->
+            list.filter { !(it.uid == uid && (account.isBlank() || it.account == account.lowercase())) }
+        }
         persist()
     }
 
     /** Holt eine per hideLocally ausgeblendete Mail zurück an ihre Position. */
     fun restoreLocally(mail: MailMessage) {
         _messages.update { cur ->
-            if (cur.any { it.uid == mail.uid }) cur else sort(cur + mail)
+            if (cur.any { it.uid == mail.uid && it.account == mail.account }) cur
+            else sort(cur + mail)
         }
         persist()
     }
 
     /** Verschiebt eine Mail in den Papierkorb (im Papierkorb: endgültig löschen). */
-    suspend fun deleteMail(uid: Long) = withContext(Dispatchers.IO) {
+    suspend fun deleteMail(uid: Long, account: String = "") = withContext(Dispatchers.IO) {
         val folder = _currentFolder.value
         // Sofort lokal entfernen, damit die UI nicht wartet
-        _messages.value = _messages.value.filter { it.uid != uid }
+        _messages.value = _messages.value.filter {
+            !(it.uid == uid && (account.isBlank() || it.account == account.lowercase()))
+        }
         persist()
-        synchronized(bodyCache) { bodyCache.remove("${folder.name}:$uid") }
-        diskDeleteBody(folder, uid)
+        synchronized(bodyCache) { bodyCache.remove("${folder.name}${accountKeyPart(account)}:$uid") }
+        diskDeleteBody(folder, uid, account)
         cancelNotification(uid)
         try {
-            val store = openStore()
+            val store = openStoreFor(account)
             try {
-                val inbox = openCurrentFolder(store, Folder.READ_WRITE)
+                val inbox = if (isActiveAccount(account)) {
+                    openCurrentFolder(store, Folder.READ_WRITE)
+                } else {
+                    (store.getFolder("INBOX") as IMAPFolder).apply { open(Folder.READ_WRITE) }
+                }
                 val msg = inbox.getMessageByUID(uid) ?: return@withContext
                 if (folder != MailFolder.TRASH) {
                     resolveFolder(store, MailFolder.TRASH)?.let { trash ->
@@ -985,32 +1191,41 @@ object MailRepository {
     }
 
     /** Verschiebt eine Mail aus dem aktuellen Ordner in einen Zielordner. */
-    suspend fun moveMail(uid: Long, target: MailFolder) = withContext(Dispatchers.IO) {
-        val source = _currentFolder.value
-        _messages.value = _messages.value.filter { it.uid != uid }
-        persist()
-        synchronized(bodyCache) { bodyCache.remove("${source.name}:$uid") }
-        diskDeleteBody(source, uid)
-        try {
-            val store = openStore()
-            try {
-                val inbox = openCurrentFolder(store, Folder.READ_WRITE)
-                val msg = inbox.getMessageByUID(uid) ?: return@withContext
-                resolveFolder(store, target)?.let { dest ->
-                    if (!dest.exists()) dest.create(Folder.HOLDS_MESSAGES)
-                    inbox.copyMessages(arrayOf(msg), dest)
-                }
-                runCatching {
-                    msg.setFlag(Flags.Flag.DELETED, true)
-                    inbox.expunge()
-                }
-            } finally {
-                runCatching { store.close() }
+    suspend fun moveMail(uid: Long, target: MailFolder, account: String = "") =
+        withContext(Dispatchers.IO) {
+            val source = _currentFolder.value
+            _messages.value = _messages.value.filter {
+                !(it.uid == uid && (account.isBlank() || it.account == account.lowercase()))
             }
-        } catch (e: Exception) {
-            if (isConnectivityError(e)) _error.value = friendlyError(e)
+            persist()
+            synchronized(bodyCache) {
+                bodyCache.remove("${source.name}${accountKeyPart(account)}:$uid")
+            }
+            diskDeleteBody(source, uid, account)
+            try {
+                val store = openStoreFor(account)
+                try {
+                    val inbox = if (isActiveAccount(account)) {
+                        openCurrentFolder(store, Folder.READ_WRITE)
+                    } else {
+                        (store.getFolder("INBOX") as IMAPFolder).apply { open(Folder.READ_WRITE) }
+                    }
+                    val msg = inbox.getMessageByUID(uid) ?: return@withContext
+                    resolveFolder(store, target)?.let { dest ->
+                        if (!dest.exists()) dest.create(Folder.HOLDS_MESSAGES)
+                        inbox.copyMessages(arrayOf(msg), dest)
+                    }
+                    runCatching {
+                        msg.setFlag(Flags.Flag.DELETED, true)
+                        inbox.expunge()
+                    }
+                } finally {
+                    runCatching { store.close() }
+                }
+            } catch (e: Exception) {
+                if (isConnectivityError(e)) _error.value = friendlyError(e)
+            }
         }
-    }
 
     /** Verschiebt alle Mails eines Absenders aus dem Newsletter-Ordner in einen Zielordner. */
     private suspend fun moveNewsletterFrom(address: String, target: MailFolder): Int =
@@ -1058,9 +1273,13 @@ object MailRepository {
      */
     fun applyRemoteFlags(seenByUid: Map<Long, Boolean>) {
         if (_currentFolder.value != MailFolder.INBOX) return
+        // Die Flags kommen vom Push-Dienst des AKTIVEN Kontos — im
+        // Sammel-Posteingang nur auf dessen Mails anwenden (UID-Kollisionen!)
+        val activeEmail = Prefs.email.trim().lowercase()
         val updated = _messages.value.map { m ->
             val remote = seenByUid[m.uid]
-            if (remote != null && remote != m.seen) m.copy(seen = remote) else m
+            val mine = m.account.isBlank() || m.account == activeEmail
+            if (mine && remote != null && remote != m.seen) m.copy(seen = remote) else m
         }
         // Stumm-/Blockier-Regeln haben Vorrang vor den Server-Flags: eine stumme
         // Mail darf durch einen noch nicht durchgeführten Server-Abgleich nicht
@@ -1259,13 +1478,18 @@ object MailRepository {
     }
 
     /** Lädt die Daten eines Anhangs bei Bedarf (mit kleinem Zwischenspeicher). */
-    suspend fun getAttachmentData(uid: Long, att: MailAttachment): ByteArray =
+    suspend fun getAttachmentData(uid: Long, att: MailAttachment, account: String = ""): ByteArray =
         withContext(Dispatchers.IO) {
-            val key = "${_currentFolder.value.name}:$uid:${att.path.joinToString(".")}"
+            val key = "${_currentFolder.value.name}${accountKeyPart(account)}:$uid:" +
+                att.path.joinToString(".")
             synchronized(attachmentCache) { attachmentCache[key] }?.let { return@withContext it }
-            val store = openStore()
+            val store = openStoreFor(account)
             try {
-                val inbox = openCurrentFolder(store, Folder.READ_ONLY)
+                val inbox = if (isActiveAccount(account)) {
+                    openCurrentFolder(store, Folder.READ_ONLY)
+                } else {
+                    (store.getFolder("INBOX") as IMAPFolder).apply { open(Folder.READ_ONLY) }
+                }
                 val msg = inbox.getMessageByUID(uid)
                     ?: throw IllegalStateException("Nachricht nicht gefunden")
                 val bytes = partAt(msg, att.path).inputStream.readBytes()

@@ -147,16 +147,24 @@ fun DetailScreen(
     var body by remember(uid) { mutableStateOf<MailRepository.MailBody?>(null) }
     var loadError by remember(uid) { mutableStateOf<String?>(null) }
 
+    // Konto der Mail (Sammel-Posteingang): leitet Laden/Markieren/Löschen
+    // an den richtigen Mail-Server weiter
+    val mailAccount = mail?.account.orEmpty()
+
     LaunchedEffect(uid) {
         // Nur im normalen Posteingang automatisch als gelesen markieren.
         // Parallel starten: Die Server-Meldung baut eine eigene IMAP-Verbindung
         // auf und darf die Anzeige des (oft schon vorgeladenen) Inhalts nicht
         // um Sekunden verzögern.
         if (folder == null && mail != null && !mail.seen) {
-            launch { MailRepository.markSeen(uid) }
+            launch { MailRepository.markSeen(uid, mailAccount) }
         }
         try {
-            body = MailRepository.loadBodyContent(uid, folder ?: MailRepository.currentFolder.value)
+            body = MailRepository.loadBodyContent(
+                uid,
+                folder ?: MailRepository.currentFolder.value,
+                account = mailAccount
+            )
         } catch (e: Exception) {
             loadError = MailRepository.friendlyError(e)
         }
@@ -244,7 +252,7 @@ fun DetailScreen(
                                     onClick = {
                                         menuOpen = false
                                         scope.launch {
-                                            MailRepository.deleteMail(uid)
+                                            MailRepository.deleteMail(uid, mailAccount)
                                             onBack()
                                         }
                                     }
@@ -281,7 +289,7 @@ fun DetailScreen(
                                         } else {
                                             com.jakober.klarmail.data.Prefs.addMuted(mail.fromAddress)
                                             scope.launch {
-                                                MailRepository.setSeen(uid, true)
+                                                MailRepository.setSeen(uid, true, mailAccount)
                                                 snackbar.showSnackbar("„${mail.from}“ stummgeschaltet – künftige Mails ohne Benachrichtigung")
                                             }
                                         }
@@ -304,7 +312,7 @@ fun DetailScreen(
                                         } else {
                                             com.jakober.klarmail.data.Prefs.addBlocked(mail.fromAddress)
                                             scope.launch {
-                                                MailRepository.deleteMail(uid)
+                                                MailRepository.deleteMail(uid, mailAccount)
                                                 onBack()
                                             }
                                         }
@@ -486,7 +494,7 @@ fun DetailScreen(
                                                 launch {
                                                     snackbar.showSnackbar("„${att.name}“ wird geladen …")
                                                 }
-                                                val bytes = MailRepository.getAttachmentData(uid, att)
+                                                val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
                                                 withContext(Dispatchers.IO) {
                                                     MailRepository.openAttachment(
                                                         context, att.name, att.mime, bytes
@@ -508,7 +516,7 @@ fun DetailScreen(
                                                 launch {
                                                     snackbar.showSnackbar("„${att.name}“ wird geladen …")
                                                 }
-                                                val bytes = MailRepository.getAttachmentData(uid, att)
+                                                val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
                                                 val target = withContext(Dispatchers.IO) {
                                                     MailRepository.saveAttachment(
                                                         context, att.name, att.mime, bytes

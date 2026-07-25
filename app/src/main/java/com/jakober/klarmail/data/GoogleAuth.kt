@@ -100,6 +100,48 @@ object GoogleAuth {
         }
     }
 
+    /** Token-Zwischenspeicher für weitere Konten (Refresh-Token → Token+Ablauf). */
+    private val tokenCache = HashMap<String, Pair<String, Long>>()
+
+    /**
+     * Zugriffstoken für ein beliebiges gespeichertes Google-Konto (Sammel-
+     * Posteingang): nutzt dessen Refresh-Token, gecacht im Arbeitsspeicher.
+     * Blockierend — nur von Hintergrund-Threads aufrufen.
+     */
+    fun freshAccessTokenFor(refreshToken: String): String {
+        if (refreshToken.isBlank()) {
+            throw IOException("Google-Konto nicht angemeldet. Bitte in den Einstellungen verbinden.")
+        }
+        // Das aktive Konto nutzt den normalen (persistierten) Weg
+        if (refreshToken == Prefs.refreshToken) return freshAccessToken()
+        val now = System.currentTimeMillis()
+        synchronized(tokenCache) {
+            tokenCache[refreshToken]?.let { (token, expiry) ->
+                if (expiry > now + 120_000) return token
+            }
+        }
+        val form = FormBody.Builder()
+            .add("client_id", CLIENT_ID)
+            .add("grant_type", "refresh_token")
+            .add("refresh_token", refreshToken)
+            .build()
+        val request = Request.Builder()
+            .url("https://oauth2.googleapis.com/token")
+            .post(form)
+            .build()
+        http.newCall(request).execute().use { resp ->
+            val bodyText = resp.body?.string() ?: ""
+            if (!resp.isSuccessful) {
+                throw IOException("Google-Token konnte nicht erneuert werden (HTTP ${resp.code})")
+            }
+            val json = JSONObject(bodyText)
+            val token = json.getString("access_token")
+            val expiry = now + json.optLong("expires_in", 3600) * 1000
+            synchronized(tokenCache) { tokenCache[refreshToken] = token to expiry }
+            return token
+        }
+    }
+
     fun signOut() {
         Prefs.refreshToken = ""
         Prefs.accessToken = ""
