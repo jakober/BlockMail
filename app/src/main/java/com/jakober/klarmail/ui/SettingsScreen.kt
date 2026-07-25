@@ -21,9 +21,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Newspaper
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -256,7 +265,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
-            SectionTitle("Konto verbinden")
+            SectionCard("Konto verbinden", Icons.Filled.AccountCircle) {
 
             if (googleConnected && !addingAccount) {
                 Card(
@@ -464,9 +473,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            SectionTitle("Echtzeit-Push")
+            }
+
+            SectionCard("Echtzeit-Push", Icons.Filled.Sync) {
             val pushStatus by MailSyncService.pushStatus.collectAsState()
             Text(
                 pushStatus,
@@ -500,9 +509,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            SectionTitle("KI-Status")
+            }
+
+            SectionCard("KI-Status", Icons.Filled.AutoAwesome) {
             var deviceAiStatus by remember { mutableStateOf<String?>(null) }
             var aiTestRunning by remember { mutableStateOf(false) }
             val aiEngine by Prefs.aiEngineFlow.collectAsState()
@@ -581,9 +590,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 ) { Text(if (aiTestRunning) "Geräte-KI wird getestet …" else "Geräte-KI jetzt testen") }
             }
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            SectionTitle("Claude-KI")
+            }
+
+            SectionCard("Claude-API-Schlüssel", Icons.Filled.Key) {
             OutlinedTextField(
                 value = claudeKey,
                 onValueChange = { claudeKey = it },
@@ -600,9 +609,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            SectionTitle("Newsletter-Aufräumen (KI)")
+            }
+
+            SectionCard("Newsletter-Aufräumen (KI)", Icons.Filled.Newspaper) {
             Text(
                 "Täglich um 20 Uhr erkennt Claude Newsletter der letzten 24 Stunden und " +
                     "verschiebt sie in den Ordner „Newsletter“. Im Protokoll findest du alle " +
@@ -628,8 +637,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 ) { Text(if (newsletterRunning) "Läuft …" else "Jetzt ausführen") }
             }
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
+            }
+
+            SectionCard("Absender-Regeln", Icons.Filled.Block) {
             val muted by Prefs.mutedFlow.collectAsState()
             val blocked by Prefs.blockedFlow.collectAsState()
             val senderSuggestions = remember {
@@ -649,8 +659,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 onRemove = { Prefs.removeMuted(it) }
             )
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
             SenderListSection(
                 title = "Blockierte Absender",
                 description = "Mails dieser Absender werden nach Ankunft sofort gelöscht – ohne Benachrichtigung.",
@@ -660,9 +669,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 onRemove = { Prefs.removeBlocked(it) }
             )
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            SectionTitle("Konten")
+            }
+
+            SectionCard("Konten", Icons.Filled.People) {
             Text(
                 "Gespeicherte Konten wechselst du oben im Posteingang über das Ordner-Menü. " +
                     "Ein neues Konto legst du oben über „Weiteres Konto hinzufügen“ an — " +
@@ -705,9 +714,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            SectionTitle("Posteingang")
+            }
+
+            SectionCard("Posteingang", Icons.Filled.Inbox) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -726,8 +735,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
+            }
+
+            SectionCard("Signatur & Vorlagen", Icons.Filled.Edit) {
             SectionTitle("Signatur")
             Text(
                 "Wird beim Verfassen automatisch unter den Text gesetzt.",
@@ -746,8 +756,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
             SectionTitle("Textvorlagen")
             Text(
                 "Wiederverwendbare Texte fürs Verfassen-Fenster (dort über das Vorlagen-Symbol einfügbar).",
@@ -785,9 +794,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
             }
             TextButton(onClick = { showTemplateDialog = true }) { Text("Vorlage hinzufügen") }
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            SectionTitle("Erscheinungsbild")
+            }
+
+            SectionCard("Erscheinungsbild", Icons.Filled.Palette) {
             listOf(
                 "system" to "Wie das Gerät (automatisch)",
                 "light" to "Hell",
@@ -809,8 +818,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
             SectionTitle("Farbschema")
             colorSchemes.forEach { scheme ->
                 Row(
@@ -834,7 +842,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            }
+
+            Spacer(Modifier.height(12.dp))
             Button(
                 onClick = {
                     // Manuelle Zugangsdaten speichern: im Hinzufügen-Modus auch
@@ -996,9 +1006,44 @@ private fun SenderListSection(
 private fun SectionTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 20.dp, bottom = 10.dp)
+        modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
     )
+}
+
+/** Abgerundete Einstellungs-Karte mit Symbol und Titelzeile. */
+@Composable
+private fun SectionCard(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    androidx.compose.material3.Surface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            content()
+        }
+    }
+    Spacer(Modifier.height(12.dp))
 }
