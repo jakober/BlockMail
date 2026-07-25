@@ -859,6 +859,23 @@ object MailRepository {
             e is java.net.ConnectException ||
             e is javax.mail.MessagingException && e.cause is java.io.IOException
 
+    /**
+     * Blendet eine Mail nur lokal aus — für "Löschen mit Rückgängig":
+     * Der Server-Aufruf folgt erst, wenn die Rückgängig-Frist abgelaufen ist.
+     */
+    fun hideLocally(uid: Long) {
+        _messages.update { list -> list.filter { it.uid != uid } }
+        persist()
+    }
+
+    /** Holt eine per hideLocally ausgeblendete Mail zurück an ihre Position. */
+    fun restoreLocally(mail: MailMessage) {
+        _messages.update { cur ->
+            if (cur.any { it.uid == mail.uid }) cur else sort(cur + mail)
+        }
+        persist()
+    }
+
     /** Verschiebt eine Mail in den Papierkorb (im Papierkorb: endgültig löschen). */
     suspend fun deleteMail(uid: Long) = withContext(Dispatchers.IO) {
         val folder = _currentFolder.value

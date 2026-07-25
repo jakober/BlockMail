@@ -52,8 +52,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -403,8 +405,22 @@ fun InboxScreen(
                                 }
                             },
                             onDelete = {
-                                scope.launch { MailRepository.deleteMail(mail.uid) }
+                                val prevResults = serverResults
                                 serverResults = serverResults?.filter { it.uid != mail.uid }
+                                scope.launch {
+                                    MailRepository.hideLocally(mail.uid)
+                                    val result = snackbar.showSnackbar(
+                                        message = "Mail gelöscht",
+                                        actionLabel = "Rückgängig",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        MailRepository.restoreLocally(mail)
+                                        serverResults = prevResults
+                                    } else {
+                                        MailRepository.deleteMail(mail.uid)
+                                    }
+                                }
                             },
                             modifier = Modifier.animateItem()
                         )
@@ -422,6 +438,24 @@ fun InboxScreen(
                 }
             }
             return@Scaffold
+        }
+
+        // Löschen mit Rückgängig: Mail sofort ausblenden, Snackbar zeigen;
+        // erst nach deren Ablauf wirklich am Server löschen
+        val deleteWithUndo: (MailMessage) -> Unit = { mail ->
+            scope.launch {
+                MailRepository.hideLocally(mail.uid)
+                val result = snackbar.showSnackbar(
+                    message = "Mail gelöscht",
+                    actionLabel = "Rückgängig",
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    MailRepository.restoreLocally(mail)
+                } else {
+                    MailRepository.deleteMail(mail.uid)
+                }
+            }
         }
 
         // Rechts-Wisch-Aktion: gelesen/ungelesen umschalten
@@ -458,7 +492,7 @@ fun InboxScreen(
                                 selected = selected.contains(mail.uid),
                                 selectionMode = selectionMode,
                                 rightSpec = rightSpecFor(mail),
-                                onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
+                                onDelete = { deleteWithUndo(mail) },
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -475,7 +509,7 @@ fun InboxScreen(
                                 selected = selected.contains(mail.uid),
                                 selectionMode = selectionMode,
                                 rightSpec = rightSpecFor(mail),
-                                onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
+                                onDelete = { deleteWithUndo(mail) },
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -495,7 +529,7 @@ fun InboxScreen(
                                     selected = selected.contains(mail.uid),
                                     selectionMode = selectionMode,
                                     rightSpec = rightSpecFor(mail),
-                                    onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
+                                    onDelete = { deleteWithUndo(mail) },
                                     modifier = Modifier.animateItem()
                                 )
                             }
@@ -525,7 +559,7 @@ fun InboxScreen(
                                         selected = selected.contains(mail.uid),
                                         selectionMode = selectionMode,
                                         rightSpec = rightSpecFor(mail),
-                                        onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
+                                        onDelete = { deleteWithUndo(mail) },
                                         modifier = Modifier
                                             .animateItem()
                                             .padding(start = 14.dp)
