@@ -84,6 +84,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
     var connectedEmail by remember { mutableStateOf(Prefs.email) }
     val selectedScheme by Prefs.colorSchemeFlow.collectAsState()
     val darkMode by Prefs.darkModeFlow.collectAsState()
+    val conversationView by Prefs.conversationViewFlow.collectAsState()
     var signatureText by remember { mutableStateOf(Prefs.signature) }
     var templates by remember { mutableStateOf(Prefs.mailTemplates()) }
     var showTemplateDialog by remember { mutableStateOf(false) }
@@ -413,6 +414,27 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 onAdd = { Prefs.addBlocked(it) },
                 onRemove = { Prefs.removeBlocked(it) }
             )
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            SectionTitle("Posteingang")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Konversations-Ansicht", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Mails mit gleichem Betreff werden als ein Gespräch gebündelt (antippen zum Aufklappen).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = conversationView,
+                    onCheckedChange = { Prefs.conversationView = it }
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
             HorizontalDivider()

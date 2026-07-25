@@ -13,6 +13,7 @@ object Prefs {
 
     val colorSchemeFlow = MutableStateFlow("klarmail")
     val darkModeFlow = MutableStateFlow("system")
+    val conversationViewFlow = MutableStateFlow(false)
 
     /** Stumm geschaltete Absender: als gelesen markieren, keine Benachrichtigung. */
     val mutedFlow = MutableStateFlow<Set<String>>(emptySet())
@@ -40,6 +41,7 @@ object Prefs {
         colorSchemeFlow.value = colorScheme
         darkModeFlow.value = darkMode
         snoozedFlow.value = snoozes().map { it.uid }.toSet()
+        conversationViewFlow.value = conversationView
         mutedFlow.value = loadSet("muted_senders")
         blockedFlow.value = loadSet("blocked_senders")
     }
@@ -243,6 +245,14 @@ object Prefs {
         set(v) {
             sp.edit().putString("color_scheme", v).apply()
             colorSchemeFlow.value = v
+        }
+
+    /** Posteingang: Mails mit gleichem Betreff als Konversation bündeln. */
+    var conversationView: Boolean
+        get() = sp.getBoolean("conversation_view", false)
+        set(v) {
+            sp.edit().putBoolean("conversation_view", v).apply()
+            conversationViewFlow.value = v
         }
 
     /** Erscheinungsbild: "system" (Gerät folgt), "light" oder "dark". */

@@ -104,6 +104,8 @@ fun InboxScreen(
 
     val selected = remember { androidx.compose.runtime.mutableStateListOf<Long>() }
     val selectionMode = selected.isNotEmpty()
+    val conversationView by Prefs.conversationViewFlow.collectAsState()
+    val expandedThreads = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     androidx.activity.compose.BackHandler(enabled = selectionMode) { selected.clear() }
     fun toggleSelect(uid: Long) {
         if (selected.contains(uid)) selected.remove(uid) else selected.add(uid)
@@ -403,39 +405,112 @@ fun InboxScreen(
             val read = messages.filter { it.seen }
 
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                if (unread.isNotEmpty()) {
-                    item(key = "header_unread") {
-                        SectionHeader("Neu (${unread.size})", Modifier.animateItem())
+                if (!conversationView) {
+                    if (unread.isNotEmpty()) {
+                        item(key = "header_unread") {
+                            SectionHeader("Neu (${unread.size})", Modifier.animateItem())
+                        }
+                        items(unread, key = { it.uid }, contentType = { "mail" }) { mail ->
+                            SwipeableMailRow(
+                                mail = mail,
+                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                onLongClick = { toggleSelect(mail.uid) },
+                                selected = selected.contains(mail.uid),
+                                selectionMode = selectionMode,
+                                rightSpec = rightSpecFor(mail),
+                                onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
                     }
-                    items(unread, key = { it.uid }, contentType = { "mail" }) { mail ->
-                        SwipeableMailRow(
-                            mail = mail,
-                            onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
-                            onLongClick = { toggleSelect(mail.uid) },
-                            selected = selected.contains(mail.uid),
-                            selectionMode = selectionMode,
-                            rightSpec = rightSpecFor(mail),
-                            onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
-                            modifier = Modifier.animateItem()
-                        )
+                    groupReadByTime(read).forEach { (label, mails) ->
+                        item(key = "header_$label") {
+                            SectionHeader(label, Modifier.animateItem())
+                        }
+                        items(mails, key = { it.uid }, contentType = { "mail" }) { mail ->
+                            SwipeableMailRow(
+                                mail = mail,
+                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                onLongClick = { toggleSelect(mail.uid) },
+                                selected = selected.contains(mail.uid),
+                                selectionMode = selectionMode,
+                                rightSpec = rightSpecFor(mail),
+                                onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
                     }
-                }
-                groupReadByTime(read).forEach { (label, mails) ->
-                    item(key = "header_$label") {
-                        SectionHeader(label, Modifier.animateItem())
+                } else {
+                    // Konversations-Ansicht: Mails mit gleichem Betreff gebündelt;
+                    // Bündel-Zeile antippen klappt die einzelnen Mails auf/zu
+                    val threads = buildThreads(messages)
+                    fun renderThread(t: MailThread) {
+                        if (t.mails.size == 1) {
+                            val mail = t.mails.first()
+                            item(key = mail.uid) {
+                                SwipeableMailRow(
+                                    mail = mail,
+                                    onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                    onLongClick = { toggleSelect(mail.uid) },
+                                    selected = selected.contains(mail.uid),
+                                    selectionMode = selectionMode,
+                                    rightSpec = rightSpecFor(mail),
+                                    onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
+                        } else {
+                            item(key = "thread_${t.key}") {
+                                MailRow(
+                                    mail = t.newest.copy(seen = t.unread == 0),
+                                    selected = false,
+                                    selectionMode = false,
+                                    onClick = {
+                                        if (expandedThreads.contains(t.key)) expandedThreads.remove(t.key)
+                                        else expandedThreads.add(t.key)
+                                    },
+                                    onLongClick = {},
+                                    modifier = Modifier
+                                        .animateItem()
+                                        .padding(horizontal = 10.dp, vertical = 3.dp),
+                                    threadCount = t.mails.size
+                                )
+                            }
+                            if (expandedThreads.contains(t.key)) {
+                                items(t.mails, key = { it.uid }, contentType = { "mail" }) { mail ->
+                                    SwipeableMailRow(
+                                        mail = mail,
+                                        onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                        onLongClick = { toggleSelect(mail.uid) },
+                                        selected = selected.contains(mail.uid),
+                                        selectionMode = selectionMode,
+                                        rightSpec = rightSpecFor(mail),
+                                        onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
+                                        modifier = Modifier
+                                            .animateItem()
+                                            .padding(start = 14.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
-                    items(mails, key = { it.uid }, contentType = { "mail" }) { mail ->
-                        SwipeableMailRow(
-                            mail = mail,
-                            onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
-                            onLongClick = { toggleSelect(mail.uid) },
-                            selected = selected.contains(mail.uid),
-                            selectionMode = selectionMode,
-                            rightSpec = rightSpecFor(mail),
-                            onDelete = { scope.launch { MailRepository.deleteMail(mail.uid) } },
-                            modifier = Modifier.animateItem()
-                        )
+                    val unreadThreads = threads.filter { it.unread > 0 }
+                    if (unreadThreads.isNotEmpty()) {
+                        item(key = "header_unread") {
+                            SectionHeader(
+                                "Neu (${unreadThreads.sumOf { it.unread }})",
+                                Modifier.animateItem()
+                            )
+                        }
+                        unreadThreads.forEach { renderThread(it) }
                     }
+                    groupByTime(threads.filter { it.unread == 0 }) { it.newest.date }
+                        .forEach { (label, ts) ->
+                            item(key = "header_$label") {
+                                SectionHeader(label, Modifier.animateItem())
+                            }
+                            ts.forEach { renderThread(it) }
+                        }
                 }
                 if (canLoadMore && messages.isNotEmpty()) {
                     item(key = "load_more") {
@@ -489,8 +564,8 @@ private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Ordnet gelesene Mails Zeitgruppen zu (Reihenfolge der Liste bleibt erhalten). */
-private fun groupReadByTime(read: List<MailMessage>): List<Pair<String, List<MailMessage>>> {
+/** Ordnet Einträge Zeitgruppen zu (Reihenfolge der Liste bleibt erhalten). */
+private fun <T> groupByTime(items: List<T>, dateOf: (T) -> Long): List<Pair<String, List<T>>> {
     val zone = java.time.ZoneId.systemDefault()
     val today = java.time.LocalDate.now(zone)
     val yesterday = today.minusDays(1)
@@ -504,10 +579,35 @@ private fun groupReadByTime(read: List<MailMessage>): List<Pair<String, List<Mai
             else -> "Älter"
         }
     }
-    val grouped = read.groupBy { labelFor(it.date) }
+    val grouped = items.groupBy { labelFor(dateOf(it)) }
     return listOf("Heute", "Gestern", "Diese Woche", "Älter")
         .mapNotNull { label -> grouped[label]?.let { label to it } }
 }
+
+private fun groupReadByTime(read: List<MailMessage>): List<Pair<String, List<MailMessage>>> =
+    groupByTime(read) { it.date }
+
+/** Konversation: Mails mit gleichem (normalisiertem) Betreff. */
+private data class MailThread(val key: String, val mails: List<MailMessage>) {
+    val newest: MailMessage get() = mails.first()
+    val unread: Int get() = mails.count { !it.seen }
+}
+
+/** Betreff normalisieren: Re:/AW:/Fwd:/WG:-Präfixe (auch mehrfach) entfernen. */
+private fun threadKey(subject: String): String {
+    var s = subject.trim().lowercase()
+    while (true) {
+        val t = s.replace(Regex("^(re|aw|fwd|fw|wg)\\s*:\\s*"), "")
+        if (t == s) break
+        s = t
+    }
+    return s.trim()
+}
+
+private fun buildThreads(messages: List<MailMessage>): List<MailThread> =
+    messages.groupBy { m -> threadKey(m.subject).ifBlank { "uid:${m.uid}" } }
+        .map { (key, mails) -> MailThread(key, mails.sortedByDescending { it.date }) }
+        .sortedByDescending { it.newest.date }
 
 private const val SWIPE_THRESHOLD = 0.30f
 
@@ -664,7 +764,8 @@ private fun MailRow(
     selectionMode: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    threadCount: Int? = null
 ) {
     val bg = when {
         selected -> MaterialTheme.colorScheme.primaryContainer
@@ -690,12 +791,17 @@ private fun MailRow(
                 )
             }
         }
-        MailRowContent(mail, selected, selectionMode)
+        MailRowContent(mail, selected, selectionMode, threadCount)
     }
 }
 
 @Composable
-private fun MailRowContent(mail: MailMessage, selected: Boolean, selectionMode: Boolean) {
+private fun MailRowContent(
+    mail: MailMessage,
+    selected: Boolean,
+    selectionMode: Boolean,
+    threadCount: Int? = null
+) {
     Row(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -722,13 +828,31 @@ private fun MailRowContent(mail: MailMessage, selected: Boolean, selectionMode: 
         }
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = mail.from,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = mail.from,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (threadCount != null && threadCount > 1) {
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .padding(horizontal = 6.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            "$threadCount",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
             Text(
                 text = mail.subject,
                 style = MaterialTheme.typography.bodyMedium,
