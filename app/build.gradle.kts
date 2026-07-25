@@ -12,8 +12,8 @@ android {
         applicationId = "com.jakober.klarmail"
         minSdk = 26
         targetSdk = 34
-        versionCode = 62
-        versionName = "2.59"
+        versionCode = 63
+        versionName = "2.60"
 
         // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
         manifestPlaceholders["appAuthRedirectScheme"] =
@@ -74,6 +74,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // Wächter-Worker: belebt den Push-Dienst wieder und meldet verpasste Mails
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     // IMAP/SMTP (Android-kompatible Jakarta-Mail-Variante)
     implementation("com.sun.mail:android-mail:1.6.7")

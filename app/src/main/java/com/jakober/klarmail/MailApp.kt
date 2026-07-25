@@ -13,6 +13,7 @@ class MailApp : Application() {
         Prefs.init(this)
         MailRepository.init(this)
         createChannels()
+        com.jakober.klarmail.service.SyncGuardWorker.schedule(this)
     }
 
     private fun createChannels() {
