@@ -42,6 +42,8 @@ object Prefs {
         darkModeFlow.value = darkMode
         snoozedFlow.value = snoozes().map { it.uid }.toSet()
         conversationViewFlow.value = conversationView
+        // Aktives Konto in der Kontenliste sichern (für den Konten-Wechsler)
+        snapshotActiveAccount()
         mutedFlow.value = loadSet("muted_senders")
         blockedFlow.value = loadSet("blocked_senders")
     }
@@ -160,9 +162,74 @@ object Prefs {
         set(v) = sp.edit().putString("newsletter_last_run", v).apply()
 
     /** Höchste bereits per Push verarbeitete Mail-UID (für Lücken-Nachholung). */
+    // Pro Konto eigene Merkliste (Fallback auf den alten globalen Schlüssel)
+    private fun pushUidKey() = "last_push_uid_" + email.trim().lowercase()
+
     var lastPushUid: Long
-        get() = sp.getLong("last_push_uid", 0L)
-        set(v) = sp.edit().putLong("last_push_uid", v).apply()
+        get() = sp.getLong(pushUidKey(), sp.getLong("last_push_uid", 0L))
+        set(v) = sp.edit().putLong(pushUidKey(), v).apply()
+
+    /** Gespeichertes Mail-Konto (Profil) für den Konten-Wechsler. */
+    data class Account(
+        val email: String,
+        val authMethod: String,
+        val appPassword: String,
+        val refreshToken: String
+    )
+
+    fun accounts(): List<Account> = try {
+        val arr = org.json.JSONArray(sp.getString("accounts", "[]") ?: "[]")
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            Account(
+                email = o.optString("email"),
+                authMethod = o.optString("authMethod", "password"),
+                appPassword = o.optString("appPassword"),
+                refreshToken = o.optString("refreshToken")
+            )
+        }.filter { it.email.isNotBlank() }
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    private fun saveAccounts(list: List<Account>) {
+        val arr = org.json.JSONArray()
+        list.forEach { a ->
+            arr.put(org.json.JSONObject().apply {
+                put("email", a.email); put("authMethod", a.authMethod)
+                put("appPassword", a.appPassword); put("refreshToken", a.refreshToken)
+            })
+        }
+        sp.edit().putString("accounts", arr.toString()).apply()
+    }
+
+    /** Sichert die aktuellen Zugangsdaten als Konto in der Kontenliste (Upsert). */
+    fun snapshotActiveAccount() {
+        if (email.isBlank() || !isConfigured) return
+        val acc = Account(email, authMethod, appPassword, refreshToken)
+        saveAccounts(accounts().filter { !it.email.equals(acc.email, ignoreCase = true) } + acc)
+    }
+
+    fun removeAccount(accountEmail: String) =
+        saveAccounts(accounts().filter { !it.email.equals(accountEmail, ignoreCase = true) })
+
+    /** Aktiviert ein gespeichertes Konto (Zugangsdaten in die aktiven Felder). */
+    fun activateAccount(acc: Account) {
+        snapshotActiveAccount()
+        email = acc.email
+        authMethod = acc.authMethod
+        appPassword = acc.appPassword
+        refreshToken = acc.refreshToken
+        accessToken = ""
+        accessTokenExpiry = 0
+        snoozedFlow.value = snoozes().map { it.uid }.toSet()
+    }
+
+    /** Dateiname des Posteingangs-Caches für das aktive Konto. */
+    fun inboxCacheFileName(): String {
+        val safe = email.trim().lowercase().replace(Regex("[^a-z0-9@._-]"), "_")
+        return if (safe.isBlank()) "inbox_cache.json" else "inbox_cache_$safe.json"
+    }
 
     /** Zurückgestellte Mail (Snooze): bis wann versteckt + Daten für die Erinnerung. */
     data class Snooze(
@@ -176,8 +243,13 @@ object Prefs {
     /** UIDs aller aktuell zurückgestellten Mails (für die Posteingangs-Filterung). */
     val snoozedFlow = MutableStateFlow<Set<Long>>(emptySet())
 
+    // Pro Konto eigene Snooze-Liste (Fallback auf den alten globalen Schlüssel)
+    private fun snoozeKey() = "snoozes_" + email.trim().lowercase()
+
     fun snoozes(): List<Snooze> = try {
-        val arr = org.json.JSONArray(sp.getString("snoozes", "[]") ?: "[]")
+        val arr = org.json.JSONArray(
+            sp.getString(snoozeKey(), sp.getString("snoozes", "[]")) ?: "[]"
+        )
         (0 until arr.length()).map { i ->
             val o = arr.getJSONObject(i)
             Snooze(
@@ -200,7 +272,7 @@ object Prefs {
                 put("from", s.from); put("address", s.address); put("subject", s.subject)
             })
         }
-        sp.edit().putString("snoozes", arr.toString()).apply()
+        sp.edit().putString(snoozeKey(), arr.toString()).apply()
         snoozedFlow.value = list.map { it.uid }.toSet()
     }
 

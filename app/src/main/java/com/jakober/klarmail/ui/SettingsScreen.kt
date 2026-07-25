@@ -85,6 +85,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
     val selectedScheme by Prefs.colorSchemeFlow.collectAsState()
     val darkMode by Prefs.darkModeFlow.collectAsState()
     val conversationView by Prefs.conversationViewFlow.collectAsState()
+    var accountList by remember { mutableStateOf(Prefs.accounts()) }
     var signatureText by remember { mutableStateOf(Prefs.signature) }
     var templates by remember { mutableStateOf(Prefs.mailTemplates()) }
     var showTemplateDialog by remember { mutableStateOf(false) }
@@ -168,12 +169,17 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
         }
         authService.performTokenRequest(resp.createTokenExchangeRequest()) { tokenResp, tokenEx ->
             if (tokenResp?.accessToken != null) {
+                // Bisheriges Konto in der Kontenliste sichern, bevor die
+                // aktiven Zugangsdaten überschrieben werden (Mehrkonten)
+                Prefs.snapshotActiveAccount()
                 Prefs.accessToken = tokenResp.accessToken ?: ""
                 Prefs.accessTokenExpiry = tokenResp.accessTokenExpirationTime ?: 0L
                 tokenResp.refreshToken?.let { Prefs.refreshToken = it }
                 val mail = GoogleAuth.emailFromIdToken(tokenResp.idToken)
                 if (mail != null) Prefs.email = mail
                 Prefs.authMethod = "oauth"
+                // Neues Konto ebenfalls in die Kontenliste aufnehmen
+                Prefs.snapshotActiveAccount()
                 onSignedIn(mail ?: Prefs.email)
             } else {
                 scope.launch {
@@ -417,6 +423,52 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
 
             Spacer(Modifier.height(8.dp))
             HorizontalDivider()
+            SectionTitle("Konten")
+            Text(
+                "Gespeicherte Konten wechselst du oben im Posteingang über das Ordner-Menü. " +
+                    "Ein weiteres Konto fügst du hinzu, indem du dich oben mit einem anderen " +
+                    "Google-Konto verbindest oder andere Zugangsdaten speicherst — das " +
+                    "bisherige Konto bleibt erhalten.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            accountList.forEach { acc ->
+                val active = acc.email.equals(Prefs.email, ignoreCase = true)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Filled.AccountCircle,
+                        contentDescription = null,
+                        tint = if (active) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (active) "${acc.email} (aktiv)" else acc.email,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (active) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (!active) {
+                        IconButton(onClick = {
+                            Prefs.removeAccount(acc.email)
+                            accountList = Prefs.accounts()
+                        }) {
+                            Icon(
+                                Icons.Filled.Close, contentDescription = "Konto entfernen",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
             SectionTitle("Posteingang")
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -548,9 +600,11 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
             Button(
                 onClick = {
                     if (!googleConnected) {
+                        Prefs.snapshotActiveAccount()
                         Prefs.email = email
                         Prefs.appPassword = password
                         if (password.isNotBlank()) Prefs.authMethod = "password"
+                        Prefs.snapshotActiveAccount()
                     }
                     Prefs.claudeApiKey = claudeKey
                     if (Prefs.isConfigured) {

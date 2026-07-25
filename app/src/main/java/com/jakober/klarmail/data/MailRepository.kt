@@ -2,6 +2,7 @@ package com.jakober.klarmail.data
 
 import android.content.Context
 import android.text.Html
+import com.jakober.klarmail.service.MailSyncService
 import com.sun.mail.imap.IMAPFolder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,6 +46,32 @@ object MailRepository {
 
     private val _currentFolder = MutableStateFlow(MailFolder.INBOX)
     val currentFolder = _currentFolder.asStateFlow()
+
+    /**
+     * Wechselt zum angegebenen Konto: Zugangsdaten aktivieren, alle Caches des
+     * alten Kontos verwerfen, Posteingang des neuen Kontos laden, Push neu
+     * verbinden. Der Push-Dienst überwacht immer das aktive Konto.
+     */
+    suspend fun switchAccount(acc: Prefs.Account) = withContext(Dispatchers.IO) {
+        refreshMutex.withLock {
+            Prefs.activateAccount(acc)
+            synchronized(bodyCache) { bodyCache.clear() }
+            synchronized(attachmentCache) { attachmentCache.clear() }
+            // Inhalte-Cache leeren: UIDs verschiedener Konten würden kollidieren
+            runCatching { bodyCacheDir?.listFiles()?.forEach { it.delete() } }
+            _currentFolder.value = MailFolder.INBOX
+            loadLimit = MAX_MESSAGES
+            _canLoadMore.value = false
+            _error.value = null
+            cacheFile = appContext?.let { File(it.filesDir, Prefs.inboxCacheFileName()) }
+            _messages.value = runCatching {
+                cacheFile?.takeIf { it.exists() }
+                    ?.let { sort(applyRules(MailMessage.listFromJson(it.readText()))) }
+            }.getOrNull() ?: emptyList()
+        }
+        appContext?.let { MailSyncService.restart(it) }
+        refresh()
+    }
 
     suspend fun switchFolder(folder: MailFolder) {
         if (_currentFolder.value == folder) return
@@ -150,7 +177,13 @@ object MailRepository {
 
     fun init(context: Context) {
         appContext = context.applicationContext
-        cacheFile = File(context.filesDir, "inbox_cache.json")
+        cacheFile = File(context.filesDir, Prefs.inboxCacheFileName()).also { f ->
+            // Migration: alten globalen Cache einmalig ins Konto-Schema übernehmen
+            val legacy = File(context.filesDir, "inbox_cache.json")
+            if (!f.exists() && f.name != legacy.name && legacy.exists()) {
+                runCatching { legacy.copyTo(f) }
+            }
+        }
         bodyCacheDir = File(context.cacheDir, "body_cache").apply { mkdirs() }
         ruleScope.launch { cleanupBodyCache() }
         val rebuildSnippets = Prefs.snippetVersion < SNIPPET_VERSION

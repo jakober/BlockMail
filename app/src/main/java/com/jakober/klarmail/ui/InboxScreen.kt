@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachFile
@@ -307,6 +308,52 @@ fun InboxScreen(
                                         onOpenNewsletterLog()
                                     }
                                 )
+                                // Konten-Wechsler (nur bei mehreren gespeicherten Konten)
+                                val accounts = remember(folderMenuOpen) {
+                                    if (folderMenuOpen) {
+                                        Prefs.snapshotActiveAccount()
+                                        Prefs.accounts()
+                                    } else emptyList()
+                                }
+                                if (accounts.size > 1) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                    )
+                                    accounts.forEach { acc ->
+                                        val active = acc.email.equals(Prefs.email, ignoreCase = true)
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    acc.email,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    fontWeight = if (active) FontWeight.SemiBold
+                                                    else FontWeight.Normal
+                                                )
+                                            },
+                                            leadingIcon = { Icon(Icons.Filled.AccountCircle, null) },
+                                            trailingIcon = if (active) {
+                                                { Icon(Icons.Filled.Check, null) }
+                                            } else null,
+                                            colors = if (active) {
+                                                androidx.compose.material3.MenuDefaults.itemColors(
+                                                    textColor = MaterialTheme.colorScheme.primary,
+                                                    leadingIconColor = MaterialTheme.colorScheme.primary,
+                                                    trailingIconColor = MaterialTheme.colorScheme.primary
+                                                )
+                                            } else {
+                                                androidx.compose.material3.MenuDefaults.itemColors()
+                                            },
+                                            onClick = {
+                                                folderMenuOpen = false
+                                                if (!active) {
+                                                    scope.launch { MailRepository.switchAccount(acc) }
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     },

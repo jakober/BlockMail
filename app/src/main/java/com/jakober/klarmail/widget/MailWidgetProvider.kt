@@ -50,7 +50,7 @@ class MailWidgetProvider : AppWidgetProvider() {
     }
 
     private fun unreadLabel(context: Context): String = try {
-        val f = File(context.filesDir, "inbox_cache.json")
+        val f = File(context.filesDir, com.jakober.klarmail.data.Prefs.inboxCacheFileName())
         val unread = if (f.exists()) {
             MailMessage.listFromJson(f.readText()).count { !it.seen }
         } else 0

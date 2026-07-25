@@ -26,7 +26,7 @@ class MailWidgetService : RemoteViewsService() {
 
         override fun onDataSetChanged() {
             mails = try {
-                val f = File(context.filesDir, "inbox_cache.json")
+                val f = File(context.filesDir, com.jakober.klarmail.data.Prefs.inboxCacheFileName())
                 if (f.exists()) MailMessage.listFromJson(f.readText()).take(20) else emptyList()
             } catch (e: Exception) {
                 emptyList()
