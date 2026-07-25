@@ -104,6 +104,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
     var googleConnected by remember {
         mutableStateOf(Prefs.authMethod == "oauth" && Prefs.refreshToken.isNotBlank())
     }
+    var addingAccount by remember { mutableStateOf(false) }
     var newsletterRunning by remember { mutableStateOf(false) }
     var newsletterResult by remember { mutableStateOf<String?>(null) }
     var connectedEmail by remember { mutableStateOf(Prefs.email) }
@@ -171,10 +172,17 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
         googleConnected = true
         connectedEmail = newEmail
         email = newEmail
-        MailSyncService.start(context)
+        addingAccount = false
         scope.launch {
             snackbar.showSnackbar("Mit Google verbunden: $newEmail")
-            MailRepository.refresh()
+            // Vollständiger Kontowechsel: Caches leeren, Posteingang laden,
+            // Push-Dienst auf das neue Konto verbinden
+            MailRepository.switchAccount(
+                Prefs.Account(
+                    Prefs.email, Prefs.authMethod, Prefs.appPassword, Prefs.refreshToken,
+                    Prefs.imapHost, Prefs.imapPort, Prefs.smtpHost, Prefs.smtpPort
+                )
+            )
         }
     }
 
@@ -247,9 +255,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
-            SectionTitle("Gmail-Konto")
+            SectionTitle("Konto verbinden")
 
-            if (googleConnected) {
+            if (googleConnected && !addingAccount) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -285,7 +293,37 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                         }) { Text("Trennen") }
                     }
                 }
+                // Weiteres Konto anlegen, OHNE das aktuelle zu trennen
+                TextButton(onClick = {
+                    addingAccount = true
+                    email = ""
+                    password = ""
+                    providerId = "gmail"
+                    imapHostField = "imap.gmail.com"
+                    imapPortField = "993"
+                    smtpHostField = "smtp.gmail.com"
+                    smtpPortField = "465"
+                }) { Text("＋ Weiteres Konto hinzufügen") }
             } else {
+                if (addingAccount) {
+                    Text(
+                        "Weiteres Konto hinzufügen — „$connectedEmail“ bleibt dabei " +
+                            "verbunden und du kannst danach im Ordner-Menü wechseln.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    TextButton(onClick = {
+                        addingAccount = false
+                        email = Prefs.email
+                        password = Prefs.appPassword
+                        providerId = providerIdFor(Prefs.imapHost)
+                        imapHostField = Prefs.imapHost
+                        imapPortField = Prefs.imapPort.toString()
+                        smtpHostField = Prefs.smtpHost
+                        smtpPortField = Prefs.smtpPort.toString()
+                    }) { Text("Abbrechen — aktuelles Konto behalten") }
+                    Spacer(Modifier.height(4.dp))
+                }
                 Button(
                     onClick = {
                         try {
@@ -545,9 +583,8 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
             SectionTitle("Konten")
             Text(
                 "Gespeicherte Konten wechselst du oben im Posteingang über das Ordner-Menü. " +
-                    "Ein weiteres Konto fügst du hinzu, indem du dich oben mit einem anderen " +
-                    "Google-Konto verbindest oder andere Zugangsdaten speicherst — das " +
-                    "bisherige Konto bleibt erhalten.",
+                    "Ein neues Konto legst du oben über „Weiteres Konto hinzufügen“ an — " +
+                    "das bisherige bleibt dabei verbunden.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -718,7 +755,11 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
             Spacer(Modifier.height(24.dp))
             Button(
                 onClick = {
-                    if (!googleConnected) {
+                    // Manuelle Zugangsdaten speichern: im Hinzufügen-Modus auch
+                    // dann, wenn gerade ein Google-Konto verbunden ist
+                    val manualSave = (addingAccount || !googleConnected) &&
+                        email.isNotBlank() && password.isNotBlank()
+                    if (manualSave) {
                         Prefs.snapshotActiveAccount()
                         Prefs.email = email
                         Prefs.appPassword = password
@@ -726,11 +767,25 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                         Prefs.imapPort = imapPortField.trim().toIntOrNull() ?: 993
                         Prefs.smtpHost = smtpHostField.trim()
                         Prefs.smtpPort = smtpPortField.trim().toIntOrNull() ?: 465
-                        if (password.isNotBlank()) Prefs.authMethod = "password"
+                        Prefs.authMethod = "password"
                         Prefs.snapshotActiveAccount()
+                        googleConnected = false
+                        addingAccount = false
+                        accountList = Prefs.accounts()
                     }
                     Prefs.claudeApiKey = claudeKey
-                    if (Prefs.isConfigured) {
+                    if (manualSave) {
+                        // Vollständiger Kontowechsel auf das neue Konto
+                        scope.launch {
+                            MailRepository.switchAccount(
+                                Prefs.Account(
+                                    Prefs.email, Prefs.authMethod, Prefs.appPassword,
+                                    Prefs.refreshToken, Prefs.imapHost, Prefs.imapPort,
+                                    Prefs.smtpHost, Prefs.smtpPort
+                                )
+                            )
+                        }
+                    } else if (Prefs.isConfigured) {
                         MailSyncService.start(context)
                         scope.launch { MailRepository.refresh() }
                     }
