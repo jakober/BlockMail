@@ -18,6 +18,7 @@ Schlichte, moderne Android-Mail-App für Gmail (Kotlin + Jetpack Compose, Materi
 - Tägliches KI-Newsletter-Aufräumen mit Protokoll und Abmelde-Links
 - Stumm-/Blockier-Listen pro Absender; Mehrfachauswahl
 - Mehrere Farbschemas; Hell-/Dunkel-Modus wählbar (oder automatisch wie das Gerät); Tablet-/Querformat-Zweispaltenansicht
+- Launcher-Shortcuts (App-Icon lange drücken): Neue Mail verfassen, Newsletter-Scan, nach neuen Mails schauen
 
 ## Build
 Voraussetzungen: JDK 17+ (getestet mit JDK 21), Android SDK (Platform 35, Build-Tools).

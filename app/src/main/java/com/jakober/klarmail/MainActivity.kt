@@ -10,7 +10,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
+import kotlinx.coroutines.launch
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -33,10 +35,38 @@ class MainActivity : ComponentActivity() {
 
     private val pendingOpenLog = androidx.compose.runtime.mutableStateOf(false)
 
+    /** Vom Launcher-Shortcut angefordert: neue Mail verfassen. */
+    private val pendingCompose = androidx.compose.runtime.mutableStateOf(false)
+
+    /** Zähler statt Boolean: wiederholtes Antippen löst erneut aus. */
+    private val pendingRefresh = androidx.compose.runtime.mutableStateOf(0)
+
     private fun handleOpenIntent(intent: android.content.Intent?) {
         val uid = intent?.getLongExtra("open_uid", -1L) ?: -1L
         if (uid > 0) pendingOpenUid.value = uid
         if (intent?.getBooleanExtra("open_log", false) == true) pendingOpenLog.value = true
+        when (intent?.action) {
+            "com.jakober.klarmail.SHORTCUT_COMPOSE" -> pendingCompose.value = true
+            "com.jakober.klarmail.SHORTCUT_REFRESH" -> pendingRefresh.value++
+            "com.jakober.klarmail.SHORTCUT_NEWSLETTER" -> runNewsletterScan()
+        }
+    }
+
+    /** Newsletter-Aufräumlauf per Shortcut: läuft im Hintergrund, Ergebnis als Toast. */
+    private fun runNewsletterScan() {
+        android.widget.Toast.makeText(
+            this, "Newsletter-Scan läuft …", android.widget.Toast.LENGTH_SHORT
+        ).show()
+        lifecycleScope.launch {
+            val result = try {
+                com.jakober.klarmail.data.NewsletterCleaner.run(applicationContext)
+            } catch (e: Exception) {
+                "Fehler: ${e.message ?: e.javaClass.simpleName}"
+            }
+            android.widget.Toast.makeText(
+                this@MainActivity, result, android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -73,6 +103,21 @@ class MainActivity : ComponentActivity() {
                     if (openLog) {
                         nav.navigate("newsletterlog")
                         pendingOpenLog.value = false
+                    }
+                }
+                val openCompose = pendingCompose.value
+                androidx.compose.runtime.LaunchedEffect(openCompose) {
+                    if (openCompose) {
+                        nav.navigate("compose")
+                        pendingCompose.value = false
+                    }
+                }
+                val refreshTick = pendingRefresh.value
+                androidx.compose.runtime.LaunchedEffect(refreshTick) {
+                    if (refreshTick > 0) {
+                        // Zurück zum Posteingang (falls woanders) und aktualisieren
+                        nav.popBackStack("inbox", inclusive = false)
+                        com.jakober.klarmail.data.MailRepository.refresh()
                     }
                 }
                 NavHost(navController = nav, startDestination = "inbox") {

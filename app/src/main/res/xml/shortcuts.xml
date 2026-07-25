@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Statische Launcher-Shortcuts (langes Drücken auf das App-Icon) -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="compose"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_compose"
+        android:shortcutShortLabel="@string/shortcut_compose_short"
+        android:shortcutLongLabel="@string/shortcut_compose_long">
+        <intent
+            android:action="com.jakober.klarmail.SHORTCUT_COMPOSE"
+            android:targetPackage="com.jakober.klarmail"
+            android:targetClass="com.jakober.klarmail.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="newsletter_scan"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_newsletter"
+        android:shortcutShortLabel="@string/shortcut_newsletter_short"
+        android:shortcutLongLabel="@string/shortcut_newsletter_long">
+        <intent
+            android:action="com.jakober.klarmail.SHORTCUT_NEWSLETTER"
+            android:targetPackage="com.jakober.klarmail"
+            android:targetClass="com.jakober.klarmail.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="refresh"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_refresh"
+        android:shortcutShortLabel="@string/shortcut_refresh_short"
+        android:shortcutLongLabel="@string/shortcut_refresh_long">
+        <intent
+            android:action="com.jakober.klarmail.SHORTCUT_REFRESH"
+            android:targetPackage="com.jakober.klarmail"
+            android:targetClass="com.jakober.klarmail.MainActivity" />
+    </shortcut>
+</shortcuts>
