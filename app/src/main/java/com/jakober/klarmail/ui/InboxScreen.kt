@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +24,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
@@ -30,8 +33,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Drafts
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.MarkEmailUnread
+import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -41,6 +46,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -245,21 +251,55 @@ fun InboxScreen(
                             }
                             DropdownMenu(
                                 expanded = folderMenuOpen,
-                                onDismissRequest = { folderMenuOpen = false }
+                                onDismissRequest = { folderMenuOpen = false },
+                                shape = RoundedCornerShape(20.dp),
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                offset = androidx.compose.ui.unit.DpOffset(0.dp, 8.dp),
+                                modifier = Modifier.widthIn(min = 220.dp)
                             ) {
                                 MailRepository.MailFolder.entries
                                     .filter { it != MailRepository.MailFolder.NEWSLETTER }
                                     .forEach { f ->
+                                        val active = f == currentFolder
                                         DropdownMenuItem(
-                                            text = { Text(f.label) },
+                                            text = {
+                                                Text(
+                                                    f.label,
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    fontWeight = if (active) FontWeight.SemiBold
+                                                    else FontWeight.Normal
+                                                )
+                                            },
+                                            leadingIcon = { Icon(folderIcon(f), null) },
+                                            trailingIcon = if (active) {
+                                                { Icon(Icons.Filled.Check, null) }
+                                            } else null,
+                                            colors = if (active) {
+                                                androidx.compose.material3.MenuDefaults.itemColors(
+                                                    textColor = MaterialTheme.colorScheme.primary,
+                                                    leadingIconColor = MaterialTheme.colorScheme.primary,
+                                                    trailingIconColor = MaterialTheme.colorScheme.primary
+                                                )
+                                            } else {
+                                                androidx.compose.material3.MenuDefaults.itemColors()
+                                            },
                                             onClick = {
                                                 folderMenuOpen = false
                                                 scope.launch { MailRepository.switchFolder(f) }
                                             }
                                         )
                                     }
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                )
                                 DropdownMenuItem(
-                                    text = { Text("Newsletter") },
+                                    text = {
+                                        Text(
+                                            "Newsletter",
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    },
+                                    leadingIcon = { Icon(Icons.Filled.Newspaper, null) },
                                     onClick = {
                                         folderMenuOpen = false
                                         onOpenNewsletterLog()
@@ -755,6 +795,16 @@ private fun SwipeableMailRow(
 
 /** Kartenform der Mail-Einträge — auch fürs Clipping der Wisch-Hintergründe. */
 private val MailCardShape = RoundedCornerShape(16.dp)
+
+/** Symbol für einen Ordner im Ordner-Menü. */
+private fun folderIcon(f: MailRepository.MailFolder) = when (f) {
+    MailRepository.MailFolder.INBOX -> Icons.Filled.Inbox
+    MailRepository.MailFolder.SENT -> Icons.AutoMirrored.Filled.Send
+    MailRepository.MailFolder.DRAFTS -> Icons.Filled.Drafts
+    MailRepository.MailFolder.ARCHIVE -> Icons.Filled.Archive
+    MailRepository.MailFolder.TRASH -> Icons.Filled.Delete
+    MailRepository.MailFolder.NEWSLETTER -> Icons.Filled.Newspaper
+}
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
