@@ -19,7 +19,7 @@ Schlichte, moderne Android-Mail-App für Gmail (Kotlin + Jetpack Compose, Materi
 - Mail später erinnern (Snooze): verschwindet aus dem Posteingang und kommt zur gewählten Zeit mit Erinnerung zurück
 - Optionale Konversations-Ansicht (Mails mit gleichem Betreff gebündelt, aufklappbar)
 - Homescreen-Widget mit den neuesten Mails (Tippen öffnet die Mail direkt)
-- Claude-KI (eigener API-Key): Antwort entwerfen, Mail formulieren, Rechtschreibprüfung
+- KI-Funktionen: Antwort entwerfen, Mail formulieren, Rechtschreibprüfung, Zusammenfassung — mit Claude (eigener API-Key) oder automatisch kostenlos über die Geräte-KI (Gemini Nano, auf unterstützten Geräten)
 - Tägliches KI-Newsletter-Aufräumen mit Protokoll und Abmelde-Links
 - Stumm-/Blockier-Listen pro Absender; Mehrfachauswahl
 - Mehrere Farbschemas; Hell-/Dunkel-Modus wählbar (oder automatisch wie das Gerät); Tablet-/Querformat-Zweispaltenansicht

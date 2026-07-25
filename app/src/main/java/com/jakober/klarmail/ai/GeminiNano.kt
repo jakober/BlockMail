@@ -1,0 +1,71 @@
+package com.jakober.klarmail.ai
+
+import com.google.mlkit.genai.common.FeatureStatus
+import com.google.mlkit.genai.prompt.Generation
+
+/**
+ * On-Device-KI über Gemini Nano (ML Kit Prompt API): kostenloser Fallback
+ * für Geräte mit AICore (z. B. Pixel ab 8, Samsung ab S24), wenn kein
+ * Claude-API-Schlüssel hinterlegt ist. Alles läuft lokal auf dem Gerät.
+ */
+object GeminiNano {
+
+    @Volatile
+    private var cachedAvailable: Boolean? = null
+
+    /** Prüft (einmalig, danach gecacht), ob das Gerät On-Device-KI anbietet. */
+    suspend fun available(): Boolean {
+        cachedAvailable?.let { return it }
+        val result = try {
+            Generation.getClient().checkStatus() != FeatureStatus.UNAVAILABLE
+        } catch (e: Throwable) {
+            false
+        }
+        cachedAvailable = result
+        return result
+    }
+
+    /** Führt einen Prompt aus; lädt das Modell bei Bedarf vorher herunter. */
+    private suspend fun generate(prompt: String): String {
+        val model = Generation.getClient()
+        try {
+            if (model.checkStatus() == FeatureStatus.DOWNLOADABLE) {
+                model.download().collect { }
+            }
+        } catch (_: Throwable) {
+        }
+        val response = model.generateContent(prompt)
+        val text = response.candidates.firstOrNull()?.text?.trim().orEmpty()
+        if (text.isBlank()) throw java.io.IOException("Keine Antwort von der Geräte-KI")
+        return text
+    }
+
+    suspend fun summarize(from: String, subject: String, body: String): String = generate(
+        "Fasse die folgende E-Mail auf Deutsch in 2 bis 4 kurzen Sätzen zusammen. " +
+            "Nenne nur die wichtigsten Fakten (wer, was, Termine, Beträge, geforderte " +
+            "Aktionen). Antworte NUR mit der Zusammenfassung.\n\n" +
+            "Von: $from\nBetreff: $subject\n\n${body.take(6000)}"
+    )
+
+    suspend fun draftReply(
+        originalFrom: String,
+        originalBody: String,
+        instruction: String
+    ): String = generate(
+        "Schreibe eine höfliche, natürliche Antwort auf die folgende E-Mail, in " +
+            "derselben Sprache wie die E-Mail. " +
+            (if (instruction.isNotBlank()) "Berücksichtige diese Anweisung: $instruction. " else "") +
+            "Antworte NUR mit dem Antworttext, ohne Betreff.\n\n" +
+            "E-Mail von $originalFrom:\n${originalBody.take(6000)}"
+    )
+
+    suspend fun composeMail(instruction: String): String = generate(
+        "Formuliere eine vollständige, höfliche E-Mail auf Deutsch nach dieser Vorgabe. " +
+            "Antworte NUR mit dem E-Mail-Text, ohne Betreffzeile.\n\nVorgabe: $instruction"
+    )
+
+    suspend fun proofread(text: String): String = generate(
+        "Korrigiere Rechtschreibung und Grammatik des folgenden Textes. Ändere Stil " +
+            "und Inhalt nicht. Antworte NUR mit dem korrigierten Text.\n\n${text.take(6000)}"
+    )
+}

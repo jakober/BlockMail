@@ -12,8 +12,8 @@ android {
         applicationId = "com.jakober.klarmail"
         minSdk = 26
         targetSdk = 34
-        versionCode = 72
-        versionName = "2.69"
+        versionCode = 73
+        versionName = "2.70"
 
         // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
         manifestPlaceholders["appAuthRedirectScheme"] =
@@ -84,6 +84,9 @@ dependencies {
 
     // Claude API + Google-Token-Refresh
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // On-Device-KI (Gemini Nano über ML Kit Prompt API) als Gratis-Fallback
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
 
     // Google-OAuth-Anmeldung (Konto-Auswahlfenster)
     implementation("net.openid:appauth:0.11.1")

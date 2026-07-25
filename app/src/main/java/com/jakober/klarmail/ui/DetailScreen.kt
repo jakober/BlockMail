@@ -376,8 +376,12 @@ fun DetailScreen(
             HorizontalDivider()
 
             val currentBody = body
-            // Claude-Zusammenfassung (nur mit API-Schlüssel und geladenem Inhalt)
-            if (com.jakober.klarmail.data.Prefs.claudeApiKey.isNotBlank() && currentBody != null) {
+            // KI-Zusammenfassung: Claude (mit API-Schlüssel) oder On-Device-Gemini
+            val hasClaudeKey = com.jakober.klarmail.data.Prefs.claudeApiKey.isNotBlank()
+            val geminiAvailable by androidx.compose.runtime.produceState(initialValue = false) {
+                value = !hasClaudeKey && com.jakober.klarmail.ai.GeminiNano.available()
+            }
+            if ((hasClaudeKey || geminiAvailable) && currentBody != null) {
                 val sum = summary
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     if (sum == null) {
@@ -387,12 +391,20 @@ fun DetailScreen(
                                     scope.launch {
                                         summarizing = true
                                         summary = try {
-                                            com.jakober.klarmail.ai.ClaudeClient.summarize(
-                                                com.jakober.klarmail.data.Prefs.claudeApiKey,
-                                                "${mail.from} <${mail.fromAddress}>",
-                                                mail.subject,
-                                                currentBody.text
-                                            )
+                                            if (hasClaudeKey) {
+                                                com.jakober.klarmail.ai.ClaudeClient.summarize(
+                                                    com.jakober.klarmail.data.Prefs.claudeApiKey,
+                                                    "${mail.from} <${mail.fromAddress}>",
+                                                    mail.subject,
+                                                    currentBody.text
+                                                )
+                                            } else {
+                                                com.jakober.klarmail.ai.GeminiNano.summarize(
+                                                    "${mail.from} <${mail.fromAddress}>",
+                                                    mail.subject,
+                                                    currentBody.text
+                                                )
+                                            }
                                         } catch (e: Exception) {
                                             "Zusammenfassung fehlgeschlagen: ${e.message}"
                                         }
@@ -402,8 +414,11 @@ fun DetailScreen(
                             },
                             label = {
                                 Text(
-                                    if (summarizing) "Claude fasst zusammen …"
-                                    else "Mit Claude zusammenfassen"
+                                    when {
+                                        summarizing -> "Wird zusammengefasst …"
+                                        hasClaudeKey -> "Mit Claude zusammenfassen"
+                                        else -> "Zusammenfassen (Geräte-KI)"
+                                    }
                                 )
                             },
                             leadingIcon = {

@@ -170,6 +170,11 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
     var aiMenuOpen by remember { mutableStateOf(false) }
 
     val hasClaudeKey = Prefs.claudeApiKey.isNotBlank()
+    // Gratis-Fallback: On-Device-KI (Gemini Nano), falls kein Claude-Key da ist
+    val geminiAvailable by androidx.compose.runtime.produceState(initialValue = false) {
+        value = !hasClaudeKey && com.jakober.klarmail.ai.GeminiNano.available()
+    }
+    val aiAvailable = hasClaudeKey || geminiAvailable
     val plainText = editorState.annotatedString.text
 
     val pickedFiles = remember { mutableStateListOf<PickedFile>() }
@@ -205,11 +210,11 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                 val html = if (result.contains("<") && result.contains(">")) result
                 else plainToHtml(result)
                 editorState.setHtml(html)
-                if (showLanguage) {
+                if (showLanguage && hasClaudeKey) {
                     lastLanguage = ClaudeClient.lastReplyLanguage
                 }
             } catch (e: Exception) {
-                snackbar.showSnackbar("Claude-Fehler: ${e.message}")
+                snackbar.showSnackbar("KI-Fehler: ${e.message}")
             } finally {
                 busy = false
             }
@@ -463,7 +468,7 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
             }
         },
         floatingActionButton = {
-            if (hasClaudeKey) {
+            if (aiAvailable) {
                 Box {
                     FloatingActionButton(onClick = { aiMenuOpen = true }) {
                         Icon(Icons.Filled.AutoAwesome, contentDescription = "Claude-KI")
@@ -484,10 +489,17 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                                         } catch (e: Exception) {
                                             ""
                                         }
-                                        ClaudeClient.draftReply(
-                                            Prefs.claudeApiKey, original, origBody,
-                                            instruction = plainText.takeIf { it.isNotBlank() } ?: ""
-                                        )
+                                        if (hasClaudeKey) {
+                                            ClaudeClient.draftReply(
+                                                Prefs.claudeApiKey, original, origBody,
+                                                instruction = plainText.takeIf { it.isNotBlank() } ?: ""
+                                            )
+                                        } else {
+                                            com.jakober.klarmail.ai.GeminiNano.draftReply(
+                                                original.from, origBody,
+                                                plainText.takeIf { it.isNotBlank() } ?: ""
+                                            )
+                                        }
                                     }
                                 }
                             )
@@ -509,7 +521,11 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                                     scope.launch { snackbar.showSnackbar("Kein Text zum Prüfen vorhanden") }
                                 } else {
                                     runAi("Rechtschreibung wird geprüft …") {
-                                        ClaudeClient.proofread(Prefs.claudeApiKey, editorState.toHtml())
+                                        if (hasClaudeKey) {
+                                            ClaudeClient.proofread(Prefs.claudeApiKey, editorState.toHtml())
+                                        } else {
+                                            com.jakober.klarmail.ai.GeminiNano.proofread(plainText)
+                                        }
                                     }
                                 }
                             }
@@ -664,8 +680,12 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                     enabled = promptText.isNotBlank(),
                     onClick = {
                         showPromptDialog = false
-                        runAi("Claude formuliert die E-Mail …") {
-                            ClaudeClient.composeMail(Prefs.claudeApiKey, promptText)
+                        runAi("KI formuliert die E-Mail …") {
+                            if (hasClaudeKey) {
+                                ClaudeClient.composeMail(Prefs.claudeApiKey, promptText)
+                            } else {
+                                com.jakober.klarmail.ai.GeminiNano.composeMail(promptText)
+                            }
                         }
                     }
                 ) { Text("Formulieren") }
