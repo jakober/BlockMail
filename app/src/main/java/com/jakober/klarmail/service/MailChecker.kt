@@ -190,6 +190,35 @@ object MailChecker {
             NotificationUtil.senderAvatarBitmap(from, fromAddress)
         }.getOrNull() ?: NotificationUtil.logoBitmap(context)
 
+        // Konversations-Benachrichtigung (Android 11+): Der Absender-Avatar
+        // erscheint damit groß LINKS, das App-Icon nur als kleines Abzeichen.
+        // Voraussetzung ist ein langlebiger dynamischer Shortcut pro Absender.
+        val senderName = from.ifBlank { fromAddress.ifBlank { "Absender" } }
+        val personIcon = runCatching {
+            NotificationUtil.senderAvatarIcon(senderName, fromAddress)
+        }.getOrNull()
+        val senderPerson = androidx.core.app.Person.Builder()
+            .setName(senderName)
+            .setKey(fromAddress.ifBlank { senderName })
+            .apply { personIcon?.let { setIcon(it) } }
+            .build()
+        val shortcutId = "sender_" + fromAddress.ifBlank { senderName }.lowercase()
+        runCatching {
+            val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(context, shortcutId)
+                .setShortLabel(senderName)
+                .setLongLived(true)
+                .setPerson(senderPerson)
+                .apply { personIcon?.let { setIcon(it) } }
+                .setIntent(
+                    Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+                )
+                .build()
+            androidx.core.content.pm.ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
+        }
+        val messagingStyle = NotificationCompat.MessagingStyle(
+            androidx.core.app.Person.Builder().setName("Ich").build()
+        ).addMessage(subject, System.currentTimeMillis(), senderPerson)
+
         val markReadIntent = Intent(context, MarkReadReceiver::class.java).apply {
             action = "com.jakober.klarmail.MARK_READ"
             putExtra("uid", uid)
@@ -210,11 +239,13 @@ object MailChecker {
 
         val notification = NotificationCompat.Builder(context, MailApp.CHANNEL_NEW_MAIL)
             .setSmallIcon(R.drawable.ic_notif_mail)
+            // Fallback für Android < 11 (dort greift der Konversations-Stil nicht)
             .setLargeIcon(avatar)
             .setColor(0xFFE85510.toInt())
             .setContentTitle(from)
             .setContentText(subject)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(subject))
+            .setStyle(messagingStyle)
+            .setShortcutId(shortcutId)
             .setAutoCancel(true)
             .setContentIntent(openPending)
             .addAction(0, "Als gelesen markieren", markReadPending)

@@ -77,6 +77,27 @@ object NotificationUtil {
         return result
     }
 
+    /**
+     * Quadratische Bitmap mit weißem Rand fürs adaptive Rund-Maskieren:
+     * Das System zeigt nur die mittleren ~66 % — ohne Rand würden Ecken
+     * quadratischer Firmenlogos abgeschnitten.
+     */
+    private fun padToAdaptive(src: Bitmap): Bitmap {
+        val content = maxOf(src.width, src.height)
+        val size = (content * 3) / 2
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        canvas.drawColor(0xFFFFFFFF.toInt())
+        canvas.drawBitmap(src, (size - src.width) / 2f, (size - src.height) / 2f, null)
+        return bmp
+    }
+
+    /** Absender-Avatar als Icon für Konversations-Benachrichtigungen (Person). */
+    fun senderAvatarIcon(name: String, address: String): androidx.core.graphics.drawable.IconCompat =
+        androidx.core.graphics.drawable.IconCompat.createWithAdaptiveBitmap(
+            padToAdaptive(senderAvatarBitmap(name, address))
+        )
+
     private fun fetchBitmap(url: String): Bitmap? = try {
         http.newCall(okhttp3.Request.Builder().url(url).build()).execute().use { resp ->
             if (!resp.isSuccessful) null
