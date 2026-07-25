@@ -22,6 +22,8 @@ class SyncGuardWorker(
 
         // Fällige zurückgestellte Mails auch dann wecken, wenn der Dienst tot ist
         runCatching { MailChecker.processDueSnoozes(applicationContext) }
+        // Fällige geplante Mails auch bei totem Dienst verschicken
+        runCatching { MailChecker.processOutbox(applicationContext) }
 
         // Frisches Lebenszeichen (< 13 min) → Push-Verbindung ist gesund
         val alive = MailSyncService.lastAliveMs

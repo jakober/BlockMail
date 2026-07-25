@@ -72,6 +72,37 @@ object MailChecker {
     }
 
     /**
+     * Verschickt fällige geplante Mails aus der Ausgangs-Warteschlange.
+     * Bei Fehlern bleibt die Mail in der Warteschlange; der nächste Versuch
+     * wird 15 Minuten nach hinten geschoben, damit nichts im Minutentakt
+     * fehlschlägt.
+     */
+    fun processOutbox(context: Context) {
+        val due = Prefs.outbox().filter { it.sendAt <= System.currentTimeMillis() }
+        if (due.isEmpty()) return
+        scope.launch {
+            due.forEach { m ->
+                try {
+                    MailRepository.send(
+                        to = m.to, subject = m.subject, body = m.body,
+                        html = m.html, cc = m.cc, bcc = m.bcc
+                    )
+                    Prefs.removeOutbox(m.id)
+                    statusNotification(context, "Geplante Mail gesendet: ${m.subject}", timeoutMs = 15_000)
+                } catch (e: Exception) {
+                    Prefs.saveOutbox(Prefs.outbox().map {
+                        if (it.id == m.id) it.copy(sendAt = System.currentTimeMillis() + 15 * 60_000) else it
+                    })
+                    statusNotification(
+                        context,
+                        "Geplantes Senden fehlgeschlagen (${m.subject}) — neuer Versuch in 15 min"
+                    )
+                }
+            }
+        }
+    }
+
+    /**
      * Meldet alle Mails mit UID oberhalb der Merkliste und rückt sie vor.
      * Liefert die Anzahl der neu gemeldeten Mails (ohne blockierte).
      */

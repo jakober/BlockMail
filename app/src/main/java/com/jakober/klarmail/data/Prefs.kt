@@ -208,6 +208,54 @@ object Prefs {
 
     fun removeSnooze(uid: Long) = saveSnoozes(snoozes().filter { it.uid != uid })
 
+    /** Geplante Mail in der Ausgangs-Warteschlange. */
+    data class ScheduledMail(
+        val id: Long,
+        val sendAt: Long,
+        val to: String,
+        val cc: String,
+        val bcc: String,
+        val subject: String,
+        val body: String,
+        val html: String?
+    )
+
+    fun outbox(): List<ScheduledMail> = try {
+        val arr = org.json.JSONArray(sp.getString("outbox", "[]") ?: "[]")
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            ScheduledMail(
+                id = o.getLong("id"),
+                sendAt = o.getLong("sendAt"),
+                to = o.optString("to"),
+                cc = o.optString("cc"),
+                bcc = o.optString("bcc"),
+                subject = o.optString("subject"),
+                body = o.optString("body"),
+                html = if (o.has("html")) o.getString("html") else null
+            )
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    fun saveOutbox(list: List<ScheduledMail>) {
+        val arr = org.json.JSONArray()
+        list.forEach { m ->
+            arr.put(org.json.JSONObject().apply {
+                put("id", m.id); put("sendAt", m.sendAt)
+                put("to", m.to); put("cc", m.cc); put("bcc", m.bcc)
+                put("subject", m.subject); put("body", m.body)
+                m.html?.let { put("html", it) }
+            })
+        }
+        sp.edit().putString("outbox", arr.toString()).apply()
+    }
+
+    fun addOutbox(m: ScheduledMail) = saveOutbox(outbox() + m)
+
+    fun removeOutbox(id: Long) = saveOutbox(outbox().filter { it.id != id })
+
     /** Signatur, die unter neue Mails gesetzt wird (leer = keine). */
     var signature: String
         get() = sp.getString("signature", "") ?: ""

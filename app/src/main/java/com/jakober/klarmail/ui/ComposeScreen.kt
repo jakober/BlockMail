@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.FormatUnderlined
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Spellcheck
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChipDefaults
@@ -110,6 +111,26 @@ private fun sanitizeOutgoingHtml(html: String): String = html
 
 private data class PickedFile(val uri: android.net.Uri, val name: String, val size: Long)
 
+/** Auswahlzeiten für „Später senden“ (Label + Zeitpunkt in Millis). */
+private fun scheduleChoices(): List<Pair<String, Long>> {
+    val now = System.currentTimeMillis()
+    fun at(daysFromToday: Int, hour: Int): Long = java.util.Calendar.getInstance().apply {
+        add(java.util.Calendar.DAY_OF_YEAR, daysFromToday)
+        set(java.util.Calendar.HOUR_OF_DAY, hour)
+        set(java.util.Calendar.MINUTE, 0)
+        set(java.util.Calendar.SECOND, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    val choices = mutableListOf("In 1 Stunde" to now + 60 * 60 * 1000L)
+    val eveningToday = at(0, 18)
+    if (eveningToday > now + 15 * 60 * 1000L) {
+        choices.add("Heute Abend (18 Uhr)" to eveningToday)
+    }
+    choices.add("Morgen früh (8 Uhr)" to at(1, 8))
+    choices.add("Morgen Abend (18 Uhr)" to at(1, 18))
+    return choices
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
@@ -139,6 +160,7 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
     }
 
     var templateMenuOpen by remember { mutableStateOf(false) }
+    var showScheduleDialog by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var busyLabel by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
@@ -228,6 +250,57 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
         }
     }
 
+    if (showScheduleDialog) {
+        AlertDialog(
+            onDismissRequest = { showScheduleDialog = false },
+            title = { Text("Später senden") },
+            text = {
+                Column {
+                    Text(
+                        "Die Mail wird zur gewählten Zeit automatisch gesendet — auch " +
+                            "wenn die App geschlossen ist.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    scheduleChoices().forEach { (label, sendAt) ->
+                        TextButton(
+                            onClick = {
+                                showScheduleDialog = false
+                                if (pickedFiles.isNotEmpty()) {
+                                    scope.launch {
+                                        snackbar.showSnackbar(
+                                            "Geplantes Senden mit Anhängen wird noch nicht unterstützt"
+                                        )
+                                    }
+                                } else {
+                                    Prefs.addOutbox(
+                                        Prefs.ScheduledMail(
+                                            id = System.currentTimeMillis(),
+                                            sendAt = sendAt,
+                                            to = to,
+                                            cc = cc.trim(),
+                                            bcc = bcc.trim(),
+                                            subject = subject,
+                                            body = editorState.annotatedString.text,
+                                            html = sanitizeOutgoingHtml(editorState.toHtml())
+                                        )
+                                    )
+                                    onBack()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(label) }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showScheduleDialog = false }) { Text("Abbrechen") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -250,6 +323,17 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                     }
                 },
                 actions = {
+                    IconButton(
+                        enabled = !sending && to.isNotBlank() &&
+                            (subject.isNotBlank() || plainText.isNotBlank()),
+                        onClick = { showScheduleDialog = true }
+                    ) {
+                        Icon(
+                            Icons.Filled.Schedule,
+                            contentDescription = "Später senden",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(
                         enabled = !sending && to.isNotBlank() &&
                             (subject.isNotBlank() || plainText.isNotBlank()),

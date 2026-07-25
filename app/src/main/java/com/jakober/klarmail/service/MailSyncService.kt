@@ -138,6 +138,8 @@ class MailSyncService : Service() {
                 runCatching { MailRepository.cleanupBodyCache() }
                 // Fällige zurückgestellte Mails wecken (Snooze)
                 runCatching { MailChecker.processDueSnoozes(applicationContext) }
+                // Fällige geplante Mails verschicken
+                runCatching { MailChecker.processOutbox(applicationContext) }
                 delay(10 * 60_000)
             }
         }
