@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -82,6 +83,37 @@ private fun DropdownMenuItemColorsActive() = androidx.compose.material3.MenuDefa
 
 @Composable
 private fun DropdownMenuItemColorsDefault() = androidx.compose.material3.MenuDefaults.itemColors()
+
+/** Auswahlzeiten für „Später erinnern“ (Label + Zeitpunkt in Millis). */
+private fun snoozeChoices(): List<Pair<String, Long>> {
+    val now = System.currentTimeMillis()
+    fun at(daysFromToday: Int, hour: Int): Long = java.util.Calendar.getInstance().apply {
+        add(java.util.Calendar.DAY_OF_YEAR, daysFromToday)
+        set(java.util.Calendar.HOUR_OF_DAY, hour)
+        set(java.util.Calendar.MINUTE, 0)
+        set(java.util.Calendar.SECOND, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    val choices = mutableListOf("In 1 Stunde" to now + 60 * 60 * 1000L)
+    val eveningToday = at(0, 18)
+    if (eveningToday > now + 15 * 60 * 1000L) {
+        choices.add("Heute Abend (18 Uhr)" to eveningToday)
+    }
+    choices.add("Morgen früh (8 Uhr)" to at(1, 8))
+    choices.add("In 3 Tagen (8 Uhr)" to at(3, 8))
+    val nextMonday = java.util.Calendar.getInstance().apply {
+        add(java.util.Calendar.DAY_OF_YEAR, 1)
+        while (get(java.util.Calendar.DAY_OF_WEEK) != java.util.Calendar.MONDAY) {
+            add(java.util.Calendar.DAY_OF_YEAR, 1)
+        }
+        set(java.util.Calendar.HOUR_OF_DAY, 8)
+        set(java.util.Calendar.MINUTE, 0)
+        set(java.util.Calendar.SECOND, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    choices.add("Nächste Woche (Mo 8 Uhr)" to nextMonday)
+    return choices
+}
 
 private fun attachmentIcon(mime: String) = when {
     mime.startsWith("image/") -> Icons.Filled.Image
@@ -132,6 +164,49 @@ fun DetailScreen(
     val snackbar = remember { SnackbarHostState() }
 
     var menuOpen by remember { mutableStateOf(false) }
+    var showSnoozeDialog by remember { mutableStateOf(false) }
+
+    if (showSnoozeDialog && mail != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showSnoozeDialog = false },
+            title = { Text("Später erinnern") },
+            text = {
+                Column {
+                    Text(
+                        "Die Mail verschwindet aus dem Posteingang und kommt zur gewählten Zeit " +
+                            "mit einer Erinnerung zurück.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    snoozeChoices().forEach { (label, until) ->
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                showSnoozeDialog = false
+                                com.jakober.klarmail.data.Prefs.addSnooze(
+                                    com.jakober.klarmail.data.Prefs.Snooze(
+                                        uid = mail.uid,
+                                        until = until,
+                                        from = mail.from,
+                                        address = mail.fromAddress,
+                                        subject = mail.subject
+                                    )
+                                )
+                                onBack()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(label) }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showSnoozeDialog = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        )
+    }
     val mutedSet by com.jakober.klarmail.data.Prefs.mutedFlow.collectAsState()
     val blockedSet by com.jakober.klarmail.data.Prefs.blockedFlow.collectAsState()
     val addrKey = mail?.fromAddress?.trim()?.lowercase() ?: ""
@@ -167,6 +242,14 @@ fun DetailScreen(
                                             MailRepository.deleteMail(uid)
                                             onBack()
                                         }
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Später erinnern") },
+                                    leadingIcon = { Icon(Icons.Filled.Schedule, null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        showSnoozeDialog = true
                                     }
                                 )
                                 // Stumm schalten / wieder erlauben (Toggle)

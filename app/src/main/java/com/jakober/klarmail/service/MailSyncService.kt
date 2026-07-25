@@ -118,6 +118,8 @@ class MailSyncService : Service() {
                 }
                 // Vorgeladene Mail-Inhalte, die älter als eine Woche sind, entfernen
                 runCatching { MailRepository.cleanupBodyCache() }
+                // Fällige zurückgestellte Mails wecken (Snooze)
+                runCatching { MailChecker.processDueSnoozes(applicationContext) }
                 delay(10 * 60_000)
             }
         }

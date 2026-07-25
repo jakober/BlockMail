@@ -54,6 +54,24 @@ object MailChecker {
     }
 
     /**
+     * Weckt fällige zurückgestellte Mails: Erinnerungs-Benachrichtigung,
+     * auf dem Server wieder als ungelesen markieren und Liste aktualisieren,
+     * damit die Mail erneut oben unter "Neu" erscheint.
+     */
+    fun processDueSnoozes(context: Context) {
+        val due = Prefs.snoozes().filter { it.until <= System.currentTimeMillis() }
+        if (due.isEmpty()) return
+        due.forEach { s ->
+            Prefs.removeSnooze(s.uid)
+            scope.launch { MailRepository.setInboxSeenByUid(s.uid, seen = false) }
+            showNewMailNotification(
+                context, s.uid, s.from, s.address, "⏰ Erinnerung: ${s.subject}"
+            )
+        }
+        scope.launch { runCatching { MailRepository.refresh() } }
+    }
+
+    /**
      * Meldet alle Mails mit UID oberhalb der Merkliste und rückt sie vor.
      * Liefert die Anzahl der neu gemeldeten Mails (ohne blockierte).
      */

@@ -39,6 +39,7 @@ object Prefs {
         }
         colorSchemeFlow.value = colorScheme
         darkModeFlow.value = darkMode
+        snoozedFlow.value = snoozes().map { it.uid }.toSet()
         mutedFlow.value = loadSet("muted_senders")
         blockedFlow.value = loadSet("blocked_senders")
     }
@@ -160,6 +161,50 @@ object Prefs {
     var lastPushUid: Long
         get() = sp.getLong("last_push_uid", 0L)
         set(v) = sp.edit().putLong("last_push_uid", v).apply()
+
+    /** Zurückgestellte Mail (Snooze): bis wann versteckt + Daten für die Erinnerung. */
+    data class Snooze(
+        val uid: Long,
+        val until: Long,
+        val from: String,
+        val address: String,
+        val subject: String
+    )
+
+    /** UIDs aller aktuell zurückgestellten Mails (für die Posteingangs-Filterung). */
+    val snoozedFlow = MutableStateFlow<Set<Long>>(emptySet())
+
+    fun snoozes(): List<Snooze> = try {
+        val arr = org.json.JSONArray(sp.getString("snoozes", "[]") ?: "[]")
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            Snooze(
+                uid = o.getLong("uid"),
+                until = o.getLong("until"),
+                from = o.optString("from"),
+                address = o.optString("address"),
+                subject = o.optString("subject")
+            )
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    private fun saveSnoozes(list: List<Snooze>) {
+        val arr = org.json.JSONArray()
+        list.forEach { s ->
+            arr.put(org.json.JSONObject().apply {
+                put("uid", s.uid); put("until", s.until)
+                put("from", s.from); put("address", s.address); put("subject", s.subject)
+            })
+        }
+        sp.edit().putString("snoozes", arr.toString()).apply()
+        snoozedFlow.value = list.map { it.uid }.toSet()
+    }
+
+    fun addSnooze(s: Snooze) = saveSnoozes(snoozes().filter { it.uid != s.uid } + s)
+
+    fun removeSnooze(uid: Long) = saveSnoozes(snoozes().filter { it.uid != uid })
 
     /** Signatur, die unter neue Mails gesetzt wird (leer = keine). */
     var signature: String

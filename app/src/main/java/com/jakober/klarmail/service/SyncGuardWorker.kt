@@ -20,6 +20,9 @@ class SyncGuardWorker(
     override suspend fun doWork(): Result {
         if (!Prefs.isConfigured) return Result.success()
 
+        // Fällige zurückgestellte Mails auch dann wecken, wenn der Dienst tot ist
+        runCatching { MailChecker.processDueSnoozes(applicationContext) }
+
         // Frisches Lebenszeichen (< 13 min) → Push-Verbindung ist gesund
         val alive = MailSyncService.lastAliveMs
         if (alive > 0 && System.currentTimeMillis() - alive < 13 * 60_000) {

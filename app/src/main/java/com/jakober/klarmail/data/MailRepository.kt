@@ -130,15 +130,17 @@ object MailRepository {
         kotlinx.coroutines.SupervisorJob() + Dispatchers.Default
     )
 
-    /** Wendet Stumm-/Blockier-Regeln auf eine Posteingangs-Liste an (nur Anzeige). */
+    /** Wendet Stumm-/Blockier-/Snooze-Regeln auf eine Posteingangs-Liste an (nur Anzeige). */
     private fun applyRules(list: List<MailMessage>): List<MailMessage> {
         if (_currentFolder.value != MailFolder.INBOX) return list
         val blocked = Prefs.blockedFlow.value
         val muted = Prefs.mutedFlow.value
-        if (blocked.isEmpty() && muted.isEmpty()) return list
+        val snoozed = Prefs.snoozedFlow.value
+        if (blocked.isEmpty() && muted.isEmpty() && snoozed.isEmpty()) return list
         return list.mapNotNull { m ->
             val a = m.fromAddress.lowercase()
             when {
+                m.uid in snoozed -> null
                 a in blocked -> null
                 a in muted && !m.seen -> m.copy(seen = true)
                 else -> m
@@ -173,8 +175,10 @@ object MailRepository {
         // Regeln reaktiv anwenden: sobald sich Stumm-/Blockier-Liste ändert,
         // sofort die angezeigte Liste anpassen und serverseitig aufräumen.
         ruleScope.launch {
-            kotlinx.coroutines.flow.combine(Prefs.mutedFlow, Prefs.blockedFlow) { m, b -> m to b }
-                .collect { (muted, blocked) ->
+            kotlinx.coroutines.flow.combine(
+                Prefs.mutedFlow, Prefs.blockedFlow, Prefs.snoozedFlow
+            ) { m, b, s -> Triple(m, b, s) }
+                .collect { (muted, blocked, _) ->
                     if (_currentFolder.value == MailFolder.INBOX) {
                         val current = _messages.value
                         current.filter { it.fromAddress.lowercase() in blocked }.forEach { msg ->
@@ -992,14 +996,14 @@ object MailRepository {
         }
     }
 
-    /** Markiert eine Posteingangs-Mail per UID als gelesen (ordnerunabhängig). */
-    suspend fun setInboxSeenByUid(uid: Long) = withContext(Dispatchers.IO) {
+    /** Setzt die Lese-Markierung einer Posteingangs-Mail per UID (ordnerunabhängig). */
+    suspend fun setInboxSeenByUid(uid: Long, seen: Boolean = true) = withContext(Dispatchers.IO) {
         try {
             val store = openStore()
             try {
                 val inbox = store.getFolder("INBOX") as IMAPFolder
                 inbox.open(Folder.READ_WRITE)
-                inbox.getMessageByUID(uid)?.setFlag(Flags.Flag.SEEN, true)
+                inbox.getMessageByUID(uid)?.setFlag(Flags.Flag.SEEN, seen)
             } finally {
                 runCatching { store.close() }
             }
