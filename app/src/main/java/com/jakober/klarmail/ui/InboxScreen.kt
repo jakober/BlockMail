@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.Newspaper
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -333,7 +334,18 @@ fun InboxScreen(
                                                     else FontWeight.Normal
                                                 )
                                             },
-                                            leadingIcon = { Icon(Icons.Filled.AccountCircle, null) },
+                                            leadingIcon = {
+                                                val accColor = Prefs.accountColor(acc.email)
+                                                if (accColor != null) {
+                                                    Box(
+                                                        Modifier
+                                                            .size(18.dp)
+                                                            .background(Color(accColor), CircleShape)
+                                                    )
+                                                } else {
+                                                    Icon(Icons.Filled.AccountCircle, null)
+                                                }
+                                            },
                                             trailingIcon = if (active) {
                                                 { Icon(Icons.Filled.Check, null) }
                                             } else null,
@@ -452,7 +464,9 @@ fun InboxScreen(
                                     if (it.uid == mail.uid) it.copy(seen = newSeen) else it
                                 }
                             },
-                            onDelete = {
+                            leftSpec = SwipeSpec(
+                                "Löschen", Icons.Filled.Delete, destructive = true
+                            ) {
                                 val prevResults = serverResults
                                 serverResults = serverResults?.filter { it.uid != mail.uid }
                                 scope.launch {
@@ -506,13 +520,73 @@ fun InboxScreen(
             }
         }
 
-        // Rechts-Wisch-Aktion: gelesen/ungelesen umschalten
-        val rightSpecFor: (MailMessage) -> SwipeSpec = { mail ->
-            SwipeSpec(
-                if (mail.seen) "Als ungelesen markieren" else "Als gelesen markieren",
-                if (mail.seen) Icons.Filled.MarkEmailUnread else Icons.Filled.Drafts
-            ) {
-                scope.launch { MailRepository.setSeen(mail.uid, !mail.seen) }
+        // Archivieren mit Rückgängig: gleiches Muster wie beim Löschen
+        val archiveWithUndo: (MailMessage) -> Unit = { mail ->
+            scope.launch {
+                MailRepository.hideLocally(mail.uid)
+                val result = snackbar.showSnackbar(
+                    message = "Mail archiviert",
+                    actionLabel = "Rückgängig",
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    MailRepository.restoreLocally(mail)
+                } else {
+                    MailRepository.moveMail(mail.uid, MailRepository.MailFolder.ARCHIVE)
+                }
+            }
+        }
+
+        // Erinnern per Wisch: bis morgen 8 Uhr zurückstellen, mit Rückgängig
+        val snoozeWithUndo: (MailMessage) -> Unit = { mail ->
+            scope.launch {
+                val until = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                    set(Calendar.HOUR_OF_DAY, 8)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                Prefs.addSnooze(
+                    Prefs.Snooze(
+                        uid = mail.uid,
+                        until = until,
+                        from = mail.from,
+                        address = mail.fromAddress,
+                        subject = mail.subject
+                    )
+                )
+                val result = snackbar.showSnackbar(
+                    message = "Erinnerung morgen um 8 Uhr",
+                    actionLabel = "Rückgängig",
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    Prefs.removeSnooze(mail.uid)
+                }
+            }
+        }
+
+        // Die vom Nutzer gewählten Wisch-Aktionen (Einstellungen → Posteingang)
+        val swipeLeft by Prefs.swipeLeftFlow.collectAsState()
+        val swipeRight by Prefs.swipeRightFlow.collectAsState()
+        val specFor: (String, MailMessage) -> SwipeSpec = { action, mail ->
+            when (action) {
+                "archive" -> SwipeSpec("Archivieren", Icons.Filled.Archive) {
+                    archiveWithUndo(mail)
+                }
+                "read" -> SwipeSpec(
+                    if (mail.seen) "Als ungelesen markieren" else "Als gelesen markieren",
+                    if (mail.seen) Icons.Filled.MarkEmailUnread else Icons.Filled.Drafts
+                ) {
+                    scope.launch { MailRepository.setSeen(mail.uid, !mail.seen) }
+                }
+                "snooze" -> SwipeSpec("Morgen erinnern", Icons.Filled.Schedule) {
+                    snoozeWithUndo(mail)
+                }
+                else -> SwipeSpec("Löschen", Icons.Filled.Delete, destructive = true) {
+                    deleteWithUndo(mail)
+                }
             }
         }
 
@@ -539,8 +613,8 @@ fun InboxScreen(
                                 onLongClick = { toggleSelect(mail.uid) },
                                 selected = selected.contains(mail.uid),
                                 selectionMode = selectionMode,
-                                rightSpec = rightSpecFor(mail),
-                                onDelete = { deleteWithUndo(mail) },
+                                rightSpec = specFor(swipeRight, mail),
+                                leftSpec = specFor(swipeLeft, mail),
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -556,8 +630,8 @@ fun InboxScreen(
                                 onLongClick = { toggleSelect(mail.uid) },
                                 selected = selected.contains(mail.uid),
                                 selectionMode = selectionMode,
-                                rightSpec = rightSpecFor(mail),
-                                onDelete = { deleteWithUndo(mail) },
+                                rightSpec = specFor(swipeRight, mail),
+                                leftSpec = specFor(swipeLeft, mail),
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -576,8 +650,8 @@ fun InboxScreen(
                                     onLongClick = { toggleSelect(mail.uid) },
                                     selected = selected.contains(mail.uid),
                                     selectionMode = selectionMode,
-                                    rightSpec = rightSpecFor(mail),
-                                    onDelete = { deleteWithUndo(mail) },
+                                    rightSpec = specFor(swipeRight, mail),
+                                    leftSpec = specFor(swipeLeft, mail),
                                     modifier = Modifier.animateItem()
                                 )
                             }
@@ -606,8 +680,8 @@ fun InboxScreen(
                                         onLongClick = { toggleSelect(mail.uid) },
                                         selected = selected.contains(mail.uid),
                                         selectionMode = selectionMode,
-                                        rightSpec = rightSpecFor(mail),
-                                        onDelete = { deleteWithUndo(mail) },
+                                        rightSpec = specFor(swipeRight, mail),
+                                        leftSpec = specFor(swipeLeft, mail),
                                         modifier = Modifier
                                             .animateItem()
                                             .padding(start = 14.dp)
@@ -733,10 +807,11 @@ private fun buildThreads(messages: List<MailMessage>): List<MailThread> =
 
 private const val SWIPE_THRESHOLD = 0.30f
 
-/** Beschreibt die Rechts-Wisch-Aktion (Label, Symbol, Ausführung). */
+/** Beschreibt eine Wisch-Aktion (Label, Symbol, rot eingefärbt?, Ausführung). */
 class SwipeSpec(
     val label: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val destructive: Boolean = false,
     val onTrigger: () -> Unit
 )
 
@@ -749,7 +824,7 @@ private fun SwipeableMailRow(
     selected: Boolean,
     selectionMode: Boolean,
     rightSpec: SwipeSpec,
-    onDelete: () -> Unit,
+    leftSpec: SwipeSpec,
     modifier: Modifier = Modifier
 ) {
     // Im Auswahlmodus keine Wischgesten – nur antippen/lange drücken
@@ -808,7 +883,7 @@ private fun SwipeableMailRow(
                     dismissState.reset()
                 }
                 SwipeToDismissBoxValue.EndToStart -> {
-                    onDelete()
+                    leftSpec.onTrigger()
                     dismissState.reset()
                 }
                 else -> {}
@@ -828,12 +903,26 @@ private fun SwipeableMailRow(
                 // Farbe wird bis zur Schwelle immer kräftiger, danach voll gesättigt
                 val ramp = (fraction / SWIPE_THRESHOLD).coerceIn(0f, 1f)
                 val reached = fraction >= SWIPE_THRESHOLD
+                // Farbwelt je nach Aktion: Löschen rot, alles andere in Primärfarbe
+                // (Schema vorab lesen: in der lokalen Funktion ist kein
+                // Composable-Aufruf wie MaterialTheme.colorScheme erlaubt)
+                val scheme = MaterialTheme.colorScheme
+                fun swipeColors(spec: SwipeSpec): Pair<Color, Color> = if (spec.destructive) {
+                    val bg = if (reached) scheme.error
+                    else scheme.errorContainer.copy(alpha = ramp)
+                    val fg = if (reached) scheme.onError
+                    else scheme.onErrorContainer.copy(alpha = 0.4f + 0.6f * ramp)
+                    bg to fg
+                } else {
+                    val bg = if (reached) scheme.primary
+                    else scheme.primaryContainer.copy(alpha = ramp)
+                    val fg = if (reached) scheme.onPrimary
+                    else scheme.onPrimaryContainer.copy(alpha = 0.4f + 0.6f * ramp)
+                    bg to fg
+                }
                 when (dismissState.dismissDirection) {
                     SwipeToDismissBoxValue.StartToEnd -> {
-                        val bg = if (reached) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.primaryContainer.copy(alpha = ramp)
-                        val fg = if (reached) MaterialTheme.colorScheme.onPrimary
-                        else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.4f + 0.6f * ramp)
+                        val (bg, fg) = swipeColors(rightSpec)
                         Row(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -851,10 +940,7 @@ private fun SwipeableMailRow(
                         }
                     }
                     SwipeToDismissBoxValue.EndToStart -> {
-                        val bg = if (reached) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.errorContainer.copy(alpha = ramp)
-                        val fg = if (reached) MaterialTheme.colorScheme.onError
-                        else MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.4f + 0.6f * ramp)
+                        val (bg, fg) = swipeColors(leftSpec)
                         Row(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -864,13 +950,13 @@ private fun SwipeableMailRow(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "Löschen",
+                                leftSpec.label,
                                 color = fg,
                                 style = MaterialTheme.typography.labelLarge
                             )
                             Spacer(Modifier.width(12.dp))
                             Icon(
-                                Icons.Filled.Delete,
+                                leftSpec.icon,
                                 contentDescription = null,
                                 tint = fg
                             )
@@ -921,7 +1007,15 @@ private fun MailRow(
             .background(bg)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {
-        if (!mail.seen && !selected) {
+        // Balken vorne: Konto-Farbe (falls gewählt) kennzeichnet das Postfach;
+        // ohne Konto-Farbe zeigt er wie bisher nur Ungelesene in Primärfarbe an
+        val colorsVersion by Prefs.accountColorsFlow.collectAsState()
+        val accountColor = remember(colorsVersion) {
+            Prefs.accountColor(Prefs.email)?.let { Color(it) }
+        }
+        val barColor = accountColor
+            ?: if (!mail.seen && !selected) MaterialTheme.colorScheme.primary else null
+        if (barColor != null) {
             // matchParentSize: erst nach dem Inhalt gemessen, damit der Streifen
             // die volle Kartenhöhe bekommt (fillMaxHeight wäre hier unbegrenzt)
             Box(Modifier.matchParentSize()) {
@@ -929,7 +1023,7 @@ private fun MailRow(
                     Modifier
                         .width(4.dp)
                         .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.primary)
+                        .background(barColor)
                 )
             }
         }

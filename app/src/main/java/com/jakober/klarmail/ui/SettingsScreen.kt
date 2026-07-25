@@ -64,6 +64,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -99,6 +101,70 @@ private val mailProviders = listOf(
 private fun providerIdFor(imapHost: String): String =
     mailProviders.firstOrNull { it.imap.isNotBlank() && it.imap.equals(imapHost, ignoreCase = true) }
         ?.id ?: "custom"
+
+/** Wählbare Konto-Farben (Balken vorne an den Mail-Karten). */
+private val accountPalette = listOf(
+    0xFFE53935, // Rot
+    0xFFFB8C00, // Orange
+    0xFFFBC02D, // Gelb
+    0xFF43A047, // Grün
+    0xFF00ACC1, // Türkis
+    0xFF1E88E5, // Blau
+    0xFF8E24AA, // Violett
+    0xFFD81B60 // Pink
+).map { it.toInt() }
+
+/** Wählbare Wisch-Aktionen für den Posteingang. */
+private val swipeActionLabels = listOf(
+    "delete" to "Löschen",
+    "archive" to "Archivieren",
+    "read" to "Gelesen/Ungelesen",
+    "snooze" to "Erinnern (morgen 8 Uhr)"
+)
+
+@Composable
+private fun SwipeActionPicker(title: String, value: String, onSelect: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Box {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable { open = true }
+            ) {
+                Text(
+                    swipeActionLabels.firstOrNull { it.first == value }?.second ?: "Löschen",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Icon(
+                    Icons.Filled.ArrowDropDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                swipeActionLabels.forEach { (id, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = {
+                            open = false
+                            onSelect(id)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -696,23 +762,85 @@ fun SettingsScreen(
             Text(
                 "Gespeicherte Konten wechselst du oben im Posteingang über das Ordner-Menü. " +
                     "Ein neues Konto legst du oben über „Weiteres Konto hinzufügen“ an — " +
-                    "das bisherige bleibt dabei verbunden.",
+                    "das bisherige bleibt dabei verbunden. Tippe auf den Kreis, um dem " +
+                    "Konto eine Farbe zu geben: Sie erscheint als Balken vorne an jeder Mail.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(4.dp))
+            val colorsVersion by Prefs.accountColorsFlow.collectAsState()
+            var colorPickerFor by remember { mutableStateOf<String?>(null) }
+            colorPickerFor?.let { accEmail ->
+                AlertDialog(
+                    onDismissRequest = { colorPickerFor = null },
+                    title = { Text("Farbe für dieses Konto") },
+                    text = {
+                        Column {
+                            Text(
+                                accEmail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            accountPalette.chunked(4).forEach { rowColors ->
+                                Row {
+                                    rowColors.forEach { c ->
+                                        Box(
+                                            modifier = Modifier
+                                                .size(52.dp)
+                                                .padding(6.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(c))
+                                                .clickable {
+                                                    Prefs.setAccountColor(accEmail, c)
+                                                    colorPickerFor = null
+                                                }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            Prefs.setAccountColor(accEmail, null)
+                            colorPickerFor = null
+                        }) { Text("Keine Farbe") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { colorPickerFor = null }) { Text("Abbrechen") }
+                    }
+                )
+            }
             accountList.forEach { acc ->
                 val active = acc.email.equals(Prefs.email, ignoreCase = true)
+                val dotColor = remember(colorsVersion, acc.email) {
+                    Prefs.accountColor(acc.email)
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Filled.AccountCircle,
-                        contentDescription = null,
-                        tint = if (active) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(
+                                dotColor?.let { Color(it) }
+                                    ?: MaterialTheme.colorScheme.surfaceContainerHighest
+                            )
+                            .clickable { colorPickerFor = acc.email },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (dotColor == null) {
+                            Icon(
+                                Icons.Filled.Palette,
+                                contentDescription = "Farbe wählen",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     Spacer(Modifier.width(8.dp))
                     Text(
                         if (active) "${acc.email} (aktiv)" else acc.email,
@@ -754,6 +882,24 @@ fun SettingsScreen(
                     checked = conversationView,
                     onCheckedChange = { Prefs.conversationView = it }
                 )
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            SectionTitle("Wischgesten")
+            Text(
+                "Lege fest, was beim Wischen einer Mail nach links oder rechts passiert.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            val swipeLeftAction by Prefs.swipeLeftFlow.collectAsState()
+            val swipeRightAction by Prefs.swipeRightFlow.collectAsState()
+            SwipeActionPicker("Nach links wischen", swipeLeftAction) {
+                Prefs.swipeLeftAction = it
+            }
+            SwipeActionPicker("Nach rechts wischen", swipeRightAction) {
+                Prefs.swipeRightAction = it
             }
 
             }

@@ -15,6 +15,11 @@ object Prefs {
     val darkModeFlow = MutableStateFlow("system")
     val conversationViewFlow = MutableStateFlow(false)
     val aiEngineFlow = MutableStateFlow("auto")
+    val swipeLeftFlow = MutableStateFlow("delete")
+    val swipeRightFlow = MutableStateFlow("read")
+
+    /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
+    val accountColorsFlow = MutableStateFlow(0)
 
     /** Stumm geschaltete Absender: als gelesen markieren, keine Benachrichtigung. */
     val mutedFlow = MutableStateFlow<Set<String>>(emptySet())
@@ -44,6 +49,8 @@ object Prefs {
         snoozedFlow.value = snoozes().map { it.uid }.toSet()
         conversationViewFlow.value = conversationView
         aiEngineFlow.value = aiEngine
+        swipeLeftFlow.value = swipeLeftAction
+        swipeRightFlow.value = swipeRightAction
         // Aktives Konto in der Kontenliste sichern (für den Konten-Wechsler)
         snapshotActiveAccount()
         mutedFlow.value = loadSet("muted_senders")
@@ -418,6 +425,35 @@ object Prefs {
             sp.edit().putString("ai_engine", v).apply()
             aiEngineFlow.value = v
         }
+
+    /** Wisch-Aktion nach links: "delete", "archive", "read" oder "snooze". */
+    var swipeLeftAction: String
+        get() = sp.getString("swipe_left", "delete") ?: "delete"
+        set(v) {
+            sp.edit().putString("swipe_left", v).apply()
+            swipeLeftFlow.value = v
+        }
+
+    /** Wisch-Aktion nach rechts: "delete", "archive", "read" oder "snooze". */
+    var swipeRightAction: String
+        get() = sp.getString("swipe_right", "read") ?: "read"
+        set(v) {
+            sp.edit().putString("swipe_right", v).apply()
+            swipeRightFlow.value = v
+        }
+
+    /** Farbe eines Kontos (ARGB) oder null, wenn keine gewählt wurde. */
+    fun accountColor(accountEmail: String): Int? {
+        val v = sp.getInt("account_color_" + accountEmail.trim().lowercase(), 0)
+        return if (v == 0) null else v
+    }
+
+    fun setAccountColor(accountEmail: String, color: Int?) {
+        val key = "account_color_" + accountEmail.trim().lowercase()
+        if (color == null) sp.edit().remove(key).apply()
+        else sp.edit().putInt(key, color).apply()
+        accountColorsFlow.value++
+    }
 
     /** Erscheinungsbild: "system" (Gerät folgt), "light" oder "dark". */
     var darkMode: String
