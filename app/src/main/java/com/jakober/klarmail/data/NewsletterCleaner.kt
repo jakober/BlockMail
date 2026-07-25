@@ -96,11 +96,19 @@ object NewsletterCleaner {
                 infos.mapIndexedNotNull { i, c -> if (c.unsubscribe != null) i + 1 else null }.toSet()
             }
 
-            val selected = infos.filterIndexed { i, _ -> (i + 1) in selectedIndices }
             val method = if (usedClaude) "Claude" else "ohne KI (nur Abmelde-Header)"
-            if (selected.isEmpty()) {
+            if (infos.filterIndexed { i, _ -> (i + 1) in selectedIndices }.isEmpty()) {
                 return@withContext "${candidates.size} Mail(s) der letzten 24 h geprüft ($method), " +
                     "keine als Newsletter erkannt."
+            }
+            // Fehlt der Abmelde-Link aus dem Header, im Mail-Inhalt nachsehen
+            // (Fußzeilen-Link); als letzte Möglichkeit die mailto-Adresse.
+            // Muss VOR dem Verschieben passieren, solange die Mails noch offen sind.
+            val selected = infos.filterIndexed { i, _ -> (i + 1) in selectedIndices }.map { c ->
+                if (c.unsubscribe != null) c
+                else c.copy(
+                    unsubscribe = extractUnsubscribeFromBody(c.msg) ?: headerMailto(c.msg)
+                )
             }
 
             // Zielordner sicherstellen und verschieben
@@ -151,14 +159,83 @@ object NewsletterCleaner {
         }
     }
 
-    private fun extractUnsubscribeUrl(m: Message): String? {
-        val header = try {
+    /**
+     * Alle Einträge des List-Unsubscribe-Headers, entfaltet und von
+     * Zeilenumbruch-/Leerraum-Resten befreit (gefaltete Header zerreißen
+     * sonst die URL — ein Hauptgrund für kaputte Abmelde-Links).
+     */
+    private fun unsubscribeHeaderEntries(m: Message): List<String> {
+        val raw = try {
             m.getHeader("List-Unsubscribe")?.joinToString(",")
         } catch (e: Exception) {
             null
-        } ?: return null
-        return Regex("<(https?://[^>]+)>").find(header)?.groupValues?.get(1)
-            ?: Regex("https?://[^\\s,>]+").find(header)?.value
+        } ?: return emptyList()
+        val header = raw.replace(Regex("[\\r\\n\\t]"), " ")
+        val bracketed = Regex("<([^>]+)>").findAll(header)
+            .map { it.groupValues[1].replace(Regex("\\s+"), "") }
+            .filter { it.isNotEmpty() }
+            .toList()
+        if (bracketed.isNotEmpty()) return bracketed
+        return header.split(',')
+            .map { it.trim().replace(Regex("\\s+"), "") }
+            .filter { it.isNotEmpty() }
+    }
+
+    private fun extractUnsubscribeUrl(m: Message): String? {
+        val entries = unsubscribeHeaderEntries(m)
+        return entries.firstOrNull { it.startsWith("https://", ignoreCase = true) }
+            ?: entries.firstOrNull { it.startsWith("http://", ignoreCase = true) }
+    }
+
+    /** mailto-Abmeldeadresse aus dem Header — letzte Rückfallebene. */
+    private fun headerMailto(m: Message): String? =
+        unsubscribeHeaderEntries(m).firstOrNull { it.startsWith("mailto:", ignoreCase = true) }
+
+    /** Liefert den ersten text/html-Teil der Mail (rekursiv), oder null. */
+    private fun findHtmlPart(part: javax.mail.Part): String? {
+        try {
+            when {
+                part.isMimeType("text/html") -> return part.content as? String
+                part.isMimeType("multipart/*") -> {
+                    val mp = part.content as javax.mail.Multipart
+                    for (i in 0 until mp.count) {
+                        findHtmlPart(mp.getBodyPart(i))?.let { return it }
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return null
+    }
+
+    /**
+     * Sucht im HTML-Inhalt der Mail nach einem Abmelde-Link. Der letzte
+     * Treffer gewinnt — Abmelde-Links stehen üblicherweise in der Fußzeile,
+     * während frühe Treffer oft nur Kopfzeilen-Navigation sind.
+     */
+    private fun extractUnsubscribeFromBody(m: Message): String? {
+        return try {
+            val html = findHtmlPart(m)?.take(500_000) ?: return null
+            val keywords = Regex(
+                "abmeld|abbestell|austrag|unsubscrib|opt[-_ ]?out",
+                RegexOption.IGNORE_CASE
+            )
+            var best: String? = null
+            Regex(
+                "<a\\b[^>]*href\\s*=\\s*[\"']([^\"']+)[\"'][^>]*>(.*?)</a>",
+                setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+            ).findAll(html).forEach { a ->
+                val url = a.groupValues[1].replace("&amp;", "&").trim()
+                if (!url.startsWith("http", ignoreCase = true)) return@forEach
+                val text = a.groupValues[2].replace(Regex("<[^>]+>"), " ")
+                if (keywords.containsMatchIn(text) || keywords.containsMatchIn(url)) {
+                    best = url
+                }
+            }
+            best
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
