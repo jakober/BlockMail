@@ -39,6 +39,22 @@
             android:excludeFromRecents="true"
             android:noHistory="true" />
 
+        <!-- Homescreen-Widget mit den neuesten Mails -->
+        <receiver
+            android:name=".widget.MailWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_mail_info" />
+        </receiver>
+        <service
+            android:name=".widget.MailWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
         <service
             android:name=".service.MailSyncService"
             android:exported="false"

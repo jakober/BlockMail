@@ -13,7 +13,10 @@ Schlichte, moderne Android-Mail-App für Gmail (Kotlin + Jetpack Compose, Materi
 - HTML-Mailansicht inkl. eingebetteter Bilder; Anhänge öffnen/speichern; Anhänge mitsenden
 - Volltext-Suche (Absender/Betreff) über alle Mails
 - Ordner: Posteingang, Gesendet, Entwürfe, Archiv, Papierkorb
-- Rich-Text-Editor mit CC/BCC und Empfänger-Vorschlägen
+- Rich-Text-Editor mit CC/BCC und Empfänger-Vorschlägen; eigene Signatur und Textvorlagen
+- Mail später erinnern (Snooze): verschwindet aus dem Posteingang und kommt zur gewählten Zeit mit Erinnerung zurück
+- Optionale Konversations-Ansicht (Mails mit gleichem Betreff gebündelt, aufklappbar)
+- Homescreen-Widget mit den neuesten Mails (Tippen öffnet die Mail direkt)
 - Claude-KI (eigener API-Key): Antwort entwerfen, Mail formulieren, Rechtschreibprüfung
 - Tägliches KI-Newsletter-Aufräumen mit Protokoll und Abmelde-Links
 - Stumm-/Blockier-Listen pro Absender; Mehrfachauswahl

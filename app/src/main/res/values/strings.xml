@@ -9,4 +9,7 @@
     <string name="shortcut_newsletter_long">Newsletter-Scan ausführen</string>
     <string name="shortcut_compose_short">Neue Mail</string>
     <string name="shortcut_compose_long">Neue Mail verfassen</string>
+
+    <!-- Homescreen-Widget -->
+    <string name="widget_description">Die neuesten Mails aus dem Posteingang</string>
 </resources>

@@ -274,6 +274,8 @@ object MailRepository {
         if (_currentFolder.value != MailFolder.INBOX) return
         try {
             cacheFile?.writeText(MailMessage.listToJson(_messages.value))
+            // Homescreen-Widget mit dem frischen Stand versorgen
+            appContext?.let { com.jakober.klarmail.widget.MailWidgetProvider.notifyData(it) }
         } catch (_: Exception) {
         }
     }
