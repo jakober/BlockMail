@@ -354,6 +354,35 @@ object MailRepository {
         return store
     }
 
+    /**
+     * Testet IMAP-Zugangsdaten, ohne etwas zu speichern (für den
+     * Einrichtungsassistenten). Liefert null bei Erfolg, sonst den Fehlertext.
+     */
+    suspend fun testConnection(
+        email: String,
+        password: String,
+        host: String,
+        port: Int
+    ): String? = withContext(Dispatchers.IO) {
+        try {
+            val props = Properties().apply {
+                put("mail.store.protocol", "imaps")
+                put("mail.imaps.host", host)
+                put("mail.imaps.port", port.toString())
+                put("mail.imaps.connectiontimeout", "15000")
+                put("mail.imaps.timeout", "20000")
+                put("mail.imaps.ssl.enable", "true")
+            }
+            val session = Session.getInstance(props)
+            val store = session.getStore("imaps")
+            store.connect(host, email.trim(), password)
+            runCatching { store.close() }
+            null
+        } catch (e: Exception) {
+            friendlyError(e)
+        }
+    }
+
     suspend fun refresh() = withContext(Dispatchers.IO) {
         if (!Prefs.isConfigured) return@withContext
         refreshMutex.withLock {

@@ -102,7 +102,11 @@ private fun providerIdFor(imapHost: String): String =
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
+fun SettingsScreen(
+    onBack: () -> Unit,
+    onOpenNewsletterLog: () -> Unit = {},
+    onOpenSetup: () -> Unit = {}
+) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
@@ -266,6 +270,23 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 .padding(horizontal = 20.dp)
         ) {
             SectionCard("Konto verbinden", Icons.Filled.AccountCircle) {
+
+            // Empfohlener Weg: Assistent mit fertigen Server-Vorlagen — nur
+            // Anbieter wählen, E-Mail und Passwort eingeben.
+            Button(onClick = onOpenSetup, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.AutoAwesome, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Einrichtungsassistent starten")
+            }
+            Text(
+                "Empfohlen: Anbieter wählen, E-Mail und Passwort eingeben — fertig. " +
+                    "Server und Ports werden automatisch gesetzt.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(4.dp))
 
             if (googleConnected && !addingAccount) {
                 Card(

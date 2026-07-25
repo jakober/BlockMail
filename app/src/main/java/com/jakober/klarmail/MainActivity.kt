@@ -139,7 +139,14 @@ class MainActivity : ComponentActivity() {
                     composable("settings") {
                         SettingsScreen(
                             onBack = { nav.popBackStack() },
-                            onOpenNewsletterLog = { nav.navigate("newsletterlog") }
+                            onOpenNewsletterLog = { nav.navigate("newsletterlog") },
+                            onOpenSetup = { nav.navigate("setup") }
+                        )
+                    }
+                    composable("setup") {
+                        com.jakober.klarmail.ui.SetupWizardScreen(
+                            onDone = { nav.popBackStack("inbox", inclusive = false) },
+                            onBack = { nav.popBackStack() }
                         )
                     }
                     composable("newsletterlog") {
