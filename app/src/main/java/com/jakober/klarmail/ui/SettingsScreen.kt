@@ -46,6 +46,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -498,6 +499,60 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            SectionTitle("KI-Status")
+            var deviceAiStatus by remember { mutableStateOf<String?>(null) }
+            var aiTestRunning by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
+            }
+            val deviceAiUsable = deviceAiStatus?.startsWith("Nicht verfügbar") == false
+            val activeAi = when {
+                claudeKey.isNotBlank() -> "Claude (eigener API-Schlüssel)"
+                deviceAiUsable -> "Geräte-KI (Gemini Nano) — kostenlos, läuft lokal"
+                else -> "Keine — KI-Funktionen sind ausgeblendet"
+            }
+            Text(
+                "Aktive KI: $activeAi",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Geräte-KI (Gemini Nano): ${deviceAiStatus ?: "wird geprüft …"}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Mit Claude laufen alle KI-Funktionen inklusive der täglichen " +
+                    "Newsletter-Erkennung. Die Geräte-KI übernimmt Zusammenfassen, " +
+                    "Antwort entwerfen, Mail formulieren und Rechtschreibprüfung — " +
+                    "komplett auf dem Gerät; die Newsletter-Erkennung nutzt dann die " +
+                    "Abmelde-Header-Regel.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (deviceAiUsable) {
+                TextButton(
+                    enabled = !aiTestRunning,
+                    onClick = {
+                        scope.launch {
+                            aiTestRunning = true
+                            val result = try {
+                                com.jakober.klarmail.ai.GeminiNano.selfTest()
+                            } catch (e: Exception) {
+                                "Test fehlgeschlagen: ${e.message?.take(80)}"
+                            }
+                            aiTestRunning = false
+                            deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
+                            snackbar.showSnackbar(result)
+                        }
+                    }
+                ) { Text(if (aiTestRunning) "Geräte-KI wird getestet …" else "Geräte-KI jetzt testen") }
+            }
 
             Spacer(Modifier.height(8.dp))
             HorizontalDivider()

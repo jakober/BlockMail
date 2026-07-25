@@ -40,6 +40,26 @@ object GeminiNano {
         return text
     }
 
+    /** Menschlich lesbarer Status der Geräte-KI für die Einstellungen. */
+    suspend fun statusText(): String = try {
+        when (Generation.getClient().checkStatus()) {
+            FeatureStatus.AVAILABLE -> "Bereit — Modell ist geladen"
+            FeatureStatus.DOWNLOADABLE -> "Verfügbar — Modell wird beim ersten Einsatz geladen"
+            FeatureStatus.DOWNLOADING -> "Modell wird gerade heruntergeladen …"
+            else -> "Nicht verfügbar — dieses Gerät wird nicht unterstützt"
+        }
+    } catch (e: Throwable) {
+        "Nicht verfügbar — ${e.message?.take(80) ?: "keine AICore-Unterstützung"}"
+    }
+
+    /** Kurzer Selbsttest: eine Mini-Anfrage an die Geräte-KI. */
+    suspend fun selfTest(): String {
+        val start = System.currentTimeMillis()
+        val answer = generate("Antworte ausschließlich mit dem Wort: OK")
+        val secs = (System.currentTimeMillis() - start) / 1000.0
+        return "Geräte-KI antwortet: „${answer.take(40)}“ (${"%.1f".format(secs)} s)"
+    }
+
     suspend fun summarize(from: String, subject: String, body: String): String = generate(
         "Fasse die folgende E-Mail auf Deutsch in 2 bis 4 kurzen Sätzen zusammen. " +
             "Nenne nur die wichtigsten Fakten (wer, was, Termine, Beträge, geforderte " +
