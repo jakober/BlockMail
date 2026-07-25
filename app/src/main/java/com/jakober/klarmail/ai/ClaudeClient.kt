@@ -59,6 +59,17 @@ object ClaudeClient {
             }
         }
 
+    /** Fasst eine Mail in wenigen Sätzen zusammen (deutsch). */
+    suspend fun summarize(apiKey: String, from: String, subject: String, body: String): String =
+        complete(
+            apiKey,
+            system = "Du fasst E-Mails kompakt zusammen. Antworte NUR mit der Zusammenfassung " +
+                "auf Deutsch: 2 bis 4 kurze Sätze mit den wichtigsten Fakten (wer, was, " +
+                "Termine, Beträge, geforderte Aktionen). Keine Einleitung, keine Anrede, " +
+                "keine Aufzählungszeichen.",
+            user = "Von: $from\nBetreff: $subject\n\n${body.take(12000)}"
+        )
+
     /**
      * Einfache Spracherkennung für die Original-Mail. Liefert den Sprachnamen
      * für die Anweisung an Claude; im Zweifel Deutsch.

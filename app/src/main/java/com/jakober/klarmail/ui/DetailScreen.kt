@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
@@ -49,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -165,6 +168,8 @@ fun DetailScreen(
 
     var menuOpen by remember { mutableStateOf(false) }
     var showSnoozeDialog by remember { mutableStateOf(false) }
+    var summary by remember(uid) { mutableStateOf<String?>(null) }
+    var summarizing by remember(uid) { mutableStateOf(false) }
 
     if (showSnoozeDialog && mail != null) {
         androidx.compose.material3.AlertDialog(
@@ -371,6 +376,63 @@ fun DetailScreen(
             HorizontalDivider()
 
             val currentBody = body
+            // Claude-Zusammenfassung (nur mit API-Schlüssel und geladenem Inhalt)
+            if (com.jakober.klarmail.data.Prefs.claudeApiKey.isNotBlank() && currentBody != null) {
+                val sum = summary
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    if (sum == null) {
+                        AssistChip(
+                            onClick = {
+                                if (!summarizing) {
+                                    scope.launch {
+                                        summarizing = true
+                                        summary = try {
+                                            com.jakober.klarmail.ai.ClaudeClient.summarize(
+                                                com.jakober.klarmail.data.Prefs.claudeApiKey,
+                                                "${mail.from} <${mail.fromAddress}>",
+                                                mail.subject,
+                                                currentBody.text
+                                            )
+                                        } catch (e: Exception) {
+                                            "Zusammenfassung fehlgeschlagen: ${e.message}"
+                                        }
+                                        summarizing = false
+                                    }
+                                }
+                            },
+                            label = {
+                                Text(
+                                    if (summarizing) "Claude fasst zusammen …"
+                                    else "Mit Claude zusammenfassen"
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.AutoAwesome,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(AssistChipDefaults.IconSize)
+                                )
+                            }
+                        )
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    "✨ Zusammenfassung",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(sum, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+            }
             if (currentBody != null && currentBody.attachments.isNotEmpty()) {
                 Row(
                     modifier = Modifier
