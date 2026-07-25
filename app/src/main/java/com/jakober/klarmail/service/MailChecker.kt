@@ -237,6 +237,27 @@ object MailChecker {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        // Schnellantwort direkt aus der Benachrichtigung (RemoteInput);
+        // der Versand läuft über den Sync-Dienst, der genug Zeit dafür hat
+        val remoteInput = androidx.core.app.RemoteInput.Builder(MailSyncService.KEY_QUICK_REPLY)
+            .setLabel("Antworten …")
+            .build()
+        val replyIntent = Intent(context, MailSyncService::class.java).apply {
+            action = MailSyncService.ACTION_SEND_REPLY
+            putExtra("uid", uid)
+            putExtra("address", fromAddress)
+            putExtra("subject", subject)
+            putExtra("notifId", notifId)
+        }
+        val replyPending = PendingIntent.getForegroundService(
+            context, notifId, replyIntent,
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val replyAction = NotificationCompat.Action.Builder(0, "Antworten", replyPending)
+            .addRemoteInput(remoteInput)
+            .setAllowGeneratedReplies(true)
+            .build()
+
         val notification = NotificationCompat.Builder(context, MailApp.CHANNEL_NEW_MAIL)
             .setSmallIcon(R.drawable.ic_notif_mail)
             // Fallback für Android < 11 (dort greift der Konversations-Stil nicht)
@@ -248,6 +269,7 @@ object MailChecker {
             .setShortcutId(shortcutId)
             .setAutoCancel(true)
             .setContentIntent(openPending)
+            .addAction(replyAction)
             .addAction(0, "Als gelesen markieren", markReadPending)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
@@ -255,6 +277,42 @@ object MailChecker {
         try {
             NotificationManagerCompat.from(context).notify(notifId, notification)
         } catch (_: SecurityException) {
+        }
+    }
+
+    /** Verschickt eine Schnellantwort aus der Benachrichtigung. */
+    fun sendReplyAsync(
+        context: Context,
+        uid: Long,
+        address: String,
+        rawSubject: String,
+        text: String,
+        notifId: Int
+    ) {
+        scope.launch {
+            val result = try {
+                val cleaned = rawSubject.removePrefix("⏰ Erinnerung: ")
+                val subject = if (cleaned.startsWith("Re:", ignoreCase = true)) cleaned
+                else "Re: $cleaned"
+                MailRepository.send(to = address, subject = subject, body = text)
+                if (uid > 0) runCatching { MailRepository.markSeen(uid) }
+                "Antwort gesendet ✓"
+            } catch (e: Exception) {
+                "Antwort fehlgeschlagen: ${e.message?.take(60) ?: "Fehler"}"
+            }
+            // Die Mail-Benachrichtigung durch eine kurze Bestätigung ersetzen
+            val confirm = NotificationCompat.Builder(context, MailApp.CHANNEL_NEW_MAIL)
+                .setSmallIcon(R.drawable.ic_notif_mail)
+                .setColor(0xFFE85510.toInt())
+                .setContentTitle("BlockMail")
+                .setContentText(result)
+                .setTimeoutAfter(8_000)
+                .setAutoCancel(true)
+                .build()
+            try {
+                NotificationManagerCompat.from(context).notify(notifId, confirm)
+            } catch (_: SecurityException) {
+            }
         }
     }
 

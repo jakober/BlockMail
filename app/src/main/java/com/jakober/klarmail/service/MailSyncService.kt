@@ -70,6 +70,24 @@ class MailSyncService : Service() {
                     }
                 }
             }
+            ACTION_SEND_REPLY -> {
+                if (idleJob?.isActive != true) startIdleLoop()
+                val text = intent?.let {
+                    androidx.core.app.RemoteInput.getResultsFromIntent(it)
+                        ?.getCharSequence(KEY_QUICK_REPLY)?.toString()?.trim()
+                }.orEmpty()
+                val address = intent?.getStringExtra("address").orEmpty()
+                if (text.isNotBlank() && address.isNotBlank()) {
+                    MailChecker.sendReplyAsync(
+                        applicationContext,
+                        uid = intent?.getLongExtra("uid", -1L) ?: -1L,
+                        address = address,
+                        rawSubject = intent?.getStringExtra("subject").orEmpty(),
+                        text = text,
+                        notifId = intent?.getIntExtra("notifId", -1) ?: -1
+                    )
+                }
+            }
             else -> if (idleJob?.isActive != true) startIdleLoop()
         }
         if (cleanerJob?.isActive != true) startNewsletterScheduler()
@@ -235,6 +253,8 @@ class MailSyncService : Service() {
         var lastAliveMs: Long = 0
         const val ACTION_CHECK_NOW = "com.jakober.klarmail.CHECK_NOW"
         const val ACTION_NEWSLETTER = "com.jakober.klarmail.RUN_NEWSLETTER"
+        const val ACTION_SEND_REPLY = "com.jakober.klarmail.SEND_REPLY"
+        const val KEY_QUICK_REPLY = "quick_reply"
 
         /** Startet den Dienst mit einer bestimmten Aktion (Launcher-Shortcuts). */
         fun startWithAction(context: Context, action: String) {
