@@ -376,9 +376,12 @@ fun DetailScreen(
             HorizontalDivider()
 
             val currentBody = body
-            // KI-Zusammenfassung: Claude (mit API-Schlüssel) oder On-Device-Gemini
-            val hasClaudeKey = com.jakober.klarmail.data.Prefs.claudeApiKey.isNotBlank()
-            val geminiAvailable by androidx.compose.runtime.produceState(initialValue = false) {
+            // KI-Zusammenfassung: Claude (mit API-Schlüssel) oder On-Device-Gemini,
+            // gemäß der KI-Wahl in den Einstellungen
+            val aiEngine by com.jakober.klarmail.data.Prefs.aiEngineFlow.collectAsState()
+            val hasClaudeKey = com.jakober.klarmail.data.Prefs.claudeApiKey.isNotBlank() &&
+                aiEngine != "gemini"
+            val geminiAvailable by androidx.compose.runtime.produceState(initialValue = false, hasClaudeKey) {
                 value = !hasClaudeKey && com.jakober.klarmail.ai.GeminiNano.available()
             }
             if ((hasClaudeKey || geminiAvailable) && currentBody != null) {

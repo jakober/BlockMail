@@ -14,6 +14,7 @@ object Prefs {
     val colorSchemeFlow = MutableStateFlow("klarmail")
     val darkModeFlow = MutableStateFlow("system")
     val conversationViewFlow = MutableStateFlow(false)
+    val aiEngineFlow = MutableStateFlow("auto")
 
     /** Stumm geschaltete Absender: als gelesen markieren, keine Benachrichtigung. */
     val mutedFlow = MutableStateFlow<Set<String>>(emptySet())
@@ -42,6 +43,7 @@ object Prefs {
         darkModeFlow.value = darkMode
         snoozedFlow.value = snoozes().map { it.uid }.toSet()
         conversationViewFlow.value = conversationView
+        aiEngineFlow.value = aiEngine
         // Aktives Konto in der Kontenliste sichern (für den Konten-Wechsler)
         snapshotActiveAccount()
         mutedFlow.value = loadSet("muted_senders")
@@ -407,6 +409,14 @@ object Prefs {
         set(v) {
             sp.edit().putBoolean("conversation_view", v).apply()
             conversationViewFlow.value = v
+        }
+
+    /** KI-Wahl: "auto" (Claude wenn Schlüssel da, sonst Geräte-KI), "claude", "gemini". */
+    var aiEngine: String
+        get() = sp.getString("ai_engine", "auto") ?: "auto"
+        set(v) {
+            sp.edit().putString("ai_engine", v).apply()
+            aiEngineFlow.value = v
         }
 
     /** Erscheinungsbild: "system" (Gerät folgt), "light" oder "dark". */

@@ -505,11 +505,18 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
             SectionTitle("KI-Status")
             var deviceAiStatus by remember { mutableStateOf<String?>(null) }
             var aiTestRunning by remember { mutableStateOf(false) }
+            val aiEngine by Prefs.aiEngineFlow.collectAsState()
             LaunchedEffect(Unit) {
                 deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
             }
             val deviceAiUsable = deviceAiStatus?.startsWith("Nicht verfügbar") == false
             val activeAi = when {
+                aiEngine == "gemini" ->
+                    if (deviceAiUsable) "Geräte-KI (Gemini Nano) — kostenlos, läuft lokal"
+                    else "Keine — Geräte-KI auf diesem Gerät nicht verfügbar"
+                aiEngine == "claude" ->
+                    if (claudeKey.isNotBlank()) "Claude (eigener API-Schlüssel)"
+                    else "Keine — API-Schlüssel fehlt"
                 claudeKey.isNotBlank() -> "Claude (eigener API-Schlüssel)"
                 deviceAiUsable -> "Geräte-KI (Gemini Nano) — kostenlos, läuft lokal"
                 else -> "Keine — KI-Funktionen sind ausgeblendet"
@@ -520,6 +527,26 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
             )
+            Spacer(Modifier.height(4.dp))
+            listOf(
+                "auto" to "Automatisch (Claude, wenn Schlüssel vorhanden — sonst Geräte-KI)",
+                "claude" to "Immer Claude (braucht API-Schlüssel)",
+                "gemini" to "Immer Geräte-KI (Gemini Nano)"
+            ).forEach { (id, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.aiEngine = id }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = aiEngine == id,
+                        onClick = { Prefs.aiEngine = id }
+                    )
+                    Text(label, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 "Geräte-KI (Gemini Nano): ${deviceAiStatus ?: "wird geprüft …"}",

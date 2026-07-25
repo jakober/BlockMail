@@ -55,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -169,9 +170,11 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
     var lastLanguage by remember { mutableStateOf<String?>(null) }
     var aiMenuOpen by remember { mutableStateOf(false) }
 
-    val hasClaudeKey = Prefs.claudeApiKey.isNotBlank()
-    // Gratis-Fallback: On-Device-KI (Gemini Nano), falls kein Claude-Key da ist
-    val geminiAvailable by androidx.compose.runtime.produceState(initialValue = false) {
+    val aiEngine by Prefs.aiEngineFlow.collectAsState()
+    // Claude nutzen? Richtet sich nach der KI-Wahl in den Einstellungen
+    val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
+    // On-Device-KI (Gemini Nano), wenn Claude nicht genutzt wird
+    val geminiAvailable by androidx.compose.runtime.produceState(initialValue = false, hasClaudeKey) {
         value = !hasClaudeKey && com.jakober.klarmail.ai.GeminiNano.available()
     }
     val aiAvailable = hasClaudeKey || geminiAvailable

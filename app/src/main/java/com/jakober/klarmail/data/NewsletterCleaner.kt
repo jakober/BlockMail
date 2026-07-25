@@ -82,7 +82,8 @@ object NewsletterCleaner {
                 return@withContext "${candidates.size} Mail(s) geprüft, alle als „kein Newsletter“ bekannt."
             }
 
-            val usedClaude = Prefs.claudeApiKey.isNotBlank()
+            // KI-Wahl respektieren: Bei "Immer Geräte-KI" keine Claude-Aufrufe
+            val usedClaude = Prefs.claudeApiKey.isNotBlank() && Prefs.aiEngine != "gemini"
             val selectedIndices: Set<Int> = if (usedClaude) {
                 ClaudeClient.classifyNewsletters(
                     Prefs.claudeApiKey,
