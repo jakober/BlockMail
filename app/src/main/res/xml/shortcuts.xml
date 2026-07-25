@@ -21,7 +21,7 @@
         <intent
             android:action="com.jakober.klarmail.SHORTCUT_NEWSLETTER"
             android:targetPackage="com.jakober.klarmail"
-            android:targetClass="com.jakober.klarmail.MainActivity" />
+            android:targetClass="com.jakober.klarmail.ShortcutActivity" />
     </shortcut>
     <shortcut
         android:shortcutId="refresh"
@@ -32,6 +32,6 @@
         <intent
             android:action="com.jakober.klarmail.SHORTCUT_REFRESH"
             android:targetPackage="com.jakober.klarmail"
-            android:targetClass="com.jakober.klarmail.MainActivity" />
+            android:targetClass="com.jakober.klarmail.ShortcutActivity" />
     </shortcut>
 </shortcuts>

@@ -161,6 +161,48 @@ object NewsletterCleaner {
             ?: Regex("https?://[^\\s,>]+").find(header)?.value
     }
 
+    /**
+     * Wie run(), meldet das Ergebnis aber in jedem Fall als Benachrichtigung —
+     * für den Launcher-Shortcut, bei dem die App nicht geöffnet wird.
+     */
+    suspend fun runWithNotification(context: Context): String {
+        val result = try {
+            run(context)
+        } catch (e: Exception) {
+            "Fehler: ${e.message ?: e.javaClass.simpleName}"
+        }
+        // Bei verschobenen Newslettern hat run() bereits selbst benachrichtigt
+        // (Format der Erfolgsmeldung: "…: N Newsletter … verschoben.")
+        val movedSomething = Regex(": [1-9]\\d* Newsletter").containsMatchIn(result)
+        if (!movedSomething) statusNotification(context, result)
+        return result
+    }
+
+    private fun statusNotification(context: Context, text: String) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            putExtra("open_log", true)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pending = PendingIntent.getActivity(
+            context, NOTIF_ID + 1, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val notification = NotificationCompat.Builder(context, MailApp.CHANNEL_NEWSLETTER)
+            .setSmallIcon(R.drawable.ic_notif_mail)
+            .setLargeIcon(com.jakober.klarmail.service.NotificationUtil.logoBitmap(context))
+            .setColor(0xFFE85510.toInt())
+            .setContentTitle("Newsletter-Scan abgeschlossen")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setAutoCancel(true)
+            .setContentIntent(pending)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(NOTIF_ID + 1, notification)
+        } catch (_: SecurityException) {
+        }
+    }
+
     private fun showNotification(context: Context, count: Int) {
         if (count <= 0) return
         val intent = Intent(context, MainActivity::class.java).apply {

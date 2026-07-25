@@ -58,13 +58,73 @@ class MailSyncService : Service() {
         } else {
             startForeground(SERVICE_NOTIF_ID, serviceNotification())
         }
-        if (intent?.action == ACTION_RESTART) {
-            restartIdleLoop()
-        } else if (idleJob?.isActive != true) {
-            startIdleLoop()
+        when (intent?.action) {
+            ACTION_RESTART -> restartIdleLoop()
+            ACTION_CHECK_NOW -> {
+                if (idleJob?.isActive != true) startIdleLoop()
+                checkNowAsync()
+            }
+            ACTION_NEWSLETTER -> {
+                if (idleJob?.isActive != true) startIdleLoop()
+                scope.launch {
+                    runCatching {
+                        com.jakober.klarmail.data.NewsletterCleaner
+                            .runWithNotification(applicationContext)
+                    }
+                }
+            }
+            else -> if (idleJob?.isActive != true) startIdleLoop()
         }
         if (cleanerJob?.isActive != true) startNewsletterScheduler()
         return START_STICKY
+    }
+
+    /**
+     * Sofort-Prüfung per Launcher-Shortcut: eigene Verbindung, meldet neue
+     * Mails über die üblichen Benachrichtigungen; gibt es keine, kommt eine
+     * kurze Statusmeldung — die App muss dafür nicht geöffnet werden.
+     */
+    private fun checkNowAsync() {
+        scope.launch {
+            var newCount = -1
+            try {
+                val store = MailRepository.openStore()
+                try {
+                    val inbox = store.getFolder("INBOX") as IMAPFolder
+                    inbox.open(Folder.READ_ONLY)
+                    newCount = processNewMessages(inbox)
+                    syncFlags(inbox)
+                } finally {
+                    runCatching { store.close() }
+                }
+            } catch (_: Exception) {
+            }
+            when {
+                newCount == 0 -> statusNotification("Keine neuen Mails", timeoutMs = 15_000)
+                newCount < 0 -> statusNotification("Prüfung fehlgeschlagen — bitte Verbindung prüfen")
+            }
+        }
+    }
+
+    private fun statusNotification(text: String, timeoutMs: Long = 0) {
+        val openIntent = PendingIntent.getActivity(
+            this, STATUS_NOTIF_ID, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val notification = NotificationCompat.Builder(this, MailApp.CHANNEL_NEW_MAIL)
+            .setSmallIcon(R.drawable.ic_notif_mail)
+            .setLargeIcon(NotificationUtil.logoBitmap(this))
+            .setColor(0xFFE85510.toInt())
+            .setContentTitle("BlockMail")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setContentIntent(openIntent)
+            .apply { if (timeoutMs > 0) setTimeoutAfter(timeoutMs) }
+            .build()
+        try {
+            NotificationManagerCompat.from(this).notify(STATUS_NOTIF_ID, notification)
+        } catch (_: SecurityException) {
+        }
     }
 
     private var cleanerJob: Job? = null
@@ -176,11 +236,15 @@ class MailSyncService : Service() {
         }
     }
 
-    /** Meldet alle Mails mit UID oberhalb der Merkliste und rückt sie vor. */
-    private fun processNewMessages(inbox: IMAPFolder) {
+    /**
+     * Meldet alle Mails mit UID oberhalb der Merkliste und rückt sie vor.
+     * Liefert die Anzahl der neu gemeldeten Mails (ohne blockierte).
+     */
+    private fun processNewMessages(inbox: IMAPFolder): Int {
+        var newCount = 0
         try {
             val count = inbox.messageCount
-            if (count <= 0) return
+            if (count <= 0) return 0
             val maxUid = inbox.uidNext.let { next ->
                 if (next > 0) next - 1 else inbox.getUID(inbox.getMessage(count))
             }
@@ -188,9 +252,9 @@ class MailSyncService : Service() {
             if (lastUid <= 0L) {
                 // Erststart: aktuellen Stand merken, ohne alte Mails zu melden
                 Prefs.lastPushUid = maxUid
-                return
+                return 0
             }
-            if (maxUid <= lastUid) return
+            if (maxUid <= lastUid) return 0
             val msgs = inbox.getMessagesByUID(lastUid + 1, maxUid)
             if (msgs.isNotEmpty()) {
                 val fp = FetchProfile().apply {
@@ -217,6 +281,7 @@ class MailSyncService : Service() {
                                 MailRepository.onNewMessage(mail.copy(seen = true))
                                 scope.launch { MailRepository.setInboxSeenByUid(uid) }
                                 toPrefetch.add(uid)
+                                newCount++
                             }
                             else -> {
                                 MailRepository.onNewMessage(mail)
@@ -224,6 +289,7 @@ class MailSyncService : Service() {
                                     showNewMailNotification(mail.uid, mail.from, mail.subject)
                                 }
                                 toPrefetch.add(uid)
+                                newCount++
                             }
                         }
                     } catch (_: Exception) {
@@ -241,6 +307,7 @@ class MailSyncService : Service() {
             pushStatus.value = "Verbunden – letzte Mail verarbeitet ${now()}"
         } catch (_: Exception) {
         }
+        return newCount
     }
 
     /**
@@ -324,7 +391,16 @@ class MailSyncService : Service() {
 
     companion object {
         private const val SERVICE_NOTIF_ID = 1
+        private const val STATUS_NOTIF_ID = 4300
         const val ACTION_RESTART = "com.jakober.klarmail.RESTART_PUSH"
+        const val ACTION_CHECK_NOW = "com.jakober.klarmail.CHECK_NOW"
+        const val ACTION_NEWSLETTER = "com.jakober.klarmail.RUN_NEWSLETTER"
+
+        /** Startet den Dienst mit einer bestimmten Aktion (Launcher-Shortcuts). */
+        fun startWithAction(context: Context, action: String) {
+            val intent = Intent(context, MailSyncService::class.java).setAction(action)
+            context.startForegroundService(intent)
+        }
 
         /** Sichtbarer Zustand des Push-Dienstes für die Einstellungen. */
         val pushStatus = MutableStateFlow("Noch nicht gestartet")

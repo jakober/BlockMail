@@ -31,6 +31,14 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- Unsichtbares Sprungbrett für Hintergrund-Shortcuts -->
+        <activity
+            android:name=".ShortcutActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
+
         <service
             android:name=".service.MailSyncService"
             android:exported="false"
