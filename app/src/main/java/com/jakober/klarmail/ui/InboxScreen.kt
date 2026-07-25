@@ -58,6 +58,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -764,12 +765,22 @@ private fun SwipeableMailRow(
     androidx.compose.foundation.layout.BoxWithConstraints(
         modifier = modifier.padding(horizontal = 10.dp, vertical = 3.dp)
     ) {
-        val widthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val widthPx = with(density) { maxWidth.toPx() }
         val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
-        val dismissState = rememberSwipeToDismissBoxState(
-            // Erst ab 30 % Wischstrecke auslösen; vorher schnappt die Zeile zurück
-            positionalThreshold = { totalDistance -> totalDistance * SWIPE_THRESHOLD }
-        )
+        // Bewusst KEIN rememberSaveable (rememberSwipeToDismissBoxState):
+        // Der gespeicherte "weggewischt"-Zustand würde sonst beim
+        // Wiederherstellen einer Mail über "Rückgängig" restauriert und die
+        // Zeile sofort erneut löschen (Endlosschleife).
+        val dismissState = remember {
+            SwipeToDismissBoxState(
+                initialValue = SwipeToDismissBoxValue.Settled,
+                density = density,
+                confirmValueChange = { true },
+                // Erst ab 30 % Wischstrecke auslösen; vorher schnappt die Zeile zurück
+                positionalThreshold = { totalDistance -> totalDistance * SWIPE_THRESHOLD }
+            )
+        }
 
         // Vibrieren, sobald die Auslöseschwelle überschritten wird
         var thresholdReached by remember { mutableStateOf(false) }
@@ -797,14 +808,8 @@ private fun SwipeableMailRow(
                     dismissState.reset()
                 }
                 SwipeToDismissBoxValue.EndToStart -> {
-                    // Zustand SOFORT (ohne Animation) zurücksetzen, bevor die
-                    // Zeile aus der Liste verschwindet: rememberSaveable
-                    // konserviert den Wisch-Zustand pro Listen-Key — beim
-                    // Wiederherstellen über "Rückgängig" käme die Zeile sonst
-                    // bereits "weggewischt" zurück und würde sich sofort
-                    // erneut löschen (Endlosschleife).
-                    dismissState.snapshotTo(SwipeToDismissBoxValue.Settled)
                     onDelete()
+                    dismissState.reset()
                 }
                 else -> {}
             }
