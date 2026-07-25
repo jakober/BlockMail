@@ -161,6 +161,30 @@ object Prefs {
         get() = sp.getLong("last_push_uid", 0L)
         set(v) = sp.edit().putLong("last_push_uid", v).apply()
 
+    /** Signatur, die unter neue Mails gesetzt wird (leer = keine). */
+    var signature: String
+        get() = sp.getString("signature", "") ?: ""
+        set(v) = sp.edit().putString("signature", v).apply()
+
+    /** Wiederverwendbare Textvorlagen fürs Verfassen-Fenster (Titel + Text). */
+    fun mailTemplates(): List<Pair<String, String>> = try {
+        val arr = org.json.JSONArray(sp.getString("mail_templates", "[]") ?: "[]")
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            o.optString("title") to o.optString("text")
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    fun saveMailTemplates(list: List<Pair<String, String>>) {
+        val arr = org.json.JSONArray()
+        list.forEach { (title, text) ->
+            arr.put(org.json.JSONObject().apply { put("title", title); put("text", text) })
+        }
+        sp.edit().putString("mail_templates", arr.toString()).apply()
+    }
+
     /**
      * Version des Vorschau-Algorithmus. Steigt sie, werden alle gespeicherten
      * Vorschauen einmalig verworfen und aus dem Inhalte-Cache neu aufgebaut.

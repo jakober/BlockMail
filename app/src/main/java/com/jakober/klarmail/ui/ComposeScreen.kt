@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatListBulleted
@@ -128,6 +129,16 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
         } ?: "")
     }
     val editorState = rememberRichTextState()
+
+    // Signatur beim Öffnen unter den (leeren) Text setzen
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val sig = Prefs.signature
+        if (sig.isNotBlank() && editorState.annotatedString.text.isBlank()) {
+            editorState.setHtml("<br><br>${plainToHtml(sig)}")
+        }
+    }
+
+    var templateMenuOpen by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var busyLabel by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
@@ -327,6 +338,42 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                             Icons.Filled.FormatListBulleted, "Aufzählung",
                             editorState.isUnorderedList
                         ) { editorState.toggleUnorderedList() }
+                        Box {
+                            IconButton(onClick = { templateMenuOpen = true }) {
+                                Icon(
+                                    Icons.Filled.Description, contentDescription = "Vorlagen",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = templateMenuOpen,
+                                onDismissRequest = { templateMenuOpen = false }
+                            ) {
+                                val templates = Prefs.mailTemplates()
+                                if (templates.isEmpty()) {
+                                    DropdownMenuItem(
+                                        text = { Text("Keine Vorlagen – in den Einstellungen anlegen") },
+                                        enabled = false,
+                                        onClick = {}
+                                    )
+                                } else {
+                                    templates.forEach { (title, text) ->
+                                        DropdownMenuItem(
+                                            text = { Text(title) },
+                                            onClick = {
+                                                templateMenuOpen = false
+                                                val current = editorState.toHtml()
+                                                val addition = plainToHtml(text)
+                                                editorState.setHtml(
+                                                    if (editorState.annotatedString.text.isBlank()) addition
+                                                    else "$current<br>$addition"
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

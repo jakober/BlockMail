@@ -29,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -83,6 +84,50 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
     var connectedEmail by remember { mutableStateOf(Prefs.email) }
     val selectedScheme by Prefs.colorSchemeFlow.collectAsState()
     val darkMode by Prefs.darkModeFlow.collectAsState()
+    var signatureText by remember { mutableStateOf(Prefs.signature) }
+    var templates by remember { mutableStateOf(Prefs.mailTemplates()) }
+    var showTemplateDialog by remember { mutableStateOf(false) }
+
+    if (showTemplateDialog) {
+        var tplTitle by remember { mutableStateOf("") }
+        var tplText by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showTemplateDialog = false },
+            title = { Text("Vorlage hinzufügen") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = tplTitle,
+                        onValueChange = { tplTitle = it },
+                        label = { Text("Titel") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = tplText,
+                        onValueChange = { tplText = it },
+                        label = { Text("Text") },
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = tplTitle.isNotBlank() && tplText.isNotBlank(),
+                    onClick = {
+                        templates = templates + (tplTitle.trim() to tplText)
+                        Prefs.saveMailTemplates(templates)
+                        showTemplateDialog = false
+                    }
+                ) { Text("Speichern") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTemplateDialog = false }) { Text("Abbrechen") }
+            }
+        )
+    }
 
     val authService = remember { AuthorizationService(context) }
     DisposableEffect(Unit) {
@@ -368,6 +413,65 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNewsletterLog: () -> Unit = {}) {
                 onAdd = { Prefs.addBlocked(it) },
                 onRemove = { Prefs.removeBlocked(it) }
             )
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            SectionTitle("Signatur")
+            Text(
+                "Wird beim Verfassen automatisch unter den Text gesetzt.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = signatureText,
+                onValueChange = {
+                    signatureText = it
+                    Prefs.signature = it
+                },
+                label = { Text("Signatur (leer = keine)") },
+                minLines = 2,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            SectionTitle("Textvorlagen")
+            Text(
+                "Wiederverwendbare Texte fürs Verfassen-Fenster (dort über das Vorlagen-Symbol einfügbar).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            templates.forEachIndexed { index, (title, _) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = {
+                        templates = templates.filterIndexed { i, _ -> i != index }
+                        Prefs.saveMailTemplates(templates)
+                    }) {
+                        Icon(
+                            Icons.Filled.Close, contentDescription = "Vorlage löschen",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            if (templates.isEmpty()) {
+                Text(
+                    "Noch keine Vorlagen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = { showTemplateDialog = true }) { Text("Vorlage hinzufügen") }
 
             Spacer(Modifier.height(8.dp))
             HorizontalDivider()
