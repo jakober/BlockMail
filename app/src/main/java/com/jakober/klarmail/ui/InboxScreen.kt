@@ -61,6 +61,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.Newspaper
@@ -803,55 +804,102 @@ fun InboxScreen(
                                 )
                             }
                         }
-                        // Schnellumschalter Hell ↔ Dunkel
-                        if (configured) {
-                            val darkModeSetting by Prefs.darkModeFlow.collectAsState()
-                            val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
-                            val isDarkNow = when (darkModeSetting) {
-                                "dark" -> true
-                                "light" -> false
-                                else -> systemDark
+                        // Dreipunkt-Menü hält die Leiste schlank: Design,
+                        // Ansicht und Einstellungen wandern hier hinein
+                        var overflowOpen by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { overflowOpen = true }) {
+                                Icon(Icons.Filled.MoreVert, contentDescription = "Mehr")
                             }
-                            IconButton(onClick = {
-                                Prefs.darkMode = if (isDarkNow) "light" else "dark"
-                            }) {
-                                Icon(
-                                    if (isDarkNow) Icons.Filled.LightMode
-                                    else Icons.Filled.DarkMode,
-                                    contentDescription = if (isDarkNow) {
-                                        "Zum hellen Design wechseln"
-                                    } else {
-                                        "Zum dunklen Design wechseln"
+                            DropdownMenu(
+                                expanded = overflowOpen,
+                                onDismissRequest = { overflowOpen = false },
+                                shape = RoundedCornerShape(20.dp),
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                            ) {
+                                if (configured) {
+                                    // Hell ↔ Dunkel
+                                    val darkModeSetting by Prefs.darkModeFlow.collectAsState()
+                                    val systemDark =
+                                        androidx.compose.foundation.isSystemInDarkTheme()
+                                    val isDarkNow = when (darkModeSetting) {
+                                        "dark" -> true
+                                        "light" -> false
+                                        else -> systemDark
                                     }
-                                )
-                            }
-                        }
-                        // Durchschalter Liste → Kacheln (2er) → Kompakt (3er)
-                        if (configured) {
-                            IconButton(onClick = {
-                                Prefs.inboxLayout = when (inboxLayout) {
-                                    "list" -> "blocks"
-                                    "blocks" -> "blocks3"
-                                    else -> "list"
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                if (isDarkNow) "Helles Design"
+                                                else "Dunkles Design"
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                if (isDarkNow) Icons.Filled.LightMode
+                                                else Icons.Filled.DarkMode,
+                                                null
+                                            )
+                                        },
+                                        onClick = {
+                                            overflowOpen = false
+                                            Prefs.darkMode = if (isDarkNow) "light" else "dark"
+                                        }
+                                    )
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(
+                                            horizontal = 16.dp, vertical = 4.dp
+                                        )
+                                    )
+                                    // Ansicht wählen (aktuelle mit Haken)
+                                    listOf(
+                                        Triple("list", "Liste", Icons.AutoMirrored.Filled.ViewList),
+                                        Triple("blocks", "Kacheln (2er)", Icons.Filled.GridView),
+                                        Triple("blocks3", "Kompakt (3er)", Icons.Filled.ViewModule)
+                                    ).forEach { (value, label, icon) ->
+                                        val active = inboxLayout == value
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    label,
+                                                    fontWeight = if (active) FontWeight.SemiBold
+                                                    else FontWeight.Normal
+                                                )
+                                            },
+                                            leadingIcon = { Icon(icon, null) },
+                                            trailingIcon = if (active) {
+                                                { Icon(Icons.Filled.Check, null) }
+                                            } else null,
+                                            colors = if (active) {
+                                                androidx.compose.material3.MenuDefaults.itemColors(
+                                                    textColor = MaterialTheme.colorScheme.primary,
+                                                    leadingIconColor = MaterialTheme.colorScheme.primary,
+                                                    trailingIconColor = MaterialTheme.colorScheme.primary
+                                                )
+                                            } else {
+                                                androidx.compose.material3.MenuDefaults.itemColors()
+                                            },
+                                            onClick = {
+                                                overflowOpen = false
+                                                Prefs.inboxLayout = value
+                                            }
+                                        )
+                                    }
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(
+                                            horizontal = 16.dp, vertical = 4.dp
+                                        )
+                                    )
                                 }
-                            }) {
-                                // Symbol zeigt jeweils die NÄCHSTE Ansicht
-                                Icon(
-                                    when (inboxLayout) {
-                                        "list" -> Icons.Filled.GridView
-                                        "blocks" -> Icons.Filled.ViewModule
-                                        else -> Icons.AutoMirrored.Filled.ViewList
-                                    },
-                                    contentDescription = when (inboxLayout) {
-                                        "list" -> "Zur Kachel-Ansicht wechseln"
-                                        "blocks" -> "Zur kompakten Kachel-Ansicht wechseln"
-                                        else -> "Zur Listen-Ansicht wechseln"
+                                DropdownMenuItem(
+                                    text = { Text("Einstellungen") },
+                                    leadingIcon = { Icon(Icons.Filled.Settings, null) },
+                                    onClick = {
+                                        overflowOpen = false
+                                        onSettings()
                                     }
                                 )
                             }
-                        }
-                        IconButton(onClick = onSettings) {
-                            Icon(Icons.Filled.Settings, contentDescription = "Einstellungen")
                         }
                     }
                 )
