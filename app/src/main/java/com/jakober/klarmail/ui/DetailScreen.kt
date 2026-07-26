@@ -6,6 +6,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
@@ -73,6 +75,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -466,7 +469,15 @@ fun DetailScreen(
                     .collect { headerHidden = it > 60 }
             }
             androidx.compose.animation.AnimatedVisibility(visible = !headerHidden) {
-            Column {
+            // Auch ein Wisch nach oben AUF dem Kopfbereich blendet ihn aus —
+            // im Querformat wäre der Inhaltsbereich sonst winzig
+            Column(
+                modifier = Modifier.pointerInput(Unit) {
+                    detectVerticalDragGestures { _, dragAmount ->
+                        if (dragAmount < -12) headerHidden = true
+                    }
+                }
+            ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 Text(
                     text = mail.subject,
@@ -807,6 +818,31 @@ fun DetailScreen(
                 HorizontalDivider()
             }
             }
+            }
+            // Eingeklappt: schmale Zeile mit Betreff — Antippen holt den
+            // Kopfbereich zurück
+            androidx.compose.animation.AnimatedVisibility(visible = headerHidden) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { headerHidden = false }
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        mail.subject,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        Icons.Filled.ExpandMore,
+                        contentDescription = "Kopfbereich einblenden",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             when {
                 loadError != null -> Text(
