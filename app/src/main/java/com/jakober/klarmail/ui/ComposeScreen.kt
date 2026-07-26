@@ -164,9 +164,20 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
 
     var templateMenuOpen by remember { mutableStateOf(false) }
     var showScheduleDialog by remember { mutableStateOf(false) }
-    // Absender-Konto: bei Antworten das Konto, in dem die Mail ankam
+    // Absender-Konto: bei Antworten immer das Konto, in dem die Mail ankam;
+    // bei neuen Mails der eingestellte Standard-Absender (sonst aktives Konto)
     var fromAccount by remember {
-        mutableStateOf(original?.account?.takeIf { it.isNotBlank() } ?: Prefs.email)
+        val default = Prefs.defaultSendAccount
+        mutableStateOf(
+            when {
+                original != null ->
+                    original.account.takeIf { it.isNotBlank() } ?: Prefs.email
+                default.isNotBlank() &&
+                    Prefs.accounts().any { it.email.equals(default, ignoreCase = true) } ->
+                    default
+                else -> Prefs.email
+            }
+        )
     }
     var fromMenuOpen by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }

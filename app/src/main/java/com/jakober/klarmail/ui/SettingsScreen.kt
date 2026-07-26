@@ -925,6 +925,76 @@ fun SettingsScreen(
                 }
             }
 
+            // Standard-Absender für neue Mails
+            if (accountList.size > 1) {
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
+                SectionTitle("Standard-Absender")
+                Text(
+                    "Neue Mails werden über dieses Konto geschrieben (im " +
+                        "Verfassen-Fenster jederzeit umschaltbar). Antworten gehen " +
+                        "immer über das Konto, in dem die Mail ankam.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
+                var defaultSender by remember { mutableStateOf(Prefs.defaultSendAccount) }
+                var senderMenuOpen by remember { mutableStateOf(false) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Neue Mails senden über",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Box {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { senderMenuOpen = true }
+                        ) {
+                            Text(
+                                defaultSender.ifBlank { "Aktives Konto" },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
+                            )
+                            Icon(
+                                Icons.Filled.ArrowDropDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = senderMenuOpen,
+                            onDismissRequest = { senderMenuOpen = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Aktives Konto") },
+                                onClick = {
+                                    senderMenuOpen = false
+                                    defaultSender = ""
+                                    Prefs.defaultSendAccount = ""
+                                }
+                            )
+                            accountList.forEach { acc ->
+                                DropdownMenuItem(
+                                    text = { Text(acc.email) },
+                                    onClick = {
+                                        senderMenuOpen = false
+                                        defaultSender = acc.email
+                                        Prefs.defaultSendAccount = acc.email
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             }
 
             SectionCard(

@@ -132,6 +132,14 @@ object Prefs {
             vipOnlyFlow.value = v
         }
 
+    /**
+     * Standard-Absender für NEUE Mails ("" = aktives Konto). Antworten gehen
+     * unabhängig davon immer über das Konto, in dem die Mail ankam.
+     */
+    var defaultSendAccount: String
+        get() = sp.getString("default_send_account", "") ?: ""
+        set(v) = sp.edit().putString("default_send_account", v.trim()).apply()
+
     /** Wurde der Willkommens-Bildschirm beim ersten Start bereits gezeigt? */
     var welcomeShown: Boolean
         get() = sp.getBoolean("welcome_shown", false)
