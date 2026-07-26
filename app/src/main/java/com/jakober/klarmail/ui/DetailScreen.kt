@@ -503,11 +503,30 @@ fun DetailScreen(
             // Pro Mail ein frischer Scroll-Zustand — sonst erbt die nächste
             // Mail die alte Scroll-Position (und der Kopf bliebe versteckt)
             val textScroll = remember(uid) { androidx.compose.foundation.ScrollState(0) }
+            // Hysterese gegen Springen: Ausblenden erst nach deutlichem
+            // Scrollen, Einblenden erst ganz oben — dazwischen bleibt der
+            // Zustand stabil (sonst klappt der Kopf beim Scrollen hin und her)
+            fun onContentScroll(y: Int) {
+                if (y > 160) headerHidden = true
+                else if (y < 16) headerHidden = false
+            }
             LaunchedEffect(textScroll) {
                 androidx.compose.runtime.snapshotFlow { textScroll.value }
-                    .collect { headerHidden = it > 60 }
+                    .collect { onContentScroll(it) }
             }
-            androidx.compose.animation.AnimatedVisibility(visible = !headerHidden) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !headerHidden,
+                enter = androidx.compose.animation.expandVertically(
+                    animationSpec = androidx.compose.animation.core.tween(220)
+                ) + androidx.compose.animation.fadeIn(
+                    animationSpec = androidx.compose.animation.core.tween(220)
+                ),
+                exit = androidx.compose.animation.shrinkVertically(
+                    animationSpec = androidx.compose.animation.core.tween(220)
+                ) + androidx.compose.animation.fadeOut(
+                    animationSpec = androidx.compose.animation.core.tween(220)
+                )
+            ) {
             // Auch ein Wisch nach oben AUF dem Kopfbereich blendet ihn aus —
             // im Querformat wäre der Inhaltsbereich sonst winzig
             Column(
@@ -890,7 +909,7 @@ fun DetailScreen(
                 ) { CircularProgressIndicator() }
                 currentBody.html != null -> HtmlMailView(
                     html = currentBody.html,
-                    onScroll = { y -> headerHidden = y > 60 },
+                    onScroll = { y -> onContentScroll(y) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
