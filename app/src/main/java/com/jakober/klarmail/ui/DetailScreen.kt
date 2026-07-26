@@ -453,6 +453,18 @@ fun DetailScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            val currentBody = body
+            // Kopfbereich (Betreff, Absender, Hinweise) blendet sich beim
+            // Scrollen des Inhalts aus — gerade im Querformat wäre sonst
+            // kaum etwas von der Mail zu sehen
+            var headerHidden by remember(uid) { mutableStateOf(false) }
+            val textScroll = rememberScrollState()
+            LaunchedEffect(textScroll) {
+                androidx.compose.runtime.snapshotFlow { textScroll.value }
+                    .collect { headerHidden = it > 60 }
+            }
+            androidx.compose.animation.AnimatedVisibility(visible = !headerHidden) {
+            Column {
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 Text(
                     text = mail.subject,
@@ -488,17 +500,23 @@ fun DetailScreen(
             }
             HorizontalDivider()
 
-            val currentBody = body
-            // Phishing-Wächter: Prüfung komplett auf dem Gerät
-            val phishing = remember(currentBody) {
-                currentBody?.let {
-                    com.jakober.klarmail.data.PhishingCheck.analyze(
-                        mail.from, mail.fromAddress, mail.subject, it.html, it.text
-                    )
-                }
+            // Phishing-Wächter: Prüfung im Hintergrund — beim Zeichnen würde
+            // sie große HTML-Mails blockieren (weiße Anzeige)
+            var phishing by remember(uid) {
+                mutableStateOf<com.jakober.klarmail.data.PhishingCheck.Result?>(null)
             }
-            LaunchedEffect(phishing) {
-                phishing?.let {
+            LaunchedEffect(currentBody) {
+                val b = currentBody ?: return@LaunchedEffect
+                val result = withContext(Dispatchers.Default) {
+                    runCatching {
+                        com.jakober.klarmail.data.PhishingCheck.analyze(
+                            mail.from, mail.fromAddress, mail.subject,
+                            b.html?.take(300_000), b.text.take(20_000)
+                        )
+                    }.getOrNull()
+                }
+                phishing = result
+                result?.let {
                     com.jakober.klarmail.data.Prefs.markPhishing(
                         mailAccount, uid, it.suspicious
                     )
@@ -776,6 +794,8 @@ fun DetailScreen(
                 }
                 HorizontalDivider()
             }
+            }
+            }
             when {
                 loadError != null -> Text(
                     "Inhalt konnte nicht geladen werden: $loadError",
@@ -790,6 +810,7 @@ fun DetailScreen(
                 ) { CircularProgressIndicator() }
                 currentBody.html != null -> HtmlMailView(
                     html = currentBody.html,
+                    onScroll = { y -> headerHidden = y > 60 },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -798,7 +819,7 @@ fun DetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(textScroll)
                 ) {
                     SelectionContainer {
                         Text(
@@ -817,7 +838,12 @@ fun DetailScreen(
 
 /** Stellt HTML-Mails wie in gängigen Mail-Apps dar (eigener Scrollbereich, Links öffnen im Browser). */
 @Composable
-private fun HtmlMailView(html: String, modifier: Modifier = Modifier) {
+private fun HtmlMailView(
+    html: String,
+    modifier: Modifier = Modifier,
+    onScroll: (Int) -> Unit = {}
+) {
+    val currentOnScroll by androidx.compose.runtime.rememberUpdatedState(onScroll)
     val wrapped = remember(html) {
         """<!DOCTYPE html><html><head>
            <meta charset="utf-8">
@@ -839,6 +865,10 @@ private fun HtmlMailView(html: String, modifier: Modifier = Modifier) {
                 settings.builtInZoomControls = true
                 settings.displayZoomControls = false
                 setBackgroundColor(android.graphics.Color.WHITE)
+                // Meldet die Scroll-Position nach oben (Kopfbereich ausblenden)
+                setOnScrollChangeListener { _, _, scrollY, _, _ ->
+                    currentOnScroll(scrollY)
+                }
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(
                         view: WebView?,
@@ -852,7 +882,12 @@ private fun HtmlMailView(html: String, modifier: Modifier = Modifier) {
             }
         },
         update = { webView ->
-            webView.loadDataWithBaseURL(null, wrapped, "text/html", "utf-8", null)
+            // Nur bei wirklich neuem Inhalt laden: Jede Neuzeichnung würde
+            // die Mail sonst neu rendern (weißes Flackern bis Dauer-Weiß)
+            if (webView.tag != wrapped) {
+                webView.tag = wrapped
+                webView.loadDataWithBaseURL(null, wrapped, "text/html", "utf-8", null)
+            }
         }
     )
 }
