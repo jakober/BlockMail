@@ -1214,17 +1214,41 @@ private fun MailRow(
     modifier: Modifier = Modifier,
     threadCount: Int? = null
 ) {
-    val bg = when {
-        selected -> MaterialTheme.colorScheme.primaryContainer
-        !mail.seen -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.40f)
-        else -> MaterialTheme.colorScheme.surfaceContainerLow
+    val scheme = MaterialTheme.colorScheme
+    // Gleiche Optik wie die Kacheln: sanfter Verlauf gibt den Zeilen Tiefe
+    val bgBrush = when {
+        selected -> Brush.verticalGradient(
+            listOf(scheme.primaryContainer, scheme.primaryContainer)
+        )
+        !mail.seen -> Brush.verticalGradient(
+            listOf(scheme.secondaryContainer.copy(alpha = 0.55f), scheme.surfaceContainerLow)
+        )
+        else -> Brush.verticalGradient(
+            listOf(scheme.surfaceContainerLow, scheme.surfaceContainerLowest)
+        )
     }
+    // Beim Antippen federt die Zeile sanft ein (Ripple bleibt erhalten)
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.965f else 1f,
+        label = "rowPressScale"
+    )
     Box(
         modifier = modifier
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
             .fillMaxWidth()
             .clip(MailCardShape)
-            .background(bg)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .background(bgBrush)
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onLongClick = onLongClick,
+                onClick = onClick
+            )
     ) {
         // Balken vorne: Konto-Farbe (falls gewählt) kennzeichnet das Postfach;
         // ohne Konto-Farbe zeigt er wie bisher nur Ungelesene in Primärfarbe an.
