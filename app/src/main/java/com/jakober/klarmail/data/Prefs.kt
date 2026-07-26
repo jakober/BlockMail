@@ -37,6 +37,9 @@ object Prefs {
     /** Fokus-Blöcke im Posteingang aktiv? */
     val focusModeFlow = MutableStateFlow(false)
 
+    /** Tägliches Newsletter-Aufräumen aktiv? */
+    val newsletterAutoFlow = MutableStateFlow(true)
+
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
@@ -92,6 +95,7 @@ object Prefs {
         phishingFlow.value = loadSet("phishing_mails")
         radarFlow.value = radarEnabled
         focusModeFlow.value = focusMode
+        newsletterAutoFlow.value = newsletterAutoEnabled
     }
 
     // ---- Backup & Umzug: Einstellungen als JSON sichern/wiederherstellen ----
@@ -350,6 +354,14 @@ object Prefs {
             sp.edit().putString("not_newsletter", org.json.JSONArray(set.toList()).toString()).apply()
         }
     }
+
+    /** Tägliches Newsletter-Aufräumen (20 Uhr) aktiv? Standard: an. */
+    var newsletterAutoEnabled: Boolean
+        get() = sp.getBoolean("newsletter_auto", true)
+        set(v) {
+            sp.edit().putBoolean("newsletter_auto", v).apply()
+            newsletterAutoFlow.value = v
+        }
 
     /** Datum (yyyy-MM-dd) des letzten Newsletter-Aufräumlaufs. */
     var lastNewsletterRunDay: String

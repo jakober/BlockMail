@@ -141,7 +141,7 @@ class MailSyncService : Service() {
         cleanerJob = scope.launch {
             while (isActive) {
                 try {
-                    if (Prefs.isConfigured) {
+                    if (Prefs.isConfigured && Prefs.newsletterAutoEnabled) {
                         val cal = java.util.Calendar.getInstance()
                         val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
                         if (cal.get(java.util.Calendar.HOUR_OF_DAY) >= 20 &&

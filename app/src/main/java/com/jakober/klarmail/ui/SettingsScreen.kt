@@ -1258,13 +1258,38 @@ fun SettingsScreen(
                 "Newsletter-Aufräumen (KI)", Icons.Filled.Newspaper,
                 subtitle = "Werbung landet automatisch im Newsletter-Ordner"
             ) {
-            Text(
-                "Täglich um 20 Uhr erkennt die KI Newsletter der letzten 24 Stunden und " +
-                    "verschiebt sie in den Ordner „Newsletter“. Im Protokoll findest du alle " +
-                    "verschobenen Mails samt Abmelde-Links.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            val newsletterAuto by Prefs.newsletterAutoFlow.collectAsState()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Täglicher Aufräum-Lauf",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        "Täglich um 20 Uhr erkennt die KI Newsletter der letzten " +
+                            "24 Stunden und verschiebt sie in den Ordner „Newsletter“. " +
+                            "Im Protokoll findest du alle verschobenen Mails samt " +
+                            "Abmelde-Links.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = newsletterAuto,
+                    onCheckedChange = { on ->
+                        Prefs.newsletterAutoEnabled = on
+                        scope.launch {
+                            snackbar.showSnackbar(
+                                if (on) "Tägliches Newsletter-Aufräumen aktiv (20 Uhr)"
+                                else "Tägliches Aufräumen aus — „Jetzt ausführen“ geht weiterhin"
+                            )
+                        }
+                    }
+                )
+            }
             Row {
                 TextButton(onClick = onOpenNewsletterLog) { Text("Protokoll anzeigen") }
                 TextButton(

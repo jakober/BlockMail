@@ -30,7 +30,8 @@ class SyncGuardWorker(
             val cal = java.util.Calendar.getInstance()
             val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
                 .format(java.util.Date())
-            if (cal.get(java.util.Calendar.HOUR_OF_DAY) >= 20 &&
+            if (Prefs.newsletterAutoEnabled &&
+                cal.get(java.util.Calendar.HOUR_OF_DAY) >= 20 &&
                 Prefs.lastNewsletterRunDay != today
             ) {
                 Prefs.lastNewsletterRunDay = today
