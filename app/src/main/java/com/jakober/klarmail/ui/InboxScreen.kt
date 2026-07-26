@@ -103,6 +103,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.jakober.klarmail.data.MailMessage
 import com.jakober.klarmail.data.MailRepository
 import com.jakober.klarmail.data.Prefs
@@ -1349,8 +1350,9 @@ private fun MailRowContent(
             Text(
                 text = if (snip != null && snip.isBlank()) "Kein Inhalt" else snip.orEmpty(),
                 style = MaterialTheme.typography.bodySmall,
+                fontSize = 11.sp,
                 fontStyle = if (snip != null && snip.isBlank()) FontStyle.Italic else FontStyle.Normal,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp)
@@ -1578,8 +1580,9 @@ private fun MailBlock(
         Text(
             text = if (snip != null && snip.isBlank()) "Kein Inhalt" else snip.orEmpty(),
             style = MaterialTheme.typography.bodySmall,
+            fontSize = 11.sp,
             fontStyle = if (snip != null && snip.isBlank()) FontStyle.Italic else FontStyle.Normal,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
             minLines = 3,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis
