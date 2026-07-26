@@ -22,6 +22,9 @@ object Prefs {
     val devModeFlow = MutableStateFlow(false)
     val pushModeFlow = MutableStateFlow("push")
 
+    /** Aktions-Knöpfe der Mail-Benachrichtigung (Android zeigt max. 3). */
+    val notifActionsFlow = MutableStateFlow(listOf("reply", "read", "delete"))
+
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
@@ -72,6 +75,7 @@ object Prefs {
         blockedFlow.value = loadSet("blocked_senders")
         vipFlow.value = loadSet("vip_senders")
         vipOnlyFlow.value = vipOnlyNotifications
+        notifActionsFlow.value = notifActions
     }
 
     private fun loadSet(key: String): Set<String> = try {
@@ -132,6 +136,30 @@ object Prefs {
         set(v) {
             sp.edit().putBoolean("vip_only_notif", v).apply()
             vipOnlyFlow.value = v
+        }
+
+    /**
+     * Aktions-Knöpfe der Mail-Benachrichtigung, in fester Reihenfolge
+     * (reply/read/archive/delete). Android zeigt höchstens 3 Aktionen an,
+     * deshalb werden maximal 3 gespeichert.
+     */
+    var notifActions: List<String>
+        get() = try {
+            val a = org.json.JSONArray(
+                sp.getString("notif_actions", null) ?: """["reply","read","delete"]"""
+            )
+            (0 until a.length()).map { a.getString(it) }
+                .filter { it in listOf("reply", "read", "archive", "delete") }
+                .take(3)
+        } catch (e: Exception) {
+            listOf("reply", "read", "delete")
+        }
+        set(v) {
+            val cleaned = listOf("reply", "read", "archive", "delete")
+                .filter { it in v }
+                .take(3)
+            sp.edit().putString("notif_actions", org.json.JSONArray(cleaned).toString()).apply()
+            notifActionsFlow.value = cleaned
         }
 
     /**

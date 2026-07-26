@@ -1076,6 +1076,46 @@ fun SettingsScreen(
                     }
                 )
             }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            SectionTitle("Knöpfe in der Benachrichtigung")
+            Text(
+                "Welche Aktionen bei einer neuen Mail direkt in der " +
+                    "Benachrichtigung erscheinen. Android zeigt höchstens 3 an.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            val notifActions by Prefs.notifActionsFlow.collectAsState()
+            listOf(
+                "reply" to "Antworten (mit Direkteingabe)",
+                "read" to "Als gelesen markieren",
+                "archive" to "Archivieren",
+                "delete" to "Löschen"
+            ).forEach { (key, label) ->
+                val checked = key in notifActions
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = checked,
+                        onCheckedChange = { on ->
+                            if (on && notifActions.size >= 3) {
+                                scope.launch {
+                                    snackbar.showSnackbar(
+                                        "Maximal 3 Knöpfe möglich — bitte erst einen abwählen"
+                                    )
+                                }
+                            } else {
+                                Prefs.notifActions =
+                                    if (on) notifActions + key else notifActions - key
+                            }
+                        }
+                    )
+                    Text(label, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
 
             }
 

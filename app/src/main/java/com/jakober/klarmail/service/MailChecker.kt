@@ -270,6 +270,7 @@ object MailChecker {
         }
         val archivePending = actionPending("com.jakober.klarmail.NOTIF_ARCHIVE", notifId + 1)
         val deletePending = actionPending("com.jakober.klarmail.NOTIF_DELETE", notifId + 2)
+        val readPending = actionPending("com.jakober.klarmail.NOTIF_READ", notifId + 3)
         val openPending = PendingIntent.getActivity(
             context, notifId,
             Intent(context, MainActivity::class.java).apply {
@@ -300,7 +301,7 @@ object MailChecker {
             .setAllowGeneratedReplies(true)
             .build()
 
-        val notification = NotificationCompat.Builder(context, MailApp.CHANNEL_NEW_MAIL)
+        val builder = NotificationCompat.Builder(context, MailApp.CHANNEL_NEW_MAIL)
             .setSmallIcon(R.drawable.ic_notif_mail)
             // Fallback für Android < 11 (dort greift der Konversations-Stil nicht)
             .setLargeIcon(avatar)
@@ -311,12 +312,17 @@ object MailChecker {
             .setShortcutId(shortcutId)
             .setAutoCancel(true)
             .setContentIntent(openPending)
-            .addAction(replyAction)
-            // Android zeigt max. 3 Aktionen — Öffnen markiert ohnehin als gelesen
-            .addAction(0, "Archivieren", archivePending)
-            .addAction(0, "Löschen", deletePending)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .build()
+        // Aktions-Knöpfe nach Nutzer-Auswahl (Android zeigt höchstens 3 an)
+        Prefs.notifActions.forEach { key ->
+            when (key) {
+                "reply" -> builder.addAction(replyAction)
+                "read" -> builder.addAction(0, "Als gelesen", readPending)
+                "archive" -> builder.addAction(0, "Archivieren", archivePending)
+                "delete" -> builder.addAction(0, "Löschen", deletePending)
+            }
+        }
+        val notification = builder.build()
 
         try {
             NotificationManagerCompat.from(context).notify(notifId, notification)
