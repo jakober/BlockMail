@@ -996,8 +996,13 @@ fun SettingsScreen(
                 Triple("list", "Liste (klassisch)", "Mails untereinander, wie gewohnt."),
                 Triple(
                     "blocks", "Blöcke (BlockMail-Stil)",
-                    "Mails als gleich große Blöcke im 2-Spalten-Raster — passend zum Logo. " +
-                        "Auch oben im Posteingang umschaltbar."
+                    "Mails als gleich große Blöcke im 2-Spalten-Raster mit Vorschautext " +
+                        "— passend zum Logo."
+                ),
+                Triple(
+                    "blocks3", "Kompakte Blöcke (3 Spalten)",
+                    "Noch mehr Mails auf einen Blick: kleinere Blöcke ohne Vorschautext. " +
+                        "Alle Ansichten auch oben im Posteingang durchschaltbar."
                 )
             ).forEach { (id, title, desc) ->
                 Row(

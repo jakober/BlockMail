@@ -65,6 +65,7 @@ import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -283,7 +284,7 @@ fun InboxScreen(
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
         if (messages.any { !it.seen }) {
             scope.launch {
-                if (Prefs.inboxLayout == "blocks") gridState.scrollToItem(0)
+                if (Prefs.inboxLayout.startsWith("blocks")) gridState.scrollToItem(0)
                 else listState.scrollToItem(0)
             }
         }
@@ -625,19 +626,26 @@ fun InboxScreen(
                                 )
                             }
                         }
-                        // Schnellumschalter Liste ↔ Block-Ansicht
+                        // Durchschalter Liste → Kacheln (2er) → Kompakt (3er)
                         if (configured) {
                             IconButton(onClick = {
-                                Prefs.inboxLayout =
-                                    if (inboxLayout == "blocks") "list" else "blocks"
+                                Prefs.inboxLayout = when (inboxLayout) {
+                                    "list" -> "blocks"
+                                    "blocks" -> "blocks3"
+                                    else -> "list"
+                                }
                             }) {
+                                // Symbol zeigt jeweils die NÄCHSTE Ansicht
                                 Icon(
-                                    if (inboxLayout == "blocks") Icons.AutoMirrored.Filled.ViewList
-                                    else Icons.Filled.GridView,
-                                    contentDescription = if (inboxLayout == "blocks") {
-                                        "Zur Listen-Ansicht wechseln"
-                                    } else {
-                                        "Zur Block-Ansicht wechseln"
+                                    when (inboxLayout) {
+                                        "list" -> Icons.Filled.GridView
+                                        "blocks" -> Icons.Filled.ViewModule
+                                        else -> Icons.AutoMirrored.Filled.ViewList
+                                    },
+                                    contentDescription = when (inboxLayout) {
+                                        "list" -> "Zur Kachel-Ansicht wechseln"
+                                        "blocks" -> "Zur kompakten Kachel-Ansicht wechseln"
+                                        else -> "Zur Listen-Ansicht wechseln"
                                     }
                                 )
                             }
@@ -867,11 +875,13 @@ fun InboxScreen(
             val unread = messages.filter { !it.seen }
             val read = messages.filter { it.seen }
 
-            if (inboxLayout == "blocks") {
-                // Block-Ansicht: Mails als gleich große Blöcke im 2-Spalten-Raster
-                // (passend zum BlockMail-Logo); Überschriften über volle Breite
+            if (inboxLayout.startsWith("blocks")) {
+                // Block-Ansicht: Mails als gleich große Blöcke im Raster
+                // (passend zum BlockMail-Logo); Überschriften über volle Breite.
+                // "blocks3" = kompakte Variante: 3 Spalten, ohne Vorschautext
+                val compact = inboxLayout == "blocks3"
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                    columns = GridCells.Fixed(if (compact) 3 else 2),
                     state = gridState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = 10.dp),
@@ -896,7 +906,8 @@ fun InboxScreen(
                                 selectionMode = selectionMode,
                                 rightSpec = specFor(swipeRight, mail),
                                 leftSpec = specFor(swipeLeft, mail),
-                                modifier = Modifier.animateItem()
+                                modifier = Modifier.animateItem(),
+                                compact = compact
                             )
                         }
                     }
@@ -917,7 +928,8 @@ fun InboxScreen(
                                 selectionMode = selectionMode,
                                 rightSpec = specFor(swipeRight, mail),
                                 leftSpec = specFor(swipeLeft, mail),
-                                modifier = Modifier.animateItem()
+                                modifier = Modifier.animateItem(),
+                                compact = compact
                             )
                         }
                     }
@@ -940,7 +952,8 @@ fun InboxScreen(
                                         selectionMode = selectionMode,
                                         rightSpec = specFor(swipeRight, mail),
                                         leftSpec = specFor(swipeLeft, mail),
-                                        modifier = Modifier.animateItem()
+                                        modifier = Modifier.animateItem(),
+                                        compact = compact
                                     )
                                 }
                             } else {
@@ -959,7 +972,8 @@ fun InboxScreen(
                                         onLongClick = {},
                                         modifier = Modifier.animateItem(),
                                         threadCount = t.mails.size,
-                                        threadExpanded = expandedThreads.contains(t.key)
+                                        threadExpanded = expandedThreads.contains(t.key),
+                                        compact = compact
                                     )
                                 }
                                 if (expandedThreads.contains(t.key)) {
@@ -977,7 +991,8 @@ fun InboxScreen(
                                             rightSpec = specFor(swipeRight, mail),
                                             leftSpec = specFor(swipeLeft, mail),
                                             modifier = Modifier.animateItem(),
-                                            inThread = true
+                                            inThread = true,
+                                            compact = compact
                                         )
                                     }
                                 }
@@ -1774,7 +1789,8 @@ private fun MailBlock(
     modifier: Modifier = Modifier,
     threadCount: Int? = null,
     threadExpanded: Boolean = false,
-    inThread: Boolean = false
+    inThread: Boolean = false,
+    compact: Boolean = false
 ) {
     val scheme = MaterialTheme.colorScheme
     // Sanfter Verlauf gibt den Kacheln Tiefe; Ungelesene leuchten oben.
@@ -1840,49 +1856,51 @@ private fun MailBlock(
                 onLongClick = onLongClick,
                 onClick = onClick
             )
-            .padding(14.dp)
+            .padding(if (compact) 10.dp else 14.dp)
     ) {
+        // Kompakt-Variante (3 Spalten): kleinere Maße, kein Vorschautext
+        val avatarFrame = if (compact) 34.dp else 42.dp
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Fester 42-dp-Rahmen hält alle Kacheln gleich hoch — mit feinem
+            // Fester Rahmen hält alle Kacheln gleich hoch — mit feinem
             // Ring um den Avatar bei ungelesenen Mails
             Box(
-                modifier = Modifier.size(42.dp),
+                modifier = Modifier.size(avatarFrame),
                 contentAlignment = Alignment.Center
             ) {
                 when {
                     selectionMode && selected -> Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(if (compact) 32.dp else 40.dp)
                             .background(scheme.primary, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Filled.Check,
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(if (compact) 16.dp else 20.dp),
                             tint = scheme.onPrimary
                         )
                     }
                     !mail.seen -> Box(
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(avatarFrame)
                             .border(
                                 2.dp,
                                 scheme.primary.copy(alpha = 0.55f),
-                                RoundedCornerShape(13.dp)
+                                RoundedCornerShape(if (compact) 11.dp else 13.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         SenderAvatar(
                             name = mail.from,
                             address = mail.fromAddress,
-                            size = 34.dp
+                            size = if (compact) 26.dp else 34.dp
                         )
                     }
                     else -> SenderAvatar(
                         name = mail.from,
                         address = mail.fromAddress,
-                        size = 40.dp
+                        size = if (compact) 32.dp else 40.dp
                     )
                 }
             }
@@ -1971,20 +1989,22 @@ private fun MailBlock(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
-        Spacer(Modifier.height(4.dp))
-        // Vorschau über drei Zeilen: nutzt die Blockhöhe voll aus; feste
-        // Zeilenzahl hält alle Blöcke weiterhin gleich hoch
-        val snip = mail.snippet
-        Text(
-            text = if (snip != null && snip.isBlank()) "Kein Inhalt" else snip.orEmpty(),
-            style = MaterialTheme.typography.bodySmall,
-            fontSize = 11.sp,
-            fontStyle = if (snip != null && snip.isBlank()) FontStyle.Italic else FontStyle.Normal,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-            minLines = 3,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis
-        )
+        if (!compact) {
+            Spacer(Modifier.height(4.dp))
+            // Vorschau über drei Zeilen: nutzt die Blockhöhe voll aus; feste
+            // Zeilenzahl hält alle Blöcke weiterhin gleich hoch
+            val snip = mail.snippet
+            Text(
+                text = if (snip != null && snip.isBlank()) "Kein Inhalt" else snip.orEmpty(),
+                style = MaterialTheme.typography.bodySmall,
+                fontSize = 11.sp,
+                fontStyle = if (snip != null && snip.isBlank()) FontStyle.Italic else FontStyle.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                minLines = 3,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -2023,11 +2043,15 @@ private fun SwipeableMailBlock(
     rightSpec: SwipeSpec,
     leftSpec: SwipeSpec,
     modifier: Modifier = Modifier,
-    inThread: Boolean = false
+    inThread: Boolean = false,
+    compact: Boolean = false
 ) {
     // Im Auswahlmodus keine Wischgesten – nur antippen/lange drücken
     if (selectionMode) {
-        MailBlock(mail, selected, true, onClick, onLongClick, modifier, inThread = inThread)
+        MailBlock(
+            mail, selected, true, onClick, onLongClick, modifier,
+            inThread = inThread, compact = compact
+        )
         return
     }
     androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier) {
@@ -2138,7 +2162,10 @@ private fun SwipeableMailBlock(
                 }
             }
         ) {
-            MailBlock(mail, selected, false, onClick, onLongClick, inThread = inThread)
+            MailBlock(
+                mail, selected, false, onClick, onLongClick,
+                inThread = inThread, compact = compact
+            )
         }
     }
 }
