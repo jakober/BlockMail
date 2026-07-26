@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -67,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -122,6 +124,67 @@ private val swipeActionLabels = listOf(
     "read" to "Gelesen/Ungelesen",
     "snooze" to "Erinnern (morgen 8 Uhr)"
 )
+
+/**
+ * Einfacher Farbwähler: Farbton, Sättigung und Helligkeit als Regler mit
+ * großer Live-Vorschau — ohne Zusatz-Bibliothek.
+ */
+@Composable
+private fun ColorPickerDialog(
+    initial: Int,
+    onDismiss: () -> Unit,
+    onPick: (Int) -> Unit
+) {
+    val startHsv = remember(initial) {
+        val arr = FloatArray(3)
+        android.graphics.Color.colorToHSV(initial, arr)
+        arr
+    }
+    var hue by remember { mutableStateOf(startHsv[0]) }
+    var sat by remember { mutableStateOf(startHsv[1]) }
+    var bright by remember { mutableStateOf(startHsv[2]) }
+    val color = Color.hsv(hue.coerceIn(0f, 360f), sat.coerceIn(0f, 1f), bright.coerceIn(0f, 1f))
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Eigene Farbe wählen") },
+        text = {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(color)
+                )
+                Spacer(Modifier.height(16.dp))
+                Text("Farbton", style = MaterialTheme.typography.labelLarge)
+                androidx.compose.material3.Slider(
+                    value = hue,
+                    onValueChange = { hue = it },
+                    valueRange = 0f..360f
+                )
+                Text("Sättigung", style = MaterialTheme.typography.labelLarge)
+                androidx.compose.material3.Slider(
+                    value = sat,
+                    onValueChange = { sat = it },
+                    valueRange = 0f..1f
+                )
+                Text("Helligkeit", style = MaterialTheme.typography.labelLarge)
+                androidx.compose.material3.Slider(
+                    value = bright,
+                    onValueChange = { bright = it },
+                    valueRange = 0f..1f
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onPick(color.toArgb()) }) { Text("Übernehmen") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+        }
+    )
+}
 
 @Composable
 private fun SwipeActionPicker(title: String, value: String, onSelect: (String) -> Unit) {
@@ -382,6 +445,48 @@ fun SettingsScreen(
                     Spacer(Modifier.width(12.dp))
                     Text(scheme.label, style = MaterialTheme.typography.bodyLarge)
                 }
+            }
+
+            // Frei wählbare Akzentfarbe mit eigenem Farbwähler
+            val customColor by Prefs.customColorFlow.collectAsState()
+            var showColorPicker by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        if (selectedScheme == "custom") showColorPicker = true
+                        else Prefs.colorScheme = "custom"
+                    }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = selectedScheme == "custom",
+                    onClick = { Prefs.colorScheme = "custom" }
+                )
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .background(Color(customColor), CircleShape)
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    "Eigene Farbe",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { showColorPicker = true }) { Text("Ändern") }
+            }
+            if (showColorPicker) {
+                ColorPickerDialog(
+                    initial = customColor,
+                    onDismiss = { showColorPicker = false },
+                    onPick = { picked ->
+                        Prefs.customColor = picked
+                        Prefs.colorScheme = "custom"
+                        showColorPicker = false
+                    }
+                )
             }
 
             }

@@ -6,7 +6,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import com.jakober.klarmail.data.Prefs
 
 data class SchemeDef(
     val id: String,
@@ -111,13 +115,33 @@ val colorSchemes = listOf(
     )
 )
 
+/**
+ * Baut aus einer frei gewählten Akzentfarbe ein vollständiges Schema
+ * (Hell + Dunkel) — Container- und Kontrasttöne werden abgeleitet.
+ */
+fun customScheme(base: Color): SchemeDef = makeScheme(
+    id = "custom",
+    label = "Eigene Farbe",
+    primary = base,
+    primaryDark = lerp(base, Color.White, 0.45f),
+    container = lerp(base, Color.White, 0.82f),
+    onContainer = lerp(base, Color.Black, 0.72f),
+    containerDark = lerp(base, Color.Black, 0.45f),
+    onContainerDark = lerp(base, Color.White, 0.82f)
+)
+
 @Composable
 fun KlarMailTheme(
     schemeId: String,
     darkMode: String = "system",
     content: @Composable () -> Unit
 ) {
-    val def = colorSchemes.find { it.id == schemeId } ?: colorSchemes.first()
+    val customColor by Prefs.customColorFlow.collectAsState()
+    val def = if (schemeId == "custom") {
+        customScheme(Color(customColor))
+    } else {
+        colorSchemes.find { it.id == schemeId } ?: colorSchemes.first()
+    }
     val dark = when (darkMode) {
         "light" -> false
         "dark" -> true

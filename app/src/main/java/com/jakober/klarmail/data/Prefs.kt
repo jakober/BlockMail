@@ -12,6 +12,7 @@ object Prefs {
     private lateinit var sp: SharedPreferences
 
     val colorSchemeFlow = MutableStateFlow("klarmail")
+    val customColorFlow = MutableStateFlow(0xFFEE5F0F.toInt())
     val darkModeFlow = MutableStateFlow("dark")
     val conversationViewFlow = MutableStateFlow(false)
     val inboxLayoutFlow = MutableStateFlow("blocks")
@@ -54,6 +55,7 @@ object Prefs {
             context.getSharedPreferences("klarmail_prefs", Context.MODE_PRIVATE)
         }
         colorSchemeFlow.value = colorScheme
+        customColorFlow.value = customColor
         darkModeFlow.value = darkMode
         snoozedFlow.value = snoozes().map { it.uid }.toSet()
         conversationViewFlow.value = conversationView
@@ -452,6 +454,14 @@ object Prefs {
         set(v) {
             sp.edit().putString("color_scheme", v).apply()
             colorSchemeFlow.value = v
+        }
+
+    /** Frei gewählte Akzentfarbe (ARGB) für das Farbschema „Eigene Farbe“. */
+    var customColor: Int
+        get() = sp.getInt("custom_color", 0xFFEE5F0F.toInt())
+        set(v) {
+            sp.edit().putInt("custom_color", v).apply()
+            customColorFlow.value = v
         }
 
     /** Posteingangs-Darstellung: "blocks" (Raster, Standard) oder "list". */
