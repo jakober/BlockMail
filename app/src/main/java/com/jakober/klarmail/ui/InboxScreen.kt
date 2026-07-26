@@ -39,7 +39,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.automirrored.filled.SubdirectoryArrowRight
+import androidx.compose.material.icons.filled.SubdirectoryArrowRight
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.Archive
@@ -1794,7 +1794,7 @@ private fun MailBlock(
             // Zugehörigkeits-Pfeil: markiert Mails eines aufgeklappten Bündels
             if (inThread) {
                 Icon(
-                    Icons.AutoMirrored.Filled.SubdirectoryArrowRight,
+                    Icons.Filled.SubdirectoryArrowRight,
                     contentDescription = "Teil der Konversation",
                     modifier = Modifier.size(14.dp),
                     tint = scheme.secondary
