@@ -20,6 +20,7 @@ object Prefs {
     val swipeLeftFlow = MutableStateFlow("delete")
     val swipeRightFlow = MutableStateFlow("read")
     val devModeFlow = MutableStateFlow(false)
+    val pushModeFlow = MutableStateFlow("push")
 
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
@@ -64,6 +65,7 @@ object Prefs {
         swipeLeftFlow.value = swipeLeftAction
         swipeRightFlow.value = swipeRightAction
         devModeFlow.value = devMode
+        pushModeFlow.value = pushMode
         // Aktives Konto in der Kontenliste sichern (für den Konten-Wechsler)
         snapshotActiveAccount()
         mutedFlow.value = loadSet("muted_senders")
@@ -506,6 +508,18 @@ object Prefs {
         set(v) {
             sp.edit().putBoolean("dev_mode", v).apply()
             devModeFlow.value = v
+        }
+
+    /**
+     * Benachrichtigungs-Modus: "push" = Dauerverbindung (Echtzeit, mit stiller
+     * Dienst-Benachrichtigung), "eco" = Sparmodus (Prüfung alle ~15 Minuten
+     * über den Wächter-Worker, ohne Dauer-Benachrichtigung).
+     */
+    var pushMode: String
+        get() = sp.getString("push_mode", "push") ?: "push"
+        set(v) {
+            sp.edit().putString("push_mode", v).apply()
+            pushModeFlow.value = v
         }
 
     /** Wisch-Aktion nach links: "delete", "archive", "read" oder "snooze". */

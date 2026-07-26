@@ -1033,6 +1033,49 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            // Sparmodus: kein Dauer-Dienst, dafür Prüfung alle ~15 Minuten
+            val pushMode by Prefs.pushModeFlow.collectAsState()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Sparmodus — ohne Dauer-Benachrichtigung",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        "Statt der permanenten Verbindung prüft BlockMail alle " +
+                            "~15 Minuten auf neue Mails. Die stille Dienst-Meldung " +
+                            "entfällt; Benachrichtigungen können sich um bis zu " +
+                            "15 Minuten verzögern.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = pushMode == "eco",
+                    onCheckedChange = { eco ->
+                        Prefs.pushMode = if (eco) "eco" else "push"
+                        if (eco) {
+                            context.stopService(
+                                android.content.Intent(context, MailSyncService::class.java)
+                            )
+                            scope.launch {
+                                snackbar.showSnackbar("Sparmodus aktiv — Prüfung alle ~15 Minuten")
+                            }
+                        } else {
+                            MailSyncService.start(context)
+                            scope.launch {
+                                snackbar.showSnackbar("Echtzeit-Push wieder aktiv")
+                            }
+                        }
+                    }
+                )
+            }
 
             }
 

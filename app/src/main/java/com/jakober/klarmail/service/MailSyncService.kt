@@ -55,23 +55,30 @@ class MailSyncService : Service() {
         } else {
             startForeground(SERVICE_NOTIF_ID, serviceNotification())
         }
+        // Sparmodus: keine Dauerverbindung — der Dienst erledigt nur die
+        // angeforderte Aktion und beendet sich danach wieder selbst
+        val eco = Prefs.pushMode == "eco"
+        fun maybeStartIdle() {
+            if (!eco && idleJob?.isActive != true) startIdleLoop()
+        }
         when (intent?.action) {
-            ACTION_RESTART -> restartIdleLoop()
+            ACTION_RESTART -> if (eco) stopSelfClean() else restartIdleLoop()
             ACTION_CHECK_NOW -> {
-                if (idleJob?.isActive != true) startIdleLoop()
-                checkNowAsync()
+                maybeStartIdle()
+                checkNowAsync(stopAfter = eco)
             }
             ACTION_NEWSLETTER -> {
-                if (idleJob?.isActive != true) startIdleLoop()
+                maybeStartIdle()
                 scope.launch {
                     runCatching {
                         com.jakober.klarmail.data.NewsletterCleaner
                             .runWithNotification(applicationContext)
                     }
+                    if (eco) stopSelfClean()
                 }
             }
             ACTION_SEND_REPLY -> {
-                if (idleJob?.isActive != true) startIdleLoop()
+                maybeStartIdle()
                 val text = intent?.let {
                     androidx.core.app.RemoteInput.getResultsFromIntent(it)
                         ?.getCharSequence(KEY_QUICK_REPLY)?.toString()?.trim()
@@ -87,11 +94,24 @@ class MailSyncService : Service() {
                         notifId = intent?.getIntExtra("notifId", -1) ?: -1
                     )
                 }
+                if (eco) {
+                    // Dem Versand etwas Zeit lassen, dann wieder beenden
+                    scope.launch {
+                        delay(30_000)
+                        stopSelfClean()
+                    }
+                }
             }
-            else -> if (idleJob?.isActive != true) startIdleLoop()
+            else -> if (eco) stopSelfClean() else maybeStartIdle()
         }
-        if (cleanerJob?.isActive != true) startNewsletterScheduler()
+        if (!eco && cleanerJob?.isActive != true) startNewsletterScheduler()
         return START_STICKY
+    }
+
+    /** Vordergrund-Status samt Benachrichtigung entfernen und Dienst beenden. */
+    private fun stopSelfClean() {
+        runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
+        stopSelf()
     }
 
     /**
@@ -99,7 +119,7 @@ class MailSyncService : Service() {
      * Mails über die üblichen Benachrichtigungen; gibt es keine, kommt eine
      * kurze Statusmeldung — die App muss dafür nicht geöffnet werden.
      */
-    private fun checkNowAsync() {
+    private fun checkNowAsync(stopAfter: Boolean = false) {
         scope.launch {
             val newCount = MailChecker.checkOnce(applicationContext)
             when {
@@ -110,6 +130,7 @@ class MailSyncService : Service() {
                     applicationContext, "Prüfung fehlgeschlagen — bitte Verbindung prüfen"
                 )
             }
+            if (stopAfter) stopSelfClean()
         }
     }
 
@@ -162,8 +183,12 @@ class MailSyncService : Service() {
             .setSmallIcon(R.drawable.ic_notif_mail)
             .setColor(0xFFEE5F0F.toInt())
             .setContentTitle("BlockMail aktiv")
-            .setContentText("Wartet auf neue E-Mails")
-            .setOngoing(true)
+            .setContentText("Wartet auf neue E-Mails — zum Ausblenden wegwischen")
+            // Bewusst NICHT ongoing: So lässt sich die stille Meldung auf allen
+            // Android-Versionen wegwischen; der Dienst läuft trotzdem weiter
+            .setOngoing(false)
+            .setSilent(true)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setContentIntent(openIntent)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .build()
@@ -268,11 +293,15 @@ class MailSyncService : Service() {
         val pushStatus = MutableStateFlow("Noch nicht gestartet")
 
         fun start(context: Context) {
+            // Sparmodus: keine Dauerverbindung — der Wächter-Worker prüft alle
+            // ~15 Minuten, ganz ohne dauerhafte Benachrichtigung
+            if (Prefs.pushMode == "eco") return
             val intent = Intent(context, MailSyncService::class.java)
             context.startForegroundService(intent)
         }
 
         fun restart(context: Context) {
+            if (Prefs.pushMode == "eco") return
             val intent = Intent(context, MailSyncService::class.java).setAction(ACTION_RESTART)
             context.startForegroundService(intent)
         }

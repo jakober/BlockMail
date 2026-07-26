@@ -24,6 +24,26 @@ class SyncGuardWorker(
         runCatching { MailChecker.processDueSnoozes(applicationContext) }
         // Fällige geplante Mails auch bei totem Dienst verschicken
         runCatching { MailChecker.processOutbox(applicationContext) }
+        // Täglicher Newsletter-Lauf und Cache-Aufräumen — wichtig im Sparmodus,
+        // wo der Dienst-Planer nicht läuft (doppelte Läufe verhindert das Datum)
+        runCatching {
+            val cal = java.util.Calendar.getInstance()
+            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                .format(java.util.Date())
+            if (cal.get(java.util.Calendar.HOUR_OF_DAY) >= 20 &&
+                Prefs.lastNewsletterRunDay != today
+            ) {
+                Prefs.lastNewsletterRunDay = today
+                com.jakober.klarmail.data.NewsletterCleaner.run(applicationContext)
+            }
+        }
+        runCatching { com.jakober.klarmail.data.MailRepository.cleanupBodyCache() }
+
+        // Sparmodus: bewusst keine Dauerverbindung — direkt auf neue Mails prüfen
+        if (Prefs.pushMode == "eco") {
+            runCatching { MailChecker.checkOnce(applicationContext) }
+            return Result.success()
+        }
 
         // Frisches Lebenszeichen (< 13 min) → Push-Verbindung ist gesund
         val alive = MailSyncService.lastAliveMs
