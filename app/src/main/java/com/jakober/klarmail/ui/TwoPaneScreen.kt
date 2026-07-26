@@ -72,11 +72,13 @@ fun TwoPaneScreen(
                     onOpenAttachments = onOpenAttachments
                 )
             }
-            // Verschiebbarer Griff: Linie mit kleinem Anfasser in der Mitte
+            // Verschiebbarer Griff: Bereich im App-Hintergrund (sonst scheint
+            // das helle Fenster durch), darauf eine dünne Linie + Anfasser
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .width(16.dp)
+                    .width(14.dp)
+                    .background(MaterialTheme.colorScheme.background)
                     .pointerInput(totalPx) {
                         detectHorizontalDragGestures { change, dragAmount ->
                             change.consume()
@@ -86,14 +88,21 @@ fun TwoPaneScreen(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                VerticalDivider(Modifier.fillMaxHeight())
                 Box(
                     Modifier
-                        .width(5.dp)
-                        .height(56.dp)
+                        .fillMaxHeight()
+                        .width(1.dp)
                         .background(
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                            RoundedCornerShape(3.dp)
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                        )
+                )
+                Box(
+                    Modifier
+                        .width(4.dp)
+                        .height(48.dp)
+                        .background(
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            RoundedCornerShape(2.dp)
                         )
                 )
             }
