@@ -377,7 +377,9 @@ object MailChecker {
         return listOf(
             "noreply", "no-reply", "no_reply", "donotreply", "do-not-reply",
             "newsletter", "news@", "marketing", "notification", "mailer",
-            "automail", "auto-mail"
+            "automail", "auto-mail", "accounts@", "account@", "service@",
+            "system@", "security@", "alert", "updates@", "billing@",
+            "bounce", "team@", "hello@", "mail@", "post@", "digest"
         ).any { a.contains(it) }
     }
 
@@ -397,11 +399,16 @@ object MailChecker {
 
         val now = System.currentTimeMillis()
         val day = 24L * 60 * 60 * 1000
+        // Nur echte Menschen zählen: Absender, denen der Nutzer selbst schon
+        // geschrieben hat (Kontakte), oder VIPs — niemals Standard-/Systemmails
+        val knownContacts = Prefs.knownRecipients().keys
         val needsReply = mails.filter { m ->
             val age = now - m.date
+            val addrKey = m.fromAddress.trim().lowercase()
             age in (2 * day)..(14 * day) &&
                 (m.subject.contains('?') || m.snippet?.contains('?') == true) &&
-                m.fromAddress.contains("@") &&
+                addrKey.contains("@") &&
+                (addrKey in knownContacts || Prefs.isVip(m.fromAddress)) &&
                 !looksAutomated(m.fromAddress) &&
                 !Prefs.isReplied(m.account, m.uid) &&
                 !Prefs.isMuted(m.fromAddress) &&

@@ -10,6 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
 import com.jakober.klarmail.data.Prefs
 
 data class SchemeDef(
@@ -147,8 +148,26 @@ fun KlarMailTheme(
         "dark" -> true
         else -> isSystemInDarkTheme()
     }
+    val scheme = if (dark) def.dark else def.light
+
+    // Untere Systemleiste (Gesten-/Navigationsleiste) deckend in App-Farbe
+    // einfärben: Bei voll transparenter Leiste blenden manche Geräte den
+    // Gesten-Balken (auch für „Circle to Search“) aus oder er verschwindet
+    // optisch im Inhalt — mit eigenem Hintergrund bleibt er sichtbar.
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (!view.isInEditMode) {
+        androidx.compose.runtime.SideEffect {
+            val window = (view.context as? android.app.Activity)?.window
+                ?: return@SideEffect
+            @Suppress("DEPRECATION")
+            window.navigationBarColor = scheme.surface.toArgb()
+            androidx.core.view.WindowCompat.getInsetsController(window, view)
+                .isAppearanceLightNavigationBars = !dark
+        }
+    }
+
     MaterialTheme(
-        colorScheme = if (dark) def.dark else def.light,
+        colorScheme = scheme,
         content = content
     )
 }

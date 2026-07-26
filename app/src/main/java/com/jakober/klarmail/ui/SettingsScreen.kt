@@ -1135,7 +1135,9 @@ fun SettingsScreen(
                     Text(
                         "Erinnert einmal täglich an Mails mit offener Frage, die du " +
                             "noch nicht beantwortet hast — und meldet, wenn du selbst " +
-                            "seit Tagen auf eine Antwort wartest.",
+                            "seit Tagen auf eine Antwort wartest. Gilt nur für echte " +
+                            "Menschen: Absender aus deinen Kontakten oder VIPs, nie " +
+                            "für Standard- und Systemmails.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
