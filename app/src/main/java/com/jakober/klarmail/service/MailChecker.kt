@@ -15,6 +15,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.mail.FetchProfile
 import javax.mail.Folder
 import javax.mail.UIDFolder
@@ -363,6 +366,90 @@ object MailChecker {
                 NotificationManagerCompat.from(context).notify(notifId, confirm)
             } catch (_: SecurityException) {
             }
+        }
+    }
+
+    private const val RADAR_NOTIF_ID = 4400
+
+    /** Wirkt die Adresse automatisiert? Dann keine Antwort-Erinnerung. */
+    private fun looksAutomated(address: String): Boolean {
+        val a = address.lowercase()
+        return listOf(
+            "noreply", "no-reply", "no_reply", "donotreply", "do-not-reply",
+            "newsletter", "news@", "marketing", "notification", "mailer",
+            "automail", "auto-mail"
+        ).any { a.contains(it) }
+    }
+
+    /**
+     * Antwort-Radar: erinnert höchstens einmal am Tag an Mails mit offener
+     * Frage (2–14 Tage alt, ohne Antwort aus der App) und an eigene Mails,
+     * auf die seit mehr als 5 Tagen keine Antwort kam.
+     */
+    fun runReplyRadar(context: Context) {
+        if (!Prefs.isConfigured || !Prefs.radarEnabled) return
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        if (Prefs.lastRadarRunDay == today) return
+        val mails = MailRepository.messages.value
+            .ifEmpty { MailRepository.cachedInboxMails() }
+        if (mails.isEmpty()) return
+        Prefs.lastRadarRunDay = today
+
+        val now = System.currentTimeMillis()
+        val day = 24L * 60 * 60 * 1000
+        val needsReply = mails.filter { m ->
+            val age = now - m.date
+            age in (2 * day)..(14 * day) &&
+                (m.subject.contains('?') || m.snippet?.contains('?') == true) &&
+                m.fromAddress.contains("@") &&
+                !looksAutomated(m.fromAddress) &&
+                !Prefs.isReplied(m.account, m.uid) &&
+                !Prefs.isMuted(m.fromAddress) &&
+                !Prefs.isBlocked(m.fromAddress)
+        }.sortedByDescending { it.date }.take(3)
+
+        val waiting = Prefs.sentLog().filter { s ->
+            val age = now - s.at
+            age in (5 * day)..(21 * day) &&
+                !looksAutomated(s.to) &&
+                mails.none { it.fromAddress.equals(s.to, ignoreCase = true) && it.date > s.at }
+        }.sortedByDescending { it.at }.take(2)
+
+        if (needsReply.isEmpty() && waiting.isEmpty()) return
+
+        val lines = mutableListOf<String>()
+        needsReply.forEach { m ->
+            val days = ((now - m.date) / day).coerceAtLeast(1)
+            lines.add("❓ ${m.from.ifBlank { m.fromAddress }}: „${m.subject.take(50)}“ — seit $days Tagen unbeantwortet")
+        }
+        waiting.forEach { s ->
+            val days = ((now - s.at) / day).coerceAtLeast(1)
+            lines.add("⏳ Keine Antwort von ${s.to} seit $days Tagen — nachhaken?")
+        }
+
+        val openIntent = PendingIntent.getActivity(
+            context, RADAR_NOTIF_ID,
+            Intent(context, MainActivity::class.java).apply {
+                needsReply.firstOrNull()?.let { putExtra("open_uid", it.uid) }
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val style = NotificationCompat.InboxStyle()
+        lines.forEach { style.addLine(it) }
+        val notification = NotificationCompat.Builder(context, MailApp.CHANNEL_NEW_MAIL)
+            .setSmallIcon(R.drawable.ic_notif_mail)
+            .setLargeIcon(NotificationUtil.logoBitmap(context))
+            .setColor(0xFFE85510.toInt())
+            .setContentTitle("Antwort-Radar")
+            .setContentText(lines.first())
+            .setStyle(style)
+            .setAutoCancel(true)
+            .setContentIntent(openIntent)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(RADAR_NOTIF_ID, notification)
+        } catch (_: SecurityException) {
         }
     }
 

@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AutoAwesomeMosaic
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -78,6 +79,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -134,7 +136,8 @@ fun InboxScreen(
     onSettings: () -> Unit,
     onOpenNewsletterLog: () -> Unit = {},
     onOpenDraft: (Long) -> Unit = {},
-    onOpenStats: () -> Unit = {}
+    onOpenStats: () -> Unit = {},
+    onOpenAttachments: () -> Unit = {}
 ) {
     val messages by MailRepository.messages.collectAsState()
     val loading by MailRepository.loading.collectAsState()
@@ -157,6 +160,62 @@ fun InboxScreen(
     var aiBusy by remember { mutableStateOf(false) }
     var aiResultTitle by remember { mutableStateOf("") }
     var aiResult by remember { mutableStateOf<List<SummaryLine>?>(null) }
+
+    // Fokus-Blöcke: Posteingang nach Wichtigkeit statt nach Zeit gruppieren.
+    // Heuristik sofort, per KI-Knopf verfeinerbar (Zuordnungen überschreiben).
+    val focusMode by Prefs.focusModeFlow.collectAsState()
+    val focusOverrides = remember { androidx.compose.runtime.mutableStateMapOf<String, Int>() }
+    var focusAiBusy by remember { mutableStateOf(false) }
+    var focusAiDone by remember { mutableStateOf(false) }
+    val focusSections = remember(messages, focusMode, focusOverrides.toMap()) {
+        if (!focusMode) emptyList() else {
+            val known = Prefs.knownRecipients().keys
+            val grouped = messages.groupBy { m ->
+                focusOverrides["${m.account}:${m.uid}"] ?: focusCategory(m, known)
+            }
+            (0..3).mapNotNull { i -> grouped[i]?.let { focusLabels[i] to it } }
+        }
+    }
+
+    /** Verfeinert die Fokus-Zuordnung der neuesten Mails per KI. */
+    fun refineFocusWithAi() {
+        if (focusAiBusy) return
+        scope.launch {
+            focusAiBusy = true
+            try {
+                val indexed = messages.take(40)
+                val list = indexed.mapIndexed { i, m ->
+                    val snip = m.snippet?.takeIf { it.isNotBlank() }?.let { " | ${it.take(80)}" } ?: ""
+                    "[${i + 1}] Von: ${m.from} <${m.fromAddress}> | Betreff: ${m.subject}$snip"
+                }.joinToString("\n")
+                val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
+                val raw = if (hasClaudeKey) {
+                    com.jakober.klarmail.ai.ClaudeClient.classifyMails(Prefs.claudeApiKey, list)
+                } else {
+                    com.jakober.klarmail.ai.GeminiNano.classifyMails(list)
+                }
+                var applied = 0
+                Regex("\\[(\\d+)\\]\\s*[:=\\-–]?\\s*([A-Da-d])\\b").findAll(raw).forEach { m ->
+                    val idx = (m.groupValues[1].toIntOrNull() ?: return@forEach) - 1
+                    val cat = when (m.groupValues[2].uppercase()) {
+                        "A" -> 0; "B" -> 1; "C" -> 2; else -> 3
+                    }
+                    indexed.getOrNull(idx)?.let {
+                        focusOverrides["${it.account}:${it.uid}"] = cat
+                        applied++
+                    }
+                }
+                focusAiDone = applied > 0
+                if (applied == 0) {
+                    snackbar.showSnackbar("KI-Sortierung lieferte kein verwertbares Ergebnis")
+                }
+            } catch (e: Exception) {
+                snackbar.showSnackbar("KI-Fehler: ${e.message}")
+            } finally {
+                focusAiBusy = false
+            }
+        }
+    }
 
     /** Fasst eine Mail-Auswahl per KI zusammen und zeigt das Ergebnis im Dialog. */
     fun summarizeMails(title: String, mails: List<MailMessage>) {
@@ -595,6 +654,19 @@ fun InboxScreen(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
+                                            "Anhänge",
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    },
+                                    leadingIcon = { Icon(Icons.Filled.AttachFile, null) },
+                                    onClick = {
+                                        folderMenuOpen = false
+                                        onOpenAttachments()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
                                             "Statistik",
                                             style = MaterialTheme.typography.bodyLarge
                                         )
@@ -716,6 +788,21 @@ fun InboxScreen(
                         }
                     },
                     actions = {
+                        // Fokus-Blöcke ein/aus: nach Wichtigkeit statt Zeit gruppieren
+                        if (configured) {
+                            IconButton(onClick = { Prefs.focusMode = !focusMode }) {
+                                Icon(
+                                    Icons.Filled.AutoAwesomeMosaic,
+                                    contentDescription = if (focusMode) {
+                                        "Fokus-Blöcke ausschalten"
+                                    } else {
+                                        "Fokus-Blöcke einschalten"
+                                    },
+                                    tint = if (focusMode) MaterialTheme.colorScheme.primary
+                                    else LocalContentColor.current
+                                )
+                            }
+                        }
                         // Schnellumschalter Hell ↔ Dunkel
                         if (configured) {
                             val darkModeSetting by Prefs.darkModeFlow.collectAsState()
@@ -1128,7 +1215,38 @@ fun InboxScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    if (!conversationView) {
+                    if (focusMode) {
+                        // Fokus-Blöcke: nach Wichtigkeit gruppiert statt nach Zeit
+                        item(key = "focus_toolbar", span = { GridItemSpan(maxLineSpan) }) {
+                            FocusToolbar(
+                                busy = focusAiBusy,
+                                refined = focusAiDone,
+                                onRefine = { refineFocusWithAi() }
+                            )
+                        }
+                        focusSections.forEach { (label, mails) ->
+                            item(key = "header_$label", span = { GridItemSpan(maxLineSpan) }) {
+                                SectionHeader("$label (${mails.size})")
+                            }
+                            gridItems(
+                                mails,
+                                key = { "${it.account}:${it.uid}" },
+                                contentType = { "mail" }
+                            ) { mail ->
+                                SwipeableMailBlock(
+                                    mail = mail,
+                                    onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                    onLongClick = { toggleSelect(mail.uid) },
+                                    selected = selected.contains(mail.uid),
+                                    selectionMode = selectionMode,
+                                    rightSpec = specFor(swipeRight, mail),
+                                    leftSpec = specFor(swipeLeft, mail),
+                                    modifier = Modifier.animateItem(),
+                                    compact = compact
+                                )
+                            }
+                        }
+                    } else if (!conversationView) {
                     if (unread.isNotEmpty()) {
                         item(key = "header_unread", span = { GridItemSpan(maxLineSpan) }) {
                             SectionHeader("Neu (${unread.size})")
@@ -1292,7 +1410,33 @@ fun InboxScreen(
                 }
             } else {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                if (!conversationView) {
+                if (focusMode) {
+                    // Fokus-Blöcke: nach Wichtigkeit gruppiert statt nach Zeit
+                    item(key = "focus_toolbar") {
+                        FocusToolbar(
+                            busy = focusAiBusy,
+                            refined = focusAiDone,
+                            onRefine = { refineFocusWithAi() }
+                        )
+                    }
+                    focusSections.forEach { (label, mails) ->
+                        item(key = "header_$label") {
+                            SectionHeader("$label (${mails.size})", Modifier.animateItem())
+                        }
+                        items(mails, key = { "${it.account}:${it.uid}" }, contentType = { "mail" }) { mail ->
+                            SwipeableMailRow(
+                                mail = mail,
+                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                onLongClick = { toggleSelect(mail.uid) },
+                                selected = selected.contains(mail.uid),
+                                selectionMode = selectionMode,
+                                rightSpec = specFor(swipeRight, mail),
+                                leftSpec = specFor(swipeLeft, mail),
+                                modifier = Modifier.animateItem()
+                            )
+                        }
+                    }
+                } else if (!conversationView) {
                     if (unread.isNotEmpty()) {
                         item(key = "header_unread") {
                             SectionHeader("Neu (${unread.size})", Modifier.animateItem())
@@ -1503,6 +1647,67 @@ fun InboxScreen(
                 }
             }
         }
+        }
+    }
+}
+
+/** Überschriften der Fokus-Blöcke in fester Reihenfolge (Index = Kategorie). */
+private val focusLabels = listOf(
+    "❗ Braucht Antwort", "⭐ Wichtig", "📥 Kann warten", "📣 Werbung & Newsletter"
+)
+
+/**
+ * Schnelle Fokus-Heuristik ohne KI: Werbung an Absender/Schlagworten erkennen,
+ * offene Fragen an ungelesenen Mails, Wichtiges an VIP- und Schreib-Kontakten.
+ */
+private fun focusCategory(m: MailMessage, knownContacts: Set<String>): Int {
+    val addr = m.fromAddress.trim().lowercase()
+    val subj = m.subject.lowercase()
+    val snip = m.snippet?.lowercase().orEmpty()
+    val automated = listOf(
+        "noreply", "no-reply", "no_reply", "donotreply", "newsletter",
+        "news@", "marketing", "mailer", "notification"
+    ).any { addr.contains(it) }
+    val promoHits = listOf(
+        "rabatt", "sale", "% ", "angebot", "deal", "gutschein", "newsletter",
+        "abmelden", "unsubscribe", "gratis", "jetzt sichern", "nur heute"
+    ).count { subj.contains(it) || snip.contains(it) }
+    val vip = Prefs.isVip(m.fromAddress)
+    val known = addr in knownContacts
+    val question = subj.contains('?') || snip.contains('?')
+    return when {
+        (automated || promoHits >= 2) && !vip -> 3
+        question && !m.seen && !automated -> 0
+        vip || known -> 1
+        else -> 2
+    }
+}
+
+/** Kopfzeile der Fokus-Blöcke mit KI-Verfeinerungs-Knopf. */
+@Composable
+private fun FocusToolbar(busy: Boolean, refined: Boolean, onRefine: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "Fokus: nach Wichtigkeit gruppiert",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        if (busy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp
+            )
+            Spacer(Modifier.width(12.dp))
+        } else {
+            androidx.compose.material3.TextButton(onClick = onRefine) {
+                Text(if (refined) "Erneut mit KI sortieren" else "Mit KI verfeinern")
+            }
         }
     }
 }
@@ -1802,6 +2007,11 @@ private fun MailRow(
         targetValue = if (pressed) 0.965f else 1f,
         label = "rowPressScale"
     )
+    // Phishing-Wächter: markierte Mails bekommen einen roten Warnrahmen
+    val phishingSet by Prefs.phishingFlow.collectAsState()
+    val phishingWarning = remember(phishingSet, mail.account, mail.uid) {
+        Prefs.phishingKey(mail.account, mail.uid) in phishingSet
+    }
     Box(
         modifier = modifier
             .graphicsLayer {
@@ -1811,6 +2021,11 @@ private fun MailRow(
             .fillMaxWidth()
             .clip(MailCardShape)
             .background(bgBrush)
+            .then(
+                if (phishingWarning) {
+                    Modifier.border(1.5.dp, scheme.error, MailCardShape)
+                } else Modifier
+            )
             .combinedClickable(
                 interactionSource = interaction,
                 indication = LocalIndication.current,
@@ -2057,8 +2272,14 @@ private fun MailBlock(
             )
         )
     }
+    // Phishing-Wächter: markierte Mails bekommen einen roten Warnrahmen
+    val phishingSet by Prefs.phishingFlow.collectAsState()
+    val phishingWarning = remember(phishingSet, mail.account, mail.uid) {
+        Prefs.phishingKey(mail.account, mail.uid) in phishingSet
+    }
     val borderMod = when {
         selected -> Modifier.border(1.5.dp, scheme.primary, MailBlockShape)
+        phishingWarning -> Modifier.border(1.5.dp, scheme.error, MailBlockShape)
         // Aufgeklappte Bündel-Kachel deutlich markieren
         threadCount != null && threadCount > 1 && threadExpanded ->
             Modifier.border(1.5.dp, scheme.primary.copy(alpha = 0.6f), MailBlockShape)

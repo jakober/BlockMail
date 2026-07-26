@@ -124,6 +124,21 @@ object ClaudeClient {
         return complete(apiKey, system, user)
     }
 
+    /** Fokus-Blöcke: ordnet nummerierte Mails den Kategorien A–D zu. */
+    suspend fun classifyMails(apiKey: String, mailList: String): String {
+        val system = "Du sortierst E-Mails in genau vier Kategorien:\n" +
+            "A = braucht eine Antwort des Nutzers (direkte Frage/Bitte an ihn)\n" +
+            "B = wichtig für den Nutzer, aber keine Antwort nötig (Rechnung, Termin, Behörde)\n" +
+            "C = kann warten (Benachrichtigungen, Bestellstatus, Foren)\n" +
+            "D = Werbung oder Newsletter\n" +
+            "Antworte AUSSCHLIESSLICH mit einer Zeile pro Mail im Format:\n" +
+            "[Nr] Buchstabe\n" +
+            "Keine Erklärungen, keine sonstigen Zeilen."
+        val user = "Hier die nummerierten E-Mails (Absender, Betreff, ggf. Vorschau):\n\n" +
+            mailList.take(12000) + "\n\nOrdne jede Mail genau einer Kategorie zu."
+        return complete(apiKey, system, user)
+    }
+
     suspend fun draftReply(
         apiKey: String,
         original: MailMessage,

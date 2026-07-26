@@ -316,6 +316,12 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) 
                     account = fromAccount
                 )
                 draft?.let { Prefs.removeDraft(it.id) }
+                // Antwort-Radar füttern: Antwort registrieren bzw. gesendete
+                // Mail für „wartet auf Antwort“ vormerken
+                original?.let { Prefs.addReplied(it.account, it.uid) }
+                to.split(',', ';').map { it.trim() }
+                    .firstOrNull { it.contains("@") }
+                    ?.let { Prefs.addSentLog(it, subject) }
                 onBack()
             } catch (e: Exception) {
                 snackbar.showSnackbar("Senden fehlgeschlagen: ${e.message}")

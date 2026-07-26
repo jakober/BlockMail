@@ -116,7 +116,8 @@ class MainActivity : ComponentActivity() {
                                 onSettings = { nav.navigate("settings") },
                                 onOpenNewsletterLog = { nav.navigate("newsletterlog") },
                                 onOpenDraft = { id -> nav.navigate("compose?draft=$id") },
-                                onOpenStats = { nav.navigate("stats") }
+                                onOpenStats = { nav.navigate("stats") },
+                                onOpenAttachments = { nav.navigate("attachments") }
                             )
                         }
                     }
@@ -155,6 +156,12 @@ class MainActivity : ComponentActivity() {
                     composable("stats") {
                         com.jakober.klarmail.ui.StatsScreen(
                             onBack = { nav.popBackStack() }
+                        )
+                    }
+                    composable("attachments") {
+                        com.jakober.klarmail.ui.AttachmentsScreen(
+                            onBack = { nav.popBackStack() },
+                            onOpenMail = { uid -> nav.navigate("detail/$uid") }
                         )
                     }
                     composable("settings") {

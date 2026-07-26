@@ -1,6 +1,7 @@
 package com.jakober.klarmail.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +14,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AutoAwesomeMosaic
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Radar
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,7 +45,8 @@ fun WelcomeScreen(onSetup: () -> Unit, onSkip: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 32.dp),
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                .padding(horizontal = 32.dp, vertical = 24.dp),
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -64,25 +69,47 @@ fun WelcomeScreen(onSetup: () -> Unit, onSkip: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(28.dp))
+            WelcomeFeature(
+                Icons.Filled.AutoAwesomeMosaic,
+                "Fokus-Blöcke",
+                "Der Posteingang sortiert sich nach Wichtigkeit: Braucht Antwort, " +
+                    "Wichtig, Kann warten, Werbung — als übersichtliche Kacheln."
+            )
+            Spacer(Modifier.height(14.dp))
+            WelcomeFeature(
+                Icons.Filled.Security,
+                "Phishing-Wächter",
+                "Erkennt Betrugs-Mails direkt auf dem Gerät und warnt mit rotem " +
+                    "Rahmen — keine Daten verlassen dein Handy."
+            )
+            Spacer(Modifier.height(14.dp))
+            WelcomeFeature(
+                Icons.Filled.Radar,
+                "Antwort-Radar",
+                "Erinnert an offene Fragen in deinem Postfach — und wenn du selbst " +
+                    "zu lange auf Antwort wartest."
+            )
+            Spacer(Modifier.height(14.dp))
             WelcomeFeature(
                 Icons.Filled.NotificationsActive,
                 "Neue Mails sofort",
-                "Benachrichtigungen in Echtzeit — mit Schnellantwort direkt daraus."
+                "Echtzeit-Push mit Schnellantwort direkt aus der Benachrichtigung."
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
             WelcomeFeature(
                 Icons.Filled.AllInbox,
                 "Alle Konten, ein Überblick",
-                "Mehrere Postfächer verbinden und gemeinsam oder einzeln ansehen."
+                "Mehrere Postfächer mit eigenen Farben — einzeln oder gemeinsam."
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
             WelcomeFeature(
                 Icons.Filled.AutoAwesome,
                 "KI, die auf dem Gerät bleibt",
-                "Zusammenfassen, Antworten entwerfen und Newsletter aufräumen."
+                "Zusammenfassen, Antworten entwerfen, Tages-Überblick und " +
+                    "Newsletter-Ordnung."
             )
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(32.dp))
             Button(onClick = onSetup, modifier = Modifier.fillMaxWidth()) {
                 Text("Konto einrichten")
             }

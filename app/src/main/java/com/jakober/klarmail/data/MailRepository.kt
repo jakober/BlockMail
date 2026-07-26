@@ -1751,6 +1751,34 @@ object MailRepository {
         )
     }
 
+    /**
+     * Posteingangs-Mails aus dem Platten-Cache des aktiven Kontos — für
+     * Hintergrund-Jobs (Antwort-Radar, Widget), wenn die App nicht offen ist.
+     */
+    fun cachedInboxMails(): List<MailMessage> = runCatching {
+        cacheFile?.takeIf { it.exists() }
+            ?.let { MailMessage.listFromJson(it.readText()) }
+    }.getOrNull().orEmpty()
+
+    /** Eintrag der Anhang-Galerie: Mail + ein Anhang daraus. */
+    data class AttachmentIndexEntry(val mail: MailMessage, val att: MailAttachment)
+
+    /**
+     * Baut die Anhang-Galerie aus den bereits vorgeladenen Mail-Inhalten
+     * (kein Netzwerk): alle Anhänge der aktuell geladenen Posteingangs-Mails.
+     */
+    suspend fun attachmentIndex(): List<AttachmentIndexEntry> = withContext(Dispatchers.IO) {
+        _messages.value
+            .filter { it.hasAttachments }
+            .take(300)
+            .flatMap { m ->
+                runCatching { diskLoadBody(MailFolder.INBOX, m.uid, m.account) }
+                    .getOrNull()?.attachments.orEmpty()
+                    .filter { it.name.isNotBlank() }
+                    .map { AttachmentIndexEntry(m, it) }
+            }
+    }
+
     /** Teilt einen Anhang über das Android-Teilen-Menü (z. B. WhatsApp, Drive). */
     fun shareAttachment(context: Context, name: String, mime: String, data: ByteArray) {
         val dir = File(context.cacheDir, "attachments").apply { mkdirs() }

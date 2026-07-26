@@ -28,6 +28,15 @@ object Prefs {
     /** Automatisch gespeicherte Entwürfe (neueste zuerst). */
     val draftsFlow = MutableStateFlow<List<Draft>>(emptyList())
 
+    /** Vom Phishing-Wächter markierte Mails ("konto:uid"). */
+    val phishingFlow = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Antwort-Radar aktiv? */
+    val radarFlow = MutableStateFlow(true)
+
+    /** Fokus-Blöcke im Posteingang aktiv? */
+    val focusModeFlow = MutableStateFlow(false)
+
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
@@ -80,6 +89,9 @@ object Prefs {
         vipOnlyFlow.value = vipOnlyNotifications
         notifActionsFlow.value = notifActions
         draftsFlow.value = drafts()
+        phishingFlow.value = loadSet("phishing_mails")
+        radarFlow.value = radarEnabled
+        focusModeFlow.value = focusMode
     }
 
     // ---- Backup & Umzug: Einstellungen als JSON sichern/wiederherstellen ----
@@ -598,6 +610,83 @@ object Prefs {
     fun saveDraft(d: Draft) = persistDrafts(drafts().filter { it.id != d.id } + d)
 
     fun removeDraft(id: Long) = persistDrafts(drafts().filter { it.id != id })
+
+    // ---- Phishing-Wächter: Markierungen für die Kachel-/Listenansicht ----
+
+    fun phishingKey(account: String, uid: Long) = "${account.trim().lowercase()}:$uid"
+
+    fun markPhishing(account: String, uid: Long, suspicious: Boolean) {
+        val key = phishingKey(account, uid)
+        val current = phishingFlow.value
+        val updated = if (suspicious) current + key else current - key
+        if (updated == current) return
+        // Liste begrenzen, damit sie nicht endlos wächst
+        val capped = if (updated.size > 200) updated.drop(updated.size - 200).toSet() else updated
+        saveSet("phishing_mails", capped)
+        phishingFlow.value = capped
+    }
+
+    fun isPhishing(account: String, uid: Long) =
+        phishingKey(account, uid) in phishingFlow.value
+
+    // ---- Antwort-Radar: offene Fragen und ausbleibende Antworten ----
+
+    /** Fokus-Blöcke: Posteingang nach Wichtigkeit gruppieren statt nach Zeit. */
+    var focusMode: Boolean
+        get() = sp.getBoolean("focus_mode", false)
+        set(v) {
+            sp.edit().putBoolean("focus_mode", v).apply()
+            focusModeFlow.value = v
+        }
+
+    /** Antwort-Radar aktiv? Erinnert täglich an Unbeantwortetes. */
+    var radarEnabled: Boolean
+        get() = sp.getBoolean("radar_enabled", true)
+        set(v) {
+            sp.edit().putBoolean("radar_enabled", v).apply()
+            radarFlow.value = v
+        }
+
+    var lastRadarRunDay: String
+        get() = sp.getString("last_radar_day", "") ?: ""
+        set(v) = sp.edit().putString("last_radar_day", v).apply()
+
+    /** Merkt: auf diese Mail wurde aus der App geantwortet. */
+    fun addReplied(account: String, uid: Long) {
+        val set = loadSet("replied_mails") + phishingKey(account, uid)
+        val capped = if (set.size > 300) set.drop(set.size - 300).toSet() else set
+        saveSet("replied_mails", capped)
+    }
+
+    fun isReplied(account: String, uid: Long) =
+        phishingKey(account, uid) in loadSet("replied_mails")
+
+    /** Gesendete Mails (Empfänger, Betreff, Zeit) für „wartet auf Antwort“. */
+    data class SentEntry(val to: String, val subject: String, val at: Long)
+
+    fun sentLog(): List<SentEntry> = try {
+        val arr = org.json.JSONArray(sp.getString("sent_log", "[]") ?: "[]")
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            SentEntry(o.optString("to"), o.optString("subject"), o.optLong("at"))
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    fun addSentLog(to: String, subject: String) {
+        val key = to.trim().lowercase()
+        if (!key.contains("@")) return
+        val list = (sentLog() + SentEntry(key, subject, System.currentTimeMillis()))
+            .takeLast(50)
+        val arr = org.json.JSONArray()
+        list.forEach { e ->
+            arr.put(JSONObject().apply {
+                put("to", e.to); put("subject", e.subject); put("at", e.at)
+            })
+        }
+        sp.edit().putString("sent_log", arr.toString()).apply()
+    }
 
     /** Signatur, die unter neue Mails gesetzt wird (leer = keine). */
     var signature: String

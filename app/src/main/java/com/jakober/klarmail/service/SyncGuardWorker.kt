@@ -38,6 +38,8 @@ class SyncGuardWorker(
             }
         }
         runCatching { com.jakober.klarmail.data.MailRepository.cleanupBodyCache() }
+        // Antwort-Radar (läuft intern höchstens einmal pro Tag)
+        runCatching { MailChecker.runReplyRadar(applicationContext) }
 
         // Sparmodus: bewusst keine Dauerverbindung — direkt auf neue Mails prüfen
         if (Prefs.pushMode == "eco") {

@@ -161,6 +161,8 @@ class MailSyncService : Service() {
                 runCatching { MailChecker.processDueSnoozes(applicationContext) }
                 // Fällige geplante Mails verschicken
                 runCatching { MailChecker.processOutbox(applicationContext) }
+                // Antwort-Radar (läuft intern höchstens einmal pro Tag)
+                runCatching { MailChecker.runReplyRadar(applicationContext) }
                 delay(10 * 60_000)
             }
         }

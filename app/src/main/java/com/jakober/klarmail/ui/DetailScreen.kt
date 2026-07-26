@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Share
@@ -474,6 +475,64 @@ fun DetailScreen(
             HorizontalDivider()
 
             val currentBody = body
+            // Phishing-Wächter: Prüfung komplett auf dem Gerät
+            val phishing = remember(currentBody) {
+                currentBody?.let {
+                    com.jakober.klarmail.data.PhishingCheck.analyze(
+                        mail.from, mail.fromAddress, mail.subject, it.html, it.text
+                    )
+                }
+            }
+            LaunchedEffect(phishing) {
+                phishing?.let {
+                    com.jakober.klarmail.data.Prefs.markPhishing(
+                        mailAccount, uid, it.suspicious
+                    )
+                }
+            }
+            if (phishing?.suspicious == true) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Vorsicht: mögliche Phishing-Mail",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        phishing.reasons.take(3).forEach { reason ->
+                            Text(
+                                "• $reason",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Tippe keine Links an und gib keine Passwörter oder " +
+                                "Zahlungsdaten ein. Die Prüfung lief komplett auf " +
+                                "deinem Gerät.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                                .copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
             // KI-Zusammenfassung: Claude (mit API-Schlüssel) oder On-Device-Gemini,
             // gemäß der KI-Wahl in den Einstellungen
             val aiEngine by com.jakober.klarmail.data.Prefs.aiEngineFlow.collectAsState()

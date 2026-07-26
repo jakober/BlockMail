@@ -1119,6 +1119,32 @@ fun SettingsScreen(
                     Text(label, style = MaterialTheme.typography.bodyMedium)
                 }
             }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            val radarOn by Prefs.radarFlow.collectAsState()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Antwort-Radar",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        "Erinnert einmal täglich an Mails mit offener Frage, die du " +
+                            "noch nicht beantwortet hast — und meldet, wenn du selbst " +
+                            "seit Tagen auf eine Antwort wartest.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = radarOn,
+                    onCheckedChange = { Prefs.radarEnabled = it }
+                )
+            }
 
             }
 

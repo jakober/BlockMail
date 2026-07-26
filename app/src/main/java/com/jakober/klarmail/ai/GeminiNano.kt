@@ -110,6 +110,18 @@ object GeminiNano {
             mailList.take(8000)
     )
 
+    /** Fokus-Blöcke: ordnet nummerierte Mails den Kategorien A–D zu. */
+    suspend fun classifyMails(mailList: String): String = generate(
+        "Sortiere die folgenden nummerierten E-Mails in genau vier Kategorien:\n" +
+            "A = braucht eine Antwort des Nutzers\n" +
+            "B = wichtig, aber keine Antwort nötig\n" +
+            "C = kann warten\n" +
+            "D = Werbung oder Newsletter\n" +
+            "Antworte AUSSCHLIESSLICH mit einer Zeile pro Mail im Format „[Nr] Buchstabe“. " +
+            "Keine Erklärungen.\n\n" +
+            mailList.take(8000)
+    )
+
     suspend fun composeMail(instruction: String): String = generate(
         "Formuliere eine vollständige, höfliche E-Mail auf Deutsch nach dieser Vorgabe. " +
             "Antworte NUR mit dem E-Mail-Text, ohne Betreffzeile.\n\nVorgabe: $instruction"
