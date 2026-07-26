@@ -136,29 +136,37 @@ private fun scheduleChoices(): List<Pair<String, Long>> {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
+fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
 
     val original = replyToUid?.let { uid -> MailRepository.messages.value.find { it.uid == uid } }
+    // Gespeicherten Entwurf fortsetzen?
+    val draft = remember { draftId?.let { id -> Prefs.drafts().find { it.id == id } } }
 
-    var to by remember { mutableStateOf(original?.fromAddress ?: "") }
-    var cc by remember { mutableStateOf("") }
-    var bcc by remember { mutableStateOf("") }
-    var showCcBcc by remember { mutableStateOf(false) }
+    var to by remember { mutableStateOf(draft?.to ?: original?.fromAddress ?: "") }
+    var cc by remember { mutableStateOf(draft?.cc ?: "") }
+    var bcc by remember { mutableStateOf(draft?.bcc ?: "") }
+    var showCcBcc by remember {
+        mutableStateOf(draft != null && (draft.cc.isNotBlank() || draft.bcc.isNotBlank()))
+    }
     var subject by remember {
-        mutableStateOf(original?.let { o ->
+        mutableStateOf(draft?.subject ?: original?.let { o ->
             if (o.subject.startsWith("Re:", ignoreCase = true)) o.subject else "Re: ${o.subject}"
         } ?: "")
     }
     val editorState = rememberRichTextState()
 
-    // Signatur beim Öffnen unter den (leeren) Text setzen
+    // Entwurfstext wiederherstellen bzw. Signatur unter den (leeren) Text setzen
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        val sig = Prefs.signature
-        if (sig.isNotBlank() && editorState.annotatedString.text.isBlank()) {
-            editorState.setHtml("<br><br>${plainToHtml(sig)}")
+        if (draft != null && draft.html.isNotBlank()) {
+            editorState.setHtml(draft.html)
+        } else {
+            val sig = Prefs.signature
+            if (sig.isNotBlank() && editorState.annotatedString.text.isBlank()) {
+                editorState.setHtml("<br><br>${plainToHtml(sig)}")
+            }
         }
     }
 
@@ -170,6 +178,9 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
         val default = Prefs.defaultSendAccount
         mutableStateOf(
             when {
+                draft != null && draft.account.isNotBlank() &&
+                    Prefs.accounts().any { it.email.equals(draft.account, ignoreCase = true) } ->
+                    draft.account
                 original != null ->
                     original.account.takeIf { it.isNotBlank() } ?: Prefs.email
                 default.isNotBlank() &&
@@ -242,6 +253,31 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
         }
     }
 
+    // Beim Verlassen ohne Senden: Entwurf automatisch aufheben (bzw. einen
+    // wieder geöffneten, jetzt leeren Entwurf verwerfen)
+    fun closeSavingDraft() {
+        val bodyText = plainText.replace(Prefs.signature.trim(), "").trim()
+        val meaningful = to.isNotBlank() || subject.isNotBlank() || bodyText.isNotBlank()
+        if (meaningful) {
+            Prefs.saveDraft(
+                Prefs.Draft(
+                    id = draft?.id ?: System.currentTimeMillis(),
+                    savedAt = System.currentTimeMillis(),
+                    to = to, cc = cc.trim(), bcc = bcc.trim(),
+                    subject = subject,
+                    html = sanitizeOutgoingHtml(editorState.toHtml()),
+                    account = fromAccount
+                )
+            )
+            android.widget.Toast.makeText(
+                context, "Entwurf gespeichert", android.widget.Toast.LENGTH_SHORT
+            ).show()
+        } else if (draft != null) {
+            Prefs.removeDraft(draft.id)
+        }
+        onBack()
+    }
+
     fun send() {
         scope.launch {
             sending = true
@@ -268,6 +304,7 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                     attachments = outAttachments,
                     account = fromAccount
                 )
+                draft?.let { Prefs.removeDraft(it.id) }
                 onBack()
             } catch (e: Exception) {
                 snackbar.showSnackbar("Senden fehlgeschlagen: ${e.message}")
@@ -314,6 +351,7 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                                             account = fromAccount
                                         )
                                     )
+                                    draft?.let { Prefs.removeDraft(it.id) }
                                     onBack()
                                 }
                             },
@@ -329,12 +367,15 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
         )
     }
 
+    // Auch die System-Zurück-Geste speichert den Entwurf
+    androidx.activity.compose.BackHandler { closeSavingDraft() }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.Close, contentDescription = "Verwerfen")
+                    IconButton(onClick = { closeSavingDraft() }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Schließen (Entwurf wird gespeichert)")
                     }
                 },
                 title = {
@@ -779,13 +820,17 @@ private fun SuggestionList(
 ) {
     if (!visible) return
     val token = input.substringAfterLast(',').trim()
-    if (token.isBlank()) return
     val alreadyUsed = input.split(',').map { it.trim().lowercase() }.toSet()
-    val hits = contacts.filter { c ->
-        c.address !in alreadyUsed &&
-            (c.address.contains(token, ignoreCase = true) ||
-                c.name.contains(token, ignoreCase = true))
-    }.take(4)
+    // Leeres Feld: direkt die bekannten Kontakte anbieten; sonst passend filtern
+    val hits = if (token.isBlank()) {
+        contacts.filter { it.address !in alreadyUsed }.take(4)
+    } else {
+        contacts.filter { c ->
+            c.address !in alreadyUsed &&
+                (c.address.contains(token, ignoreCase = true) ||
+                    c.name.contains(token, ignoreCase = true))
+        }.take(6)
+    }
     if (hits.isEmpty()) return
     Column {
         hits.forEach { c ->

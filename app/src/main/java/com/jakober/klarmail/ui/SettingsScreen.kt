@@ -28,8 +28,10 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Newspaper
@@ -75,6 +77,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jakober.klarmail.data.GoogleAuth
 import com.jakober.klarmail.data.MailRepository
@@ -1328,6 +1331,106 @@ fun SettingsScreen(
             }
 
             SectionCard(
+                "Kontakte", Icons.Filled.Contacts,
+                subtitle = "Häufige Empfänger — als Vorschläge beim Verfassen"
+            ) {
+            var contactsVersion by remember { mutableStateOf(0) }
+            val knownContacts = remember(contactsVersion) {
+                Prefs.knownRecipients().toList().sortedBy { it.first }
+            }
+            Text(
+                "BlockMail merkt sich automatisch, an wen du schreibst, und schlägt " +
+                    "diese Adressen beim Verfassen vor. Hier kannst du Kontakte " +
+                    "ergänzen oder entfernen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            var newContactAddr by remember { mutableStateOf("") }
+            var newContactName by remember { mutableStateOf("") }
+            OutlinedTextField(
+                value = newContactAddr,
+                onValueChange = { newContactAddr = it },
+                label = { Text("E-Mail-Adresse") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = newContactName,
+                    onValueChange = { newContactName = it },
+                    label = { Text("Name (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(8.dp))
+                TextButton(
+                    enabled = newContactAddr.contains("@"),
+                    onClick = {
+                        Prefs.addKnownRecipients(
+                            listOf(newContactAddr.trim() to newContactName.trim())
+                        )
+                        newContactAddr = ""
+                        newContactName = ""
+                        contactsVersion++
+                    }
+                ) { Text("Hinzufügen") }
+            }
+            Spacer(Modifier.height(8.dp))
+            if (knownContacts.isEmpty()) {
+                Text(
+                    "Noch keine Kontakte — sie entstehen automatisch beim Senden.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                knownContacts.forEach { (address, name) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SenderAvatar(
+                            name = name.ifBlank { address },
+                            address = address,
+                            size = 34.dp
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            if (name.isNotBlank()) {
+                                Text(
+                                    name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Text(
+                                address,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        IconButton(onClick = {
+                            Prefs.removeKnownRecipient(address)
+                            contactsVersion++
+                        }) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "Kontakt entfernen",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+            }
+
+            SectionCard(
                 "Posteingang", Icons.Filled.Inbox,
                 subtitle = "Darstellung, Konversationen und Wischgesten"
             ) {
@@ -1468,6 +1571,65 @@ fun SettingsScreen(
             }
             TextButton(onClick = { showTemplateDialog = true }) { Text("Vorlage hinzufügen") }
 
+            }
+
+            SectionCard(
+                "Backup & Umzug", Icons.Filled.ImportExport,
+                subtitle = "Einstellungen als Datei sichern und auf einem neuen Gerät einspielen"
+            ) {
+            Text(
+                "Gesichert werden Farben, Darstellung, Wischgesten, Signatur, " +
+                    "Vorlagen, Regeln (stumm/blockiert/VIP), Kontakte und " +
+                    "Benachrichtigungs-Einstellungen. Zugangsdaten und Passwörter " +
+                    "sind aus Sicherheitsgründen NICHT enthalten — Konten müssen " +
+                    "auf dem neuen Gerät einmal neu verbunden werden.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            val exportLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.CreateDocument("application/json")
+            ) { uri ->
+                if (uri != null) {
+                    try {
+                        context.contentResolver.openOutputStream(uri)?.use { out ->
+                            out.write(Prefs.exportSettingsJson().toByteArray())
+                        }
+                        scope.launch { snackbar.showSnackbar("Sicherung gespeichert") }
+                    } catch (e: Exception) {
+                        scope.launch {
+                            snackbar.showSnackbar("Export fehlgeschlagen: ${e.message}")
+                        }
+                    }
+                }
+            }
+            val importLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                if (uri != null) {
+                    try {
+                        val json = context.contentResolver.openInputStream(uri)
+                            ?.use { it.readBytes().decodeToString() }
+                            ?: throw IllegalStateException("Datei nicht lesbar")
+                        val count = Prefs.importSettingsJson(json)
+                        scope.launch {
+                            snackbar.showSnackbar("$count Einstellungen übernommen")
+                        }
+                    } catch (e: Exception) {
+                        scope.launch {
+                            snackbar.showSnackbar("Import fehlgeschlagen: ${e.message}")
+                        }
+                    }
+                }
+            }
+            Row {
+                TextButton(onClick = {
+                    exportLauncher.launch("blockmail-einstellungen.json")
+                }) { Text("Sichern") }
+                TextButton(onClick = {
+                    importLauncher.launch(arrayOf("application/json", "application/octet-stream"))
+                }) { Text("Sicherung einspielen") }
+            }
             }
 
             Spacer(Modifier.height(12.dp))

@@ -773,12 +773,27 @@ object MailRepository {
             val folder = (resolveFolder(store, MailFolder.ARCHIVE)?.takeIf { it.exists() }
                 ?: store.getFolder("INBOX")) as IMAPFolder
             folder.open(Folder.READ_ONLY)
-            // Absender ODER Betreff durchsuchen
+            // Echte Volltextsuche: Absender, Betreff UND Mail-Inhalt —
+            // die Suche läuft auf dem Server und findet so auch Jahre alte Mails
             val term = javax.mail.search.OrTerm(
-                javax.mail.search.SubjectTerm(query),
-                javax.mail.search.FromStringTerm(query)
+                arrayOf(
+                    javax.mail.search.SubjectTerm(query),
+                    javax.mail.search.FromStringTerm(query),
+                    javax.mail.search.BodyTerm(query)
+                )
             )
-            val found = folder.search(term).takeLast(150).toTypedArray()
+            val found = try {
+                folder.search(term)
+            } catch (e: Exception) {
+                // Manche Server können nicht im Inhalt suchen — dann wenigstens
+                // Absender und Betreff durchsuchen
+                folder.search(
+                    javax.mail.search.OrTerm(
+                        javax.mail.search.SubjectTerm(query),
+                        javax.mail.search.FromStringTerm(query)
+                    )
+                )
+            }.takeLast(150).toTypedArray()
             if (found.isEmpty()) return@withContext emptyList()
             val inbox = folder
             val fp = FetchProfile().apply {
@@ -1704,6 +1719,27 @@ object MailRepository {
         }
         context.startActivity(
             android.content.Intent.createChooser(intent, "Öffnen mit").apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+    }
+
+    /** Teilt einen Anhang über das Android-Teilen-Menü (z. B. WhatsApp, Drive). */
+    fun shareAttachment(context: Context, name: String, mime: String, data: ByteArray) {
+        val dir = File(context.cacheDir, "attachments").apply { mkdirs() }
+        val safeName = name.replace(Regex("[/\\\\:*?\"<>|]"), "_")
+        val f = File(dir, safeName)
+        f.writeBytes(data)
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context, "com.jakober.klarmail.fileprovider", f
+        )
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = mime.ifBlank { "*/*" }
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(
+            android.content.Intent.createChooser(intent, "Teilen über").apply {
                 addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             }
         )

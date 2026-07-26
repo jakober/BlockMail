@@ -25,6 +25,9 @@ object Prefs {
     /** Aktions-Knöpfe der Mail-Benachrichtigung (Android zeigt max. 3). */
     val notifActionsFlow = MutableStateFlow(listOf("reply", "read", "delete"))
 
+    /** Automatisch gespeicherte Entwürfe (neueste zuerst). */
+    val draftsFlow = MutableStateFlow<List<Draft>>(emptyList())
+
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
@@ -76,6 +79,88 @@ object Prefs {
         vipFlow.value = loadSet("vip_senders")
         vipOnlyFlow.value = vipOnlyNotifications
         notifActionsFlow.value = notifActions
+        draftsFlow.value = drafts()
+    }
+
+    // ---- Backup & Umzug: Einstellungen als JSON sichern/wiederherstellen ----
+    // Bewusst OHNE Zugangsdaten (Passwörter, Tokens, API-Schlüssel, Konten).
+
+    private val backupKeys = setOf(
+        "color_scheme", "custom_color", "dark_mode", "inbox_layout",
+        "conversation_view", "swipe_left", "swipe_right", "signature",
+        "mail_templates", "muted_senders", "blocked_senders", "vip_senders",
+        "vip_only_notif", "notif_actions", "push_mode", "default_send_account",
+        "ai_engine", "known_recipients", "not_newsletter"
+    )
+    private val backupPrefixes = listOf("account_color_", "hidden_folders_", "newsletter")
+
+    fun exportSettingsJson(): String {
+        val values = JSONObject()
+        sp.all.forEach { (k, v) ->
+            if (k in backupKeys || backupPrefixes.any { k.startsWith(it) }) {
+                val o = JSONObject()
+                when (v) {
+                    is String -> { o.put("t", "s"); o.put("v", v) }
+                    is Boolean -> { o.put("t", "b"); o.put("v", v) }
+                    is Int -> { o.put("t", "i"); o.put("v", v) }
+                    is Long -> { o.put("t", "l"); o.put("v", v) }
+                    else -> return@forEach
+                }
+                values.put(k, o)
+            }
+        }
+        return JSONObject().apply {
+            put("app", "BlockMail")
+            put("backupVersion", 1)
+            put("exportedAt", System.currentTimeMillis())
+            put("values", values)
+        }.toString(2)
+    }
+
+    /** Spielt eine Sicherung ein und liefert die Zahl übernommener Einstellungen. */
+    fun importSettingsJson(json: String): Int {
+        val root = JSONObject(json)
+        if (root.optString("app") != "BlockMail") {
+            throw IllegalArgumentException("Das ist keine BlockMail-Sicherungsdatei")
+        }
+        val values = root.getJSONObject("values")
+        val ed = sp.edit()
+        var count = 0
+        values.keys().forEach { k ->
+            // Nur bekannte Einstellungs-Schlüssel übernehmen — niemals Zugangsdaten
+            if (k !in backupKeys && backupPrefixes.none { k.startsWith(it) }) return@forEach
+            val o = values.optJSONObject(k) ?: return@forEach
+            when (o.optString("t")) {
+                "s" -> ed.putString(k, o.optString("v"))
+                "b" -> ed.putBoolean(k, o.optBoolean("v"))
+                "i" -> ed.putInt(k, o.optInt("v"))
+                "l" -> ed.putLong(k, o.optLong("v"))
+                else -> return@forEach
+            }
+            count++
+        }
+        ed.apply()
+        refreshFlowsAfterImport()
+        return count
+    }
+
+    private fun refreshFlowsAfterImport() {
+        colorSchemeFlow.value = colorScheme
+        customColorFlow.value = customColor
+        darkModeFlow.value = darkMode
+        conversationViewFlow.value = conversationView
+        inboxLayoutFlow.value = inboxLayout
+        aiEngineFlow.value = aiEngine
+        swipeLeftFlow.value = swipeLeftAction
+        swipeRightFlow.value = swipeRightAction
+        pushModeFlow.value = pushMode
+        mutedFlow.value = loadSet("muted_senders")
+        blockedFlow.value = loadSet("blocked_senders")
+        vipFlow.value = loadSet("vip_senders")
+        vipOnlyFlow.value = vipOnlyNotifications
+        notifActionsFlow.value = notifActions
+        accountColorsFlow.value++
+        hiddenFoldersFlow.value++
     }
 
     private fun loadSet(key: String): Set<String> = try {
@@ -223,6 +308,15 @@ object Prefs {
                     o.put(key, name.ifBlank { existing })
                 }
             }
+            sp.edit().putString("known_recipients", o.toString()).apply()
+        } catch (e: Exception) {
+        }
+    }
+
+    fun removeKnownRecipient(address: String) {
+        try {
+            val o = JSONObject(sp.getString("known_recipients", "{}") ?: "{}")
+            o.remove(address.trim().lowercase())
             sp.edit().putString("known_recipients", o.toString()).apply()
         } catch (e: Exception) {
         }
@@ -454,6 +548,56 @@ object Prefs {
     fun addOutbox(m: ScheduledMail) = saveOutbox(outbox() + m)
 
     fun removeOutbox(id: Long) = saveOutbox(outbox().filter { it.id != id })
+
+    /** Automatisch gespeicherter Entwurf aus dem Verfassen-Fenster. */
+    data class Draft(
+        val id: Long,
+        val savedAt: Long,
+        val to: String,
+        val cc: String,
+        val bcc: String,
+        val subject: String,
+        val html: String,
+        val account: String = ""
+    )
+
+    fun drafts(): List<Draft> = try {
+        val arr = org.json.JSONArray(sp.getString("drafts", "[]") ?: "[]")
+        (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            Draft(
+                id = o.getLong("id"),
+                savedAt = o.getLong("savedAt"),
+                to = o.optString("to"),
+                cc = o.optString("cc"),
+                bcc = o.optString("bcc"),
+                subject = o.optString("subject"),
+                html = o.optString("html"),
+                account = o.optString("account")
+            )
+        }.sortedByDescending { it.savedAt }
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    private fun persistDrafts(list: List<Draft>) {
+        val arr = org.json.JSONArray()
+        // Neueste zuerst, höchstens 20 Entwürfe aufheben
+        list.sortedByDescending { it.savedAt }.take(20).forEach { d ->
+            arr.put(org.json.JSONObject().apply {
+                put("id", d.id); put("savedAt", d.savedAt)
+                put("to", d.to); put("cc", d.cc); put("bcc", d.bcc)
+                put("subject", d.subject); put("html", d.html)
+                put("account", d.account)
+            })
+        }
+        sp.edit().putString("drafts", arr.toString()).apply()
+        draftsFlow.value = drafts()
+    }
+
+    fun saveDraft(d: Draft) = persistDrafts(drafts().filter { it.id != d.id } + d)
+
+    fun removeDraft(id: Long) = persistDrafts(drafts().filter { it.id != id })
 
     /** Signatur, die unter neue Mails gesetzt wird (leer = keine). */
     var signature: String

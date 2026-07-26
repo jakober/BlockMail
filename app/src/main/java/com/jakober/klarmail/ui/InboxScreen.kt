@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Drafts
 import androidx.compose.material.icons.automirrored.filled.ViewList
@@ -131,7 +132,9 @@ fun InboxScreen(
     onOpenMail: (Long) -> Unit,
     onCompose: () -> Unit,
     onSettings: () -> Unit,
-    onOpenNewsletterLog: () -> Unit = {}
+    onOpenNewsletterLog: () -> Unit = {},
+    onOpenDraft: (Long) -> Unit = {},
+    onOpenStats: () -> Unit = {}
 ) {
     val messages by MailRepository.messages.collectAsState()
     val loading by MailRepository.loading.collectAsState()
@@ -293,6 +296,7 @@ fun InboxScreen(
     var searchMode by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var serverResults by remember { mutableStateOf<List<MailMessage>?>(null) }
+    var showDraftsDialog by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     val searchFocus = remember { FocusRequester() }
 
@@ -301,6 +305,84 @@ fun InboxScreen(
         query = ""
         serverResults = null
         searching = false
+    }
+
+    // Entwürfe: Liste der automatisch gespeicherten Entwürfe mit Fortsetzen/Löschen
+    if (showDraftsDialog) {
+        val draftList by Prefs.draftsFlow.collectAsState()
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDraftsDialog = false },
+            title = { Text("Entwürfe") },
+            text = {
+                if (draftList.isEmpty()) {
+                    Text(
+                        "Keine Entwürfe vorhanden.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier.verticalScroll(
+                            androidx.compose.foundation.rememberScrollState()
+                        )
+                    ) {
+                        Text(
+                            "Angefangene Mails werden beim Verlassen des " +
+                                "Verfassen-Fensters automatisch hier abgelegt.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        draftList.forEach { d ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showDraftsDialog = false
+                                        onOpenDraft(d.id)
+                                    }
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        d.subject.ifBlank { "(Ohne Betreff)" },
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        listOfNotNull(
+                                            d.to.ifBlank { null }?.let { "An: $it" },
+                                            java.text.SimpleDateFormat(
+                                                "d. MMM, HH:mm", java.util.Locale.GERMAN
+                                            ).format(java.util.Date(d.savedAt))
+                                        ).joinToString(" · "),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                IconButton(onClick = { Prefs.removeDraft(d.id) }) {
+                                    Icon(
+                                        Icons.Filled.Delete,
+                                        contentDescription = "Entwurf löschen",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { showDraftsDialog = false }) {
+                    Text("Schließen")
+                }
+            }
+        )
     }
 
     LaunchedEffect(Unit) {
@@ -492,6 +574,37 @@ fun InboxScreen(
                                         }
                                     )
                                 }
+                                // Lokale Entwürfe (automatisch beim Verlassen des
+                                // Verfassen-Fensters gespeichert)
+                                val draftList by Prefs.draftsFlow.collectAsState()
+                                if (draftList.isNotEmpty()) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "Entwürfe (${draftList.size})",
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                        },
+                                        leadingIcon = { Icon(Icons.Filled.Drafts, null) },
+                                        onClick = {
+                                            folderMenuOpen = false
+                                            showDraftsDialog = true
+                                        }
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            "Statistik",
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    },
+                                    leadingIcon = { Icon(Icons.Filled.BarChart, null) },
+                                    onClick = {
+                                        folderMenuOpen = false
+                                        onOpenStats()
+                                    }
+                                )
                                 // Konten-Wechsler (nur bei mehreren gespeicherten Konten)
                                 val accounts = remember(folderMenuOpen) {
                                     if (folderMenuOpen) {

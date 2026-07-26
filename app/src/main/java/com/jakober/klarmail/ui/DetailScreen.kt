@@ -5,6 +5,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +40,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -66,6 +68,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -539,6 +543,28 @@ fun DetailScreen(
                                     }
                                 )
                                 DropdownMenuItem(
+                                    text = { Text("Teilen") },
+                                    leadingIcon = { Icon(Icons.Filled.Share, null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        scope.launch {
+                                            try {
+                                                launch {
+                                                    snackbar.showSnackbar("„${att.name}“ wird geladen …")
+                                                }
+                                                val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
+                                                withContext(Dispatchers.IO) {
+                                                    MailRepository.shareAttachment(
+                                                        context, att.name, att.mime, bytes
+                                                    )
+                                                }
+                                            } catch (e: Exception) {
+                                                snackbar.showSnackbar("Teilen fehlgeschlagen: ${e.message}")
+                                            }
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
                                     text = { Text("In Downloads speichern") },
                                     leadingIcon = { Icon(Icons.Filled.Download, null) },
                                     onClick = {
@@ -560,6 +586,63 @@ fun DetailScreen(
                                             }
                                         }
                                     }
+                                )
+                            }
+                        }
+                    }
+                }
+                // Bild-Anhänge direkt als Vorschau anzeigen (bis 5 MB);
+                // Tippen öffnet das Bild in voller Größe
+                val imageAtts = currentBody.attachments.filter {
+                    it.mime.startsWith("image/") && it.size in 1..5_000_000
+                }
+                if (imageAtts.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = 8.dp)
+                    ) {
+                        imageAtts.forEach { att ->
+                            var bmp by remember(uid, att.name) {
+                                mutableStateOf<android.graphics.Bitmap?>(null)
+                            }
+                            LaunchedEffect(uid, att.name) {
+                                runCatching {
+                                    val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
+                                    bmp = withContext(Dispatchers.IO) {
+                                        android.graphics.BitmapFactory
+                                            .decodeByteArray(bytes, 0, bytes.size)
+                                    }
+                                }
+                            }
+                            bmp?.let { bitmap ->
+                                androidx.compose.foundation.Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = att.name,
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier
+                                        .padding(end = 8.dp)
+                                        .size(120.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            scope.launch {
+                                                try {
+                                                    val bytes = MailRepository
+                                                        .getAttachmentData(uid, att, mailAccount)
+                                                    withContext(Dispatchers.IO) {
+                                                        MailRepository.openAttachment(
+                                                            context, att.name, att.mime, bytes
+                                                        )
+                                                    }
+                                                } catch (e: Exception) {
+                                                    snackbar.showSnackbar(
+                                                        "Öffnen fehlgeschlagen: ${e.message}"
+                                                    )
+                                                }
+                                            }
+                                        }
                                 )
                             }
                         }

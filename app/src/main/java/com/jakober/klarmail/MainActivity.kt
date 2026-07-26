@@ -114,7 +114,9 @@ class MainActivity : ComponentActivity() {
                                 onOpenMail = { uid -> nav.navigate("detail/$uid") },
                                 onCompose = { nav.navigate("compose") },
                                 onSettings = { nav.navigate("settings") },
-                                onOpenNewsletterLog = { nav.navigate("newsletterlog") }
+                                onOpenNewsletterLog = { nav.navigate("newsletterlog") },
+                                onOpenDraft = { id -> nav.navigate("compose?draft=$id") },
+                                onOpenStats = { nav.navigate("stats") }
                             )
                         }
                     }
@@ -130,15 +132,28 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable(
-                        "compose?replyTo={replyTo}",
-                        arguments = listOf(navArgument("replyTo") {
-                            type = NavType.LongType
-                            defaultValue = -1L
-                        })
+                        "compose?replyTo={replyTo}&draft={draft}",
+                        arguments = listOf(
+                            navArgument("replyTo") {
+                                type = NavType.LongType
+                                defaultValue = -1L
+                            },
+                            navArgument("draft") {
+                                type = NavType.LongType
+                                defaultValue = -1L
+                            }
+                        )
                     ) { entry ->
                         val replyTo = entry.arguments?.getLong("replyTo") ?: -1L
+                        val draftId = entry.arguments?.getLong("draft") ?: -1L
                         ComposeScreen(
                             replyToUid = replyTo.takeIf { it != -1L },
+                            onBack = { nav.popBackStack() },
+                            draftId = draftId.takeIf { it != -1L }
+                        )
+                    }
+                    composable("stats") {
+                        com.jakober.klarmail.ui.StatsScreen(
                             onBack = { nav.popBackStack() }
                         )
                     }
