@@ -69,14 +69,28 @@ object GeminiNano {
 
     suspend fun draftReply(
         originalFrom: String,
+        subject: String,
         originalBody: String,
         instruction: String
     ): String = generate(
-        "Schreibe eine höfliche, natürliche Antwort auf die folgende E-Mail, in " +
-            "derselben Sprache wie die E-Mail. " +
-            (if (instruction.isNotBlank()) "Berücksichtige diese Anweisung: $instruction. " else "") +
-            "Antworte NUR mit dem Antworttext, ohne Betreff.\n\n" +
-            "E-Mail von $originalFrom:\n${originalBody.take(6000)}"
+        // Kleines On-Device-Modell braucht sehr explizite Anweisungen —
+        // sonst kommt nur eine Floskel ohne Bezug zum Inhalt
+        "Du bist ein E-Mail-Assistent. Lies die folgende E-Mail genau und " +
+            "schreibe eine konkrete Antwort darauf.\n" +
+            "WICHTIG:\n" +
+            "- Gehe direkt auf den Inhalt ein: Beantworte gestellte Fragen und " +
+            "nimm Bezug auf genannte Termine, Beträge und Fakten.\n" +
+            "- Schreibe KEINE allgemeine Floskel-Antwort wie „Vielen Dank " +
+            "für Ihre Nachricht, ich kümmere mich darum“.\n" +
+            "- Antworte in derselben Sprache wie die E-Mail.\n" +
+            "- Antworte NUR mit dem Antworttext, ohne Betreff.\n" +
+            (if (instruction.isNotBlank()) {
+                "- Wunsch des Nutzers für die Antwort: $instruction\n"
+            } else "") +
+            "\nVon: $originalFrom\n" +
+            "Betreff: $subject\n" +
+            "E-Mail:\n${originalBody.take(6000)}\n\n" +
+            "Antwort:"
     )
 
     suspend fun composeMail(instruction: String): String = generate(

@@ -487,20 +487,30 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                                 onClick = {
                                     aiMenuOpen = false
                                     runAi("Claude formuliert eine Antwort …", showLanguage = true) {
+                                        // Die vorbefüllte Signatur ist KEINE Anweisung an
+                                        // die KI — sonst entstehen Floskel-Antworten
+                                        val instructionText = plainText
+                                            .replace(Prefs.signature.trim(), "")
+                                            .trim()
                                         val origBody = try {
                                             MailRepository.loadVisibleText(original.uid, original.account)
                                         } catch (e: Exception) {
                                             ""
                                         }
+                                        if (origBody.isBlank()) {
+                                            throw IllegalStateException(
+                                                "Inhalt der Mail konnte nicht geladen werden"
+                                            )
+                                        }
                                         if (hasClaudeKey) {
                                             ClaudeClient.draftReply(
                                                 Prefs.claudeApiKey, original, origBody,
-                                                instruction = plainText.takeIf { it.isNotBlank() } ?: ""
+                                                instruction = instructionText
                                             )
                                         } else {
                                             com.jakober.klarmail.ai.GeminiNano.draftReply(
-                                                original.from, origBody,
-                                                plainText.takeIf { it.isNotBlank() } ?: ""
+                                                original.from, original.subject, origBody,
+                                                instructionText
                                             )
                                         }
                                     }

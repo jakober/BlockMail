@@ -122,7 +122,11 @@ object ClaudeClient {
             if (instruction.isNotBlank()) {
                 append("\n\nAnweisung für die Antwort: $instruction")
             } else {
-                append("\n\nFormuliere eine sinnvolle, logische Antwort auf diese E-Mail.")
+                append(
+                    "\n\nFormuliere eine sinnvolle, logische Antwort auf diese E-Mail. " +
+                        "Gehe konkret auf die Punkte und Fragen der E-Mail ein; " +
+                        "keine reine Höflichkeitsfloskel."
+                )
             }
             append("\n\nVerfasse die Antwort zwingend auf $lang — unabhängig von der Sprache dieser Anweisungen.")
         }
