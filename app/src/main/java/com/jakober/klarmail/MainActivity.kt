@@ -107,7 +107,10 @@ class MainActivity : ComponentActivity() {
                                 onCompose = { nav.navigate("compose") },
                                 onSettings = { nav.navigate("settings") },
                                 onReply = { uid -> nav.navigate("compose?replyTo=$uid") },
-                                onOpenNewsletterLog = { nav.navigate("newsletterlog") }
+                                onOpenNewsletterLog = { nav.navigate("newsletterlog") },
+                                onOpenDraft = { id -> nav.navigate("compose?draft=$id") },
+                                onOpenStats = { nav.navigate("stats") },
+                                onOpenAttachments = { nav.navigate("attachments") }
                             )
                         } else {
                             InboxScreen(

@@ -1281,7 +1281,12 @@ fun InboxScreen(
                 // "blocks3" = kompakte Variante: 3 Spalten, ohne Vorschautext
                 val compact = inboxLayout == "blocks3"
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(if (compact) 3 else 2),
+                    // Adaptive Spalten: Die Anzahl richtet sich nach der
+                    // verfügbaren Breite — im Querformat mit verschiebbarer
+                    // Trennlinie werden es automatisch mehr oder weniger
+                    columns = GridCells.Adaptive(
+                        minSize = if (compact) 108.dp else 164.dp
+                    ),
                     state = gridState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = 10.dp),
