@@ -350,6 +350,71 @@ object MailRepository {
         if (changed) persist()
     }
 
+    /**
+     * Holt fehlende Vorschauen direkt vom Server nach — von oben nach unten,
+     * über EINE Verbindung je Konto und nur den Mail-Text (keine Bilder,
+     * keine Anhänge). So bekommen auch ältere/gelesene Mails ihre Vorschau,
+     * ohne dass man sie erst öffnen muss.
+     */
+    @Volatile
+    private var snippetJobRunning = false
+
+    private fun scheduleServerSnippets() {
+        if (snippetJobRunning) return
+        ruleScope.launch { backfillSnippetsFromServer() }
+    }
+
+    private suspend fun backfillSnippetsFromServer() = withContext(Dispatchers.IO) {
+        if (snippetJobRunning) return@withContext
+        snippetJobRunning = true
+        try {
+            if (_currentFolder.value != MailFolder.INBOX) return@withContext
+            // In Anzeige-Reihenfolge (Neue zuerst), gedeckelt pro Lauf
+            val missing = _messages.value.filter { it.snippet == null }.take(40)
+            if (missing.isEmpty()) return@withContext
+            var anyChanged = false
+            for ((account, mails) in missing.groupBy { it.account }) {
+                try {
+                    val store = openStoreFor(account)
+                    try {
+                        val inbox = (store.getFolder("INBOX") as IMAPFolder)
+                            .apply { open(Folder.READ_ONLY) }
+                        for (m in mails) {
+                            // Ordner-/Modus-Wechsel bricht den Lauf ab
+                            if (_currentFolder.value != MailFolder.INBOX) break
+                            val msg = runCatching { inbox.getMessageByUID(m.uid) }
+                                .getOrNull() ?: continue
+                            val html = runCatching {
+                                extractPart(msg, "text/html")?.let { fixEncoding(it) }
+                            }.getOrNull()
+                            val text = runCatching {
+                                extractText(msg)?.let { fixEncoding(it) }
+                            }.getOrNull()?.trim().orEmpty()
+                            if (html == null && text.isBlank()) continue
+                            val snip = makeSnippet(MailBody(html = html, text = text))
+                            _messages.update { list ->
+                                list.map {
+                                    if (it.uid == m.uid && it.account == m.account &&
+                                        it.snippet == null
+                                    ) {
+                                        anyChanged = true
+                                        it.copy(snippet = snip)
+                                    } else it
+                                }
+                            }
+                        }
+                    } finally {
+                        runCatching { store.close() }
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            if (anyChanged) persist()
+        } finally {
+            snippetJobRunning = false
+        }
+    }
+
     /** Ergänzt fehlende Vorschauen aus bereits auf der Platte gecachten Inhalten. */
     private fun backfillSnippets() {
         if (_currentFolder.value != MailFolder.INBOX) return
@@ -536,6 +601,8 @@ object MailRepository {
                         }
                     }
                     backfillSnippets()
+                    // Restliche Vorschauen leichtgewichtig vom Server nachladen
+                    scheduleServerSnippets()
                 }
             } catch (e: Exception) {
                 _error.value = friendlyError(e)
@@ -595,6 +662,8 @@ object MailRepository {
             if (_unified.value) {
                 _messages.value = sort(applyRules(merged))
                 _canLoadMore.value = false
+                // Fehlende Vorschauen auch im Sammel-Posteingang nachladen
+                scheduleServerSnippets()
             }
             _error.value = firstError
             _loading.value = false
@@ -645,7 +714,10 @@ object MailRepository {
                     }
                     persist()
                     _canLoadMore.value = start > 1
-                    if (_currentFolder.value == MailFolder.INBOX) backfillSnippets()
+                    if (_currentFolder.value == MailFolder.INBOX) {
+                        backfillSnippets()
+                        scheduleServerSnippets()
+                    }
                 } finally {
                     runCatching { store.close() }
                 }
