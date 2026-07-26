@@ -39,6 +39,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.SubdirectoryArrowRight
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.Archive
@@ -51,6 +52,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Drafts
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.MailOutline
@@ -864,7 +867,8 @@ fun InboxScreen(
                                         },
                                         onLongClick = {},
                                         modifier = Modifier.animateItem(),
-                                        threadCount = t.mails.size
+                                        threadCount = t.mails.size,
+                                        threadExpanded = expandedThreads.contains(t.key)
                                     )
                                 }
                                 if (expandedThreads.contains(t.key)) {
@@ -881,7 +885,8 @@ fun InboxScreen(
                                             selectionMode = selectionMode,
                                             rightSpec = specFor(swipeRight, mail),
                                             leftSpec = specFor(swipeLeft, mail),
-                                            modifier = Modifier.animateItem()
+                                            modifier = Modifier.animateItem(),
+                                            inThread = true
                                         )
                                     }
                                 }
@@ -1639,7 +1644,9 @@ private fun MailBlock(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
-    threadCount: Int? = null
+    threadCount: Int? = null,
+    threadExpanded: Boolean = false,
+    inThread: Boolean = false
 ) {
     val scheme = MaterialTheme.colorScheme
     // Sanfter Verlauf gibt den Kacheln Tiefe; Ungelesene leuchten oben.
@@ -1664,8 +1671,15 @@ private fun MailBlock(
     }
     val borderMod = when {
         selected -> Modifier.border(1.5.dp, scheme.primary, MailBlockShape)
+        // Aufgeklappte Bündel-Kachel deutlich markieren
+        threadCount != null && threadCount > 1 && threadExpanded ->
+            Modifier.border(1.5.dp, scheme.primary.copy(alpha = 0.6f), MailBlockShape)
         !mail.seen -> Modifier.border(
             1.dp, scheme.primary.copy(alpha = 0.35f), MailBlockShape
+        )
+        // Mitglieder eines aufgeklappten Bündels dezent einrahmen
+        inThread -> Modifier.border(
+            1.dp, scheme.secondary.copy(alpha = 0.45f), MailBlockShape
         )
         else -> Modifier
     }
@@ -1777,6 +1791,16 @@ private fun MailBlock(
         }
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // Zugehörigkeits-Pfeil: markiert Mails eines aufgeklappten Bündels
+            if (inThread) {
+                Icon(
+                    Icons.AutoMirrored.Filled.SubdirectoryArrowRight,
+                    contentDescription = "Teil der Konversation",
+                    modifier = Modifier.size(14.dp),
+                    tint = scheme.secondary
+                )
+                Spacer(Modifier.width(4.dp))
+            }
             Text(
                 text = mail.from,
                 style = MaterialTheme.typography.titleSmall,
@@ -1799,6 +1823,13 @@ private fun MailBlock(
                         color = scheme.onSecondaryContainer
                     )
                 }
+                Spacer(Modifier.width(3.dp))
+                Icon(
+                    if (threadExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = if (threadExpanded) "Zuklappen" else "Aufklappen",
+                    modifier = Modifier.size(16.dp),
+                    tint = scheme.onSurfaceVariant
+                )
             }
         }
         Spacer(Modifier.height(2.dp))
@@ -1863,11 +1894,12 @@ private fun SwipeableMailBlock(
     selectionMode: Boolean,
     rightSpec: SwipeSpec,
     leftSpec: SwipeSpec,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    inThread: Boolean = false
 ) {
     // Im Auswahlmodus keine Wischgesten – nur antippen/lange drücken
     if (selectionMode) {
-        MailBlock(mail, selected, true, onClick, onLongClick, modifier)
+        MailBlock(mail, selected, true, onClick, onLongClick, modifier, inThread = inThread)
         return
     }
     androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier) {
@@ -1978,7 +2010,7 @@ private fun SwipeableMailBlock(
                 }
             }
         ) {
-            MailBlock(mail, selected, false, onClick, onLongClick)
+            MailBlock(mail, selected, false, onClick, onLongClick, inThread = inThread)
         }
     }
 }
