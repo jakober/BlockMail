@@ -63,11 +63,16 @@ fun TwoPaneScreen(
                     )
                 }
             } else {
-                DetailScreen(
-                    uid = selectedUid,
-                    onBack = { onSelect(-1L) },
-                    onReply = { onReply(selectedUid) }
-                )
+                // key(uid): Beim Mail-Wechsel wird die Detailansicht komplett
+                // neu aufgebaut — sonst bleibt der alte WebView der vorherigen
+                // Mail hängen und füllt die Fläche weiß
+                androidx.compose.runtime.key(selectedUid) {
+                    DetailScreen(
+                        uid = selectedUid,
+                        onBack = { onSelect(-1L) },
+                        onReply = { onReply(selectedUid) }
+                    )
+                }
             }
         }
     }

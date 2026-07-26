@@ -59,10 +59,10 @@ object PhishingCheck {
         val senderDomain = domainOf(fromAddress.substringAfter('@', ""))
         val haystack = (subject + "\n" + text).lowercase()
 
-        // 1) Marke im Anzeigenamen/Betreff, aber Absender-Domain passt nicht
-        val claimed = brands.filter {
-            fromName.lowercase().contains(it) || subject.lowercase().contains(it)
-        }
+        // 1) Marke im ANZEIGENAMEN, aber Absender-Domain passt nicht.
+        // Bewusst nicht der Betreff: Weitergeleitete oder Antwort-Mails
+        // ("Wg: Amazon …") würden sonst fälschlich markiert.
+        val claimed = brands.filter { fromName.lowercase().contains(it) }
         claimed.firstOrNull()?.let { brand ->
             val brandKey = brand.replace(" ", "")
             if (senderDomain.isNotBlank() &&

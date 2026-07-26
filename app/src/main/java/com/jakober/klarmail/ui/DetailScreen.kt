@@ -458,7 +458,9 @@ fun DetailScreen(
             // Scrollen des Inhalts aus — gerade im Querformat wäre sonst
             // kaum etwas von der Mail zu sehen
             var headerHidden by remember(uid) { mutableStateOf(false) }
-            val textScroll = rememberScrollState()
+            // Pro Mail ein frischer Scroll-Zustand — sonst erbt die nächste
+            // Mail die alte Scroll-Position (und der Kopf bliebe versteckt)
+            val textScroll = remember(uid) { androidx.compose.foundation.ScrollState(0) }
             LaunchedEffect(textScroll) {
                 androidx.compose.runtime.snapshotFlow { textScroll.value }
                     .collect { headerHidden = it > 60 }
@@ -507,6 +509,15 @@ fun DetailScreen(
             }
             LaunchedEffect(currentBody) {
                 val b = currentBody ?: return@LaunchedEffect
+                // Eigene Mails (von den eigenen Konten) nie als Phishing werten
+                val ownAddresses = (com.jakober.klarmail.data.Prefs.accounts()
+                    .map { it.email } + com.jakober.klarmail.data.Prefs.email)
+                    .map { it.trim().lowercase() }.toSet()
+                if (mail.fromAddress.trim().lowercase() in ownAddresses) {
+                    phishing = null
+                    com.jakober.klarmail.data.Prefs.markPhishing(mailAccount, uid, false)
+                    return@LaunchedEffect
+                }
                 val result = withContext(Dispatchers.Default) {
                     runCatching {
                         com.jakober.klarmail.data.PhishingCheck.analyze(
