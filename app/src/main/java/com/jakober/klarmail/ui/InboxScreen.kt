@@ -784,8 +784,32 @@ fun InboxScreen(
                     },
                     navigationIcon = {
                         if (configured) {
-                            IconButton(onClick = { searchMode = true }) {
-                                Icon(Icons.Filled.Search, contentDescription = "Suchen")
+                            Row {
+                                IconButton(onClick = { searchMode = true }) {
+                                    Icon(Icons.Filled.Search, contentDescription = "Suchen")
+                                }
+                                // Durchschalter Liste → Kacheln (2er) → Kompakt (3er);
+                                // das Symbol zeigt jeweils die NÄCHSTE Ansicht
+                                IconButton(onClick = {
+                                    Prefs.inboxLayout = when (inboxLayout) {
+                                        "list" -> "blocks"
+                                        "blocks" -> "blocks3"
+                                        else -> "list"
+                                    }
+                                }) {
+                                    Icon(
+                                        when (inboxLayout) {
+                                            "list" -> Icons.Filled.GridView
+                                            "blocks" -> Icons.Filled.ViewModule
+                                            else -> Icons.AutoMirrored.Filled.ViewList
+                                        },
+                                        contentDescription = when (inboxLayout) {
+                                            "list" -> "Zur Kachel-Ansicht wechseln"
+                                            "blocks" -> "Zur kompakten Kachel-Ansicht wechseln"
+                                            else -> "Zur Listen-Ansicht wechseln"
+                                        }
+                                    )
+                                }
                             }
                         }
                     },

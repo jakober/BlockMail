@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Forward
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.ReplyAll
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -145,7 +146,8 @@ fun DetailScreen(
     onBack: () -> Unit,
     onReply: () -> Unit,
     folder: MailRepository.MailFolder? = null,
-    fallbackMail: com.jakober.klarmail.data.MailMessage? = null
+    fallbackMail: com.jakober.klarmail.data.MailMessage? = null,
+    onForward: (() -> Unit)? = null
 ) {
     val messages by MailRepository.messages.collectAsState()
     val mail = fallbackMail ?: messages.find { it.uid == uid }
@@ -254,6 +256,18 @@ fun DetailScreen(
                                 expanded = menuOpen,
                                 onDismissRequest = { menuOpen = false }
                             ) {
+                                if (onForward != null) {
+                                    DropdownMenuItem(
+                                        text = { Text("Weiterleiten") },
+                                        leadingIcon = {
+                                            Icon(Icons.AutoMirrored.Filled.Forward, null)
+                                        },
+                                        onClick = {
+                                            menuOpen = false
+                                            onForward()
+                                        }
+                                    )
+                                }
                                 DropdownMenuItem(
                                     text = { Text("Diese Mail löschen") },
                                     leadingIcon = { Icon(Icons.Filled.Delete, null) },

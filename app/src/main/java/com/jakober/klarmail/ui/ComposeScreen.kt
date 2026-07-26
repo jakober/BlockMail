@@ -136,12 +136,22 @@ private fun scheduleChoices(): List<Pair<String, Long>> {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) {
+fun ComposeScreen(
+    replyToUid: Long?,
+    onBack: () -> Unit,
+    draftId: Long? = null,
+    forwardFromUid: Long? = null
+) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
 
     val original = replyToUid?.let { uid -> MailRepository.messages.value.find { it.uid == uid } }
+    // Weiterleiten: Ausgangs-Mail (Text und Anhänge werden übernommen)
+    val forwardOriginal = forwardFromUid?.let { uid ->
+        MailRepository.messages.value.find { it.uid == uid }
+    }
+    val fwdAttachments = remember { mutableStateListOf<MailRepository.MailAttachment>() }
     // Gespeicherten Entwurf fortsetzen?
     val draft = remember { draftId?.let { id -> Prefs.drafts().find { it.id == id } } }
     // „Allen antworten“: vorbereitete An-/CC-Zeile aus der Mail-Ansicht
@@ -163,16 +173,45 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) 
         )
     }
     var subject by remember {
-        mutableStateOf(draft?.subject ?: original?.let { o ->
-            if (o.subject.startsWith("Re:", ignoreCase = true)) o.subject else "Re: ${o.subject}"
-        } ?: "")
+        mutableStateOf(
+            draft?.subject
+                ?: forwardOriginal?.let { o ->
+                    if (o.subject.startsWith("Wg:", ignoreCase = true) ||
+                        o.subject.startsWith("Fwd:", ignoreCase = true)
+                    ) o.subject else "Wg: ${o.subject}"
+                }
+                ?: original?.let { o ->
+                    if (o.subject.startsWith("Re:", ignoreCase = true)) o.subject
+                    else "Re: ${o.subject}"
+                } ?: ""
+        )
     }
     val editorState = rememberRichTextState()
 
-    // Entwurfstext wiederherstellen bzw. Signatur unter den (leeren) Text setzen
+    // Entwurfstext wiederherstellen, weitergeleitete Mail zitieren oder
+    // Signatur unter den (leeren) Text setzen
     androidx.compose.runtime.LaunchedEffect(Unit) {
         if (draft != null && draft.html.isNotBlank()) {
             editorState.setHtml(draft.html)
+        } else if (forwardOriginal != null) {
+            val body = runCatching {
+                MailRepository.loadBodyContent(
+                    forwardOriginal.uid, account = forwardOriginal.account
+                )
+            }.getOrNull()
+            val dateText = java.text.SimpleDateFormat(
+                "EEEE, d. MMMM yyyy, HH:mm", java.util.Locale.GERMAN
+            ).format(java.util.Date(forwardOriginal.date))
+            val header = "---------- Weitergeleitete Nachricht ----------\n" +
+                "Von: ${forwardOriginal.from} <${forwardOriginal.fromAddress}>\n" +
+                "Datum: $dateText\n" +
+                "Betreff: ${forwardOriginal.subject}\n\n"
+            val sig = Prefs.signature
+            val sigPart = if (sig.isNotBlank()) "${plainToHtml(sig)}<br><br>" else ""
+            editorState.setHtml(
+                "<br><br>$sigPart${plainToHtml(header + body?.text.orEmpty())}"
+            )
+            fwdAttachments.addAll(body?.attachments.orEmpty())
         } else {
             val sig = Prefs.signature
             if (sig.isNotBlank() && editorState.annotatedString.text.isBlank()) {
@@ -192,6 +231,8 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) 
                 draft != null && draft.account.isNotBlank() &&
                     Prefs.accounts().any { it.email.equals(draft.account, ignoreCase = true) } ->
                     draft.account
+                forwardOriginal != null ->
+                    forwardOriginal.account.takeIf { it.isNotBlank() } ?: Prefs.email
                 original != null ->
                     original.account.takeIf { it.isNotBlank() } ?: Prefs.email
                 default.isNotBlank() &&
@@ -305,6 +346,18 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) 
                         )
                     }
                 }
+                // Beim Weiterleiten: Original-Anhänge vom Server laden und anhängen
+                val fwdOut = if (forwardOriginal != null) {
+                    fwdAttachments.map { att ->
+                        MailRepository.OutAttachment(
+                            name = att.name,
+                            mime = att.mime,
+                            data = MailRepository.getAttachmentData(
+                                forwardOriginal.uid, att, forwardOriginal.account
+                            )
+                        )
+                    }
+                } else emptyList()
                 MailRepository.send(
                     to = to,
                     subject = subject,
@@ -312,7 +365,7 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) 
                     html = sanitizeOutgoingHtml(editorState.toHtml()),
                     cc = cc.trim(),
                     bcc = bcc.trim(),
-                    attachments = outAttachments,
+                    attachments = outAttachments + fwdOut,
                     account = fromAccount
                 )
                 draft?.let { Prefs.removeDraft(it.id) }
@@ -348,7 +401,7 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) 
                         TextButton(
                             onClick = {
                                 showScheduleDialog = false
-                                if (pickedFiles.isNotEmpty()) {
+                                if (pickedFiles.isNotEmpty() || fwdAttachments.isNotEmpty()) {
                                     scope.launch {
                                         snackbar.showSnackbar(
                                             "Geplantes Senden mit Anhängen wird noch nicht unterstützt"
@@ -398,7 +451,11 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) 
                 title = {
                     Column {
                         Text(
-                            if (original != null) "Antworten" else "Neue Nachricht",
+                            when {
+                                original != null -> "Antworten"
+                                forwardOriginal != null -> "Weiterleiten"
+                                else -> "Neue Nachricht"
+                            },
                             style = MaterialTheme.typography.titleLarge
                         )
                         // Absender-Wähler: bei mehreren Konten antippbar
@@ -489,13 +546,32 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) 
                             modifier = Modifier.padding(start = 16.dp, top = 6.dp)
                         )
                     }
-                    if (pickedFiles.isNotEmpty()) {
+                    if (pickedFiles.isNotEmpty() || fwdAttachments.isNotEmpty()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .horizontalScroll(rememberScrollState())
                                 .padding(horizontal = 12.dp, vertical = 4.dp)
                         ) {
+                            // Original-Anhänge der weitergeleiteten Mail (abwählbar)
+                            fwdAttachments.forEach { att ->
+                                InputChip(
+                                    selected = true,
+                                    onClick = { fwdAttachments.remove(att) },
+                                    label = {
+                                        val sizeKb = if (att.size > 0) " (${att.size / 1024} KB)" else ""
+                                        Text("${att.name}$sizeKb")
+                                    },
+                                    trailingIcon = {
+                                        Icon(
+                                            Icons.Filled.Close,
+                                            contentDescription = "Anhang entfernen",
+                                            modifier = Modifier.width(AssistChipDefaults.IconSize)
+                                        )
+                                    },
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                            }
                             pickedFiles.forEach { f ->
                                 InputChip(
                                     selected = false,

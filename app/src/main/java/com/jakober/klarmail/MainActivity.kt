@@ -129,11 +129,12 @@ class MainActivity : ComponentActivity() {
                         DetailScreen(
                             uid = uid,
                             onBack = { nav.popBackStack() },
-                            onReply = { nav.navigate("compose?replyTo=$uid") }
+                            onReply = { nav.navigate("compose?replyTo=$uid") },
+                            onForward = { nav.navigate("compose?forward=$uid") }
                         )
                     }
                     composable(
-                        "compose?replyTo={replyTo}&draft={draft}",
+                        "compose?replyTo={replyTo}&draft={draft}&forward={forward}",
                         arguments = listOf(
                             navArgument("replyTo") {
                                 type = NavType.LongType
@@ -142,15 +143,21 @@ class MainActivity : ComponentActivity() {
                             navArgument("draft") {
                                 type = NavType.LongType
                                 defaultValue = -1L
+                            },
+                            navArgument("forward") {
+                                type = NavType.LongType
+                                defaultValue = -1L
                             }
                         )
                     ) { entry ->
                         val replyTo = entry.arguments?.getLong("replyTo") ?: -1L
                         val draftId = entry.arguments?.getLong("draft") ?: -1L
+                        val forward = entry.arguments?.getLong("forward") ?: -1L
                         ComposeScreen(
                             replyToUid = replyTo.takeIf { it != -1L },
                             onBack = { nav.popBackStack() },
-                            draftId = draftId.takeIf { it != -1L }
+                            draftId = draftId.takeIf { it != -1L },
+                            forwardFromUid = forward.takeIf { it != -1L }
                         )
                     }
                     composable("stats") {
