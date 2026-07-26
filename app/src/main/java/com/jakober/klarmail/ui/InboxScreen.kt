@@ -872,6 +872,80 @@ fun InboxScreen(
             }
         }
 
+        // Wisch-Aktionen auf ganzen Konversations-Bündeln: wirken auf alle
+        // Mails des Bündels; Löschen fragt vorher nach
+        var confirmDeleteThread by remember { mutableStateOf<MailThread?>(null) }
+        confirmDeleteThread?.let { t ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmDeleteThread = null },
+                title = { Text("Konversation löschen?") },
+                text = {
+                    Text(
+                        "Diese Konversation enthält ${t.mails.size} Mails. " +
+                            "Sollen alle gelöscht werden?"
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        confirmDeleteThread = null
+                        scope.launch {
+                            MailRepository.deleteBatch(t.mails.map { it.uid })
+                        }
+                    }) { Text("Alle löschen") }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        confirmDeleteThread = null
+                    }) { Text("Abbrechen") }
+                }
+            )
+        }
+
+        val archiveThreadWithUndo: (MailThread) -> Unit = { t ->
+            scope.launch {
+                t.mails.forEach { MailRepository.hideLocally(it.uid, it.account) }
+                val result = snackbar.showSnackbar(
+                    message = "Konversation archiviert (${t.mails.size} Mails)",
+                    actionLabel = "Rückgängig",
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    t.mails.forEach { MailRepository.restoreLocally(it) }
+                } else {
+                    t.mails.forEach {
+                        MailRepository.moveMail(
+                            it.uid, MailRepository.MailFolder.ARCHIVE, it.account
+                        )
+                    }
+                }
+            }
+        }
+
+        val snoozeThreadWithUndo: (MailThread) -> Unit = { t ->
+            scope.launch {
+                val until = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                    set(Calendar.HOUR_OF_DAY, 8)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                t.mails.forEach { m ->
+                    Prefs.addSnooze(
+                        Prefs.Snooze(m.uid, until, m.from, m.fromAddress, m.subject)
+                    )
+                }
+                val result = snackbar.showSnackbar(
+                    message = "Erinnerung morgen um 8 Uhr (${t.mails.size} Mails)",
+                    actionLabel = "Rückgängig",
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    t.mails.forEach { Prefs.removeSnooze(it.uid) }
+                }
+            }
+        }
+
         // Die vom Nutzer gewählten Wisch-Aktionen (Einstellungen → Posteingang)
         val swipeLeft by Prefs.swipeLeftFlow.collectAsState()
         val swipeRight by Prefs.swipeRightFlow.collectAsState()
@@ -891,6 +965,28 @@ fun InboxScreen(
                 }
                 else -> SwipeSpec("Löschen", Icons.Filled.Delete, destructive = true) {
                     deleteWithUndo(mail)
+                }
+            }
+        }
+        val threadSpecFor: (String, MailThread) -> SwipeSpec = { action, t ->
+            when (action) {
+                "archive" -> SwipeSpec("Alle archivieren", Icons.Filled.Archive) {
+                    archiveThreadWithUndo(t)
+                }
+                "read" -> SwipeSpec(
+                    if (t.unread > 0) "Alle als gelesen markieren"
+                    else "Alle als ungelesen markieren",
+                    if (t.unread > 0) Icons.Filled.Drafts else Icons.Filled.MarkEmailUnread
+                ) {
+                    scope.launch {
+                        MailRepository.setSeenBatch(t.mails.map { it.uid }, t.unread > 0)
+                    }
+                }
+                "snooze" -> SwipeSpec("Alle morgen erinnern", Icons.Filled.Schedule) {
+                    snoozeThreadWithUndo(t)
+                }
+                else -> SwipeSpec("Alle löschen", Icons.Filled.Delete, destructive = true) {
+                    confirmDeleteThread = t
                 }
             }
         }
@@ -989,10 +1085,8 @@ fun InboxScreen(
                                 }
                             } else {
                                 item(key = "thread_${t.key}", contentType = "mail") {
-                                    MailBlock(
+                                    SwipeableMailBlock(
                                         mail = t.newest.copy(seen = t.unread == 0),
-                                        selected = false,
-                                        selectionMode = false,
                                         onClick = {
                                             if (expandedThreads.contains(t.key)) {
                                                 expandedThreads.remove(t.key)
@@ -1001,10 +1095,14 @@ fun InboxScreen(
                                             }
                                         },
                                         onLongClick = {},
+                                        selected = false,
+                                        selectionMode = false,
+                                        rightSpec = threadSpecFor(swipeRight, t),
+                                        leftSpec = threadSpecFor(swipeLeft, t),
                                         modifier = Modifier.animateItem(),
+                                        compact = compact,
                                         threadCount = t.mails.size,
-                                        threadExpanded = expandedThreads.contains(t.key),
-                                        compact = compact
+                                        threadExpanded = expandedThreads.contains(t.key)
                                     )
                                 }
                                 if (expandedThreads.contains(t.key)) {
@@ -1137,18 +1235,18 @@ fun InboxScreen(
                             }
                         } else {
                             item(key = "thread_${t.key}") {
-                                MailRow(
+                                SwipeableMailRow(
                                     mail = t.newest.copy(seen = t.unread == 0),
-                                    selected = false,
-                                    selectionMode = false,
                                     onClick = {
                                         if (expandedThreads.contains(t.key)) expandedThreads.remove(t.key)
                                         else expandedThreads.add(t.key)
                                     },
                                     onLongClick = {},
-                                    modifier = Modifier
-                                        .animateItem()
-                                        .padding(horizontal = 10.dp, vertical = 3.dp),
+                                    selected = false,
+                                    selectionMode = false,
+                                    rightSpec = threadSpecFor(swipeRight, t),
+                                    leftSpec = threadSpecFor(swipeLeft, t),
+                                    modifier = Modifier.animateItem(),
                                     threadCount = t.mails.size
                                 )
                             }
@@ -1371,13 +1469,15 @@ private fun SwipeableMailRow(
     selectionMode: Boolean,
     rightSpec: SwipeSpec,
     leftSpec: SwipeSpec,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    threadCount: Int? = null
 ) {
     // Im Auswahlmodus keine Wischgesten – nur antippen/lange drücken
     if (selectionMode) {
         MailRow(
             mail, selected, true, onClick, onLongClick,
-            modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+            modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+            threadCount = threadCount
         )
         return
     }
@@ -1528,7 +1628,7 @@ private fun SwipeableMailRow(
                 }
             }
         ) {
-            MailRow(mail, selected, false, onClick, onLongClick)
+            MailRow(mail, selected, false, onClick, onLongClick, threadCount = threadCount)
         }
     }
 }
@@ -1936,34 +2036,73 @@ private fun MailBlock(
                 }
             }
             Spacer(Modifier.weight(1f))
-            // Anhang-Symbol zwischen Logo und Datum
-            if (mail.hasAttachments) {
-                Icon(
-                    Icons.Filled.AttachFile,
-                    contentDescription = "Anhang vorhanden",
-                    modifier = Modifier.size(15.dp),
-                    tint = scheme.onSurfaceVariant
-                )
-                Spacer(Modifier.width(6.dp))
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (chipColor != null) {
-                        MiniBlocksLogo(chipColor)
-                        Spacer(Modifier.width(6.dp))
+            if (compact) {
+                // Kompakt: Symbole in eigener Mini-Zeile ÜBER dem Datum —
+                // in der schmalen Kachel bricht das Datum sonst um und die
+                // Kachel wird höher als ihre Nachbarn. Die Zeile wird immer
+                // gerendert (feste Höhe), damit alle Kacheln gleich hoch sind.
+                Column(horizontalAlignment = Alignment.End) {
+                    Row(
+                        modifier = Modifier.height(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (mail.hasAttachments) {
+                            Icon(
+                                Icons.Filled.AttachFile,
+                                contentDescription = "Anhang vorhanden",
+                                modifier = Modifier.size(12.dp),
+                                tint = scheme.onSurfaceVariant
+                            )
+                        }
+                        if (chipColor != null) {
+                            if (mail.hasAttachments) Spacer(Modifier.width(4.dp))
+                            MiniBlocksLogo(chipColor)
+                        }
                     }
                     Text(
                         text = formatMailDate(mail.date),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (mail.seen) scheme.onSurfaceVariant else scheme.primary,
-                        fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold
+                        fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Text(
+                        text = formatMailTime(mail.date),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    text = formatMailTime(mail.date),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = scheme.onSurfaceVariant
-                )
+            } else {
+                // Anhang-Symbol zwischen Logo und Datum
+                if (mail.hasAttachments) {
+                    Icon(
+                        Icons.Filled.AttachFile,
+                        contentDescription = "Anhang vorhanden",
+                        modifier = Modifier.size(15.dp),
+                        tint = scheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (chipColor != null) {
+                            MiniBlocksLogo(chipColor)
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(
+                            text = formatMailDate(mail.date),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (mail.seen) scheme.onSurfaceVariant else scheme.primary,
+                            fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        text = formatMailTime(mail.date),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scheme.onSurfaceVariant
+                    )
+                }
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -2075,13 +2214,16 @@ private fun SwipeableMailBlock(
     leftSpec: SwipeSpec,
     modifier: Modifier = Modifier,
     inThread: Boolean = false,
-    compact: Boolean = false
+    compact: Boolean = false,
+    threadCount: Int? = null,
+    threadExpanded: Boolean = false
 ) {
     // Im Auswahlmodus keine Wischgesten – nur antippen/lange drücken
     if (selectionMode) {
         MailBlock(
             mail, selected, true, onClick, onLongClick, modifier,
-            inThread = inThread, compact = compact
+            inThread = inThread, compact = compact,
+            threadCount = threadCount, threadExpanded = threadExpanded
         )
         return
     }
@@ -2195,7 +2337,8 @@ private fun SwipeableMailBlock(
         ) {
             MailBlock(
                 mail, selected, false, onClick, onLongClick,
-                inThread = inThread, compact = compact
+                inThread = inThread, compact = compact,
+                threadCount = threadCount, threadExpanded = threadExpanded
             )
         }
     }
