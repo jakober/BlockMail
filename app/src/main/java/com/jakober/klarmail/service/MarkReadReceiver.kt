@@ -9,7 +9,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** Verarbeitet den "Als gelesen markieren"-Button in der Benachrichtigung. */
+/**
+ * Verarbeitet die Aktions-Buttons der Mail-Benachrichtigung:
+ * Als gelesen markieren, Archivieren und Löschen.
+ */
 class MarkReadReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -19,10 +22,17 @@ class MarkReadReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).cancel(notifId)
         }
         if (uid == -1L) return
+        val action = intent.action
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                MailRepository.markSeen(uid)
+                when (action) {
+                    "com.jakober.klarmail.NOTIF_ARCHIVE" ->
+                        MailRepository.archiveInboxByUid(uid)
+                    "com.jakober.klarmail.NOTIF_DELETE" ->
+                        MailRepository.deleteInboxByUid(uid)
+                    else -> MailRepository.markSeen(uid)
+                }
             } finally {
                 pending.finish()
             }

@@ -32,6 +32,10 @@ object Prefs {
     /** Blockierte Absender: nach Ankunft direkt löschen, keine Benachrichtigung. */
     val blockedFlow = MutableStateFlow<Set<String>>(emptySet())
 
+    /** VIP-Absender: bei „Nur VIP benachrichtigen“ die einzigen mit Benachrichtigung. */
+    val vipFlow = MutableStateFlow<Set<String>>(emptySet())
+    val vipOnlyFlow = MutableStateFlow(false)
+
     fun init(context: Context) {
         if (::sp.isInitialized) return
         sp = try {
@@ -62,6 +66,8 @@ object Prefs {
         snapshotActiveAccount()
         mutedFlow.value = loadSet("muted_senders")
         blockedFlow.value = loadSet("blocked_senders")
+        vipFlow.value = loadSet("vip_senders")
+        vipOnlyFlow.value = vipOnlyNotifications
     }
 
     private fun loadSet(key: String): Set<String> = try {
@@ -101,6 +107,33 @@ object Prefs {
 
     fun isMuted(address: String) = address.trim().lowercase() in mutedFlow.value
     fun isBlocked(address: String) = address.trim().lowercase() in blockedFlow.value
+
+    fun addVip(address: String) {
+        val key = address.trim().lowercase()
+        if (key.isBlank() || !key.contains("@")) return
+        val set = vipFlow.value + key
+        saveSet("vip_senders", set); vipFlow.value = set
+    }
+
+    fun removeVip(address: String) {
+        val set = vipFlow.value - address.trim().lowercase()
+        saveSet("vip_senders", set); vipFlow.value = set
+    }
+
+    fun isVip(address: String) = address.trim().lowercase() in vipFlow.value
+
+    /** Nur VIP-Absender lösen Benachrichtigungen aus (Rest kommt lautlos an). */
+    var vipOnlyNotifications: Boolean
+        get() = sp.getBoolean("vip_only_notif", false)
+        set(v) {
+            sp.edit().putBoolean("vip_only_notif", v).apply()
+            vipOnlyFlow.value = v
+        }
+
+    /** Wurde der Willkommens-Bildschirm beim ersten Start bereits gezeigt? */
+    var welcomeShown: Boolean
+        get() = sp.getBoolean("welcome_shown", false)
+        set(v) = sp.edit().putBoolean("welcome_shown", v).apply()
 
     var email: String
         get() = sp.getString("email", "") ?: ""
@@ -339,7 +372,9 @@ object Prefs {
         val bcc: String,
         val subject: String,
         val body: String,
-        val html: String?
+        val html: String?,
+        /** Absender-Konto ("" = aktives Konto beim Senden). */
+        val account: String = ""
     )
 
     fun outbox(): List<ScheduledMail> = try {
@@ -354,7 +389,8 @@ object Prefs {
                 bcc = o.optString("bcc"),
                 subject = o.optString("subject"),
                 body = o.optString("body"),
-                html = if (o.has("html")) o.getString("html") else null
+                html = if (o.has("html")) o.getString("html") else null,
+                account = o.optString("account")
             )
         }
     } catch (e: Exception) {
@@ -369,6 +405,7 @@ object Prefs {
                 put("to", m.to); put("cc", m.cc); put("bcc", m.bcc)
                 put("subject", m.subject); put("body", m.body)
                 m.html?.let { put("html", it) }
+                if (m.account.isNotBlank()) put("account", m.account)
             })
         }
         sp.edit().putString("outbox", arr.toString()).apply()

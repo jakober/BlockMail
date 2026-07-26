@@ -813,6 +813,42 @@ fun SettingsScreen(
                 onRemove = { Prefs.removeBlocked(it) }
             )
 
+            Spacer(Modifier.height(12.dp))
+            val vip by Prefs.vipFlow.collectAsState()
+            val vipOnly by Prefs.vipOnlyFlow.collectAsState()
+            SenderListSection(
+                title = "VIP-Absender",
+                description = "Deine wichtigsten Absender. Mit dem Schalter unten " +
+                    "benachrichtigt BlockMail nur noch bei Mails von ihnen — " +
+                    "alles andere kommt lautlos an.",
+                entries = vip,
+                suggestions = senderSuggestions,
+                onAdd = { Prefs.addVip(it) },
+                onRemove = { Prefs.removeVip(it) }
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Nur VIP-Absender benachrichtigen",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        "Neue Mails anderer Absender erscheinen weiter im Posteingang, " +
+                            "aber ohne Benachrichtigung.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = vipOnly,
+                    onCheckedChange = { Prefs.vipOnlyNotifications = it }
+                )
+            }
+
             }
 
             SectionCard("Konten", Icons.Filled.People) {

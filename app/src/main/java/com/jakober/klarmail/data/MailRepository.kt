@@ -1374,6 +1374,8 @@ object MailRepository {
     /** Löscht eine Posteingangs-Mail per UID (unabhängig vom aktuell offenen Ordner). */
     suspend fun deleteInboxByUid(uid: Long) = withContext(Dispatchers.IO) {
         _messages.value = _messages.value.filter { it.uid != uid }
+        persist()
+        cancelNotification(uid)
         try {
             val store = openStore()
             try {
@@ -1381,6 +1383,29 @@ object MailRepository {
                 inbox.open(Folder.READ_WRITE)
                 val msg = inbox.getMessageByUID(uid) ?: return@withContext
                 resolveFolder(store, MailFolder.TRASH)?.let { inbox.copyMessages(arrayOf(msg), it) }
+                runCatching { msg.setFlag(Flags.Flag.DELETED, true); inbox.expunge() }
+            } finally {
+                runCatching { store.close() }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Archiviert eine Posteingangs-Mail per UID (z. B. aus der Benachrichtigung). */
+    suspend fun archiveInboxByUid(uid: Long) = withContext(Dispatchers.IO) {
+        _messages.value = _messages.value.filter { it.uid != uid }
+        persist()
+        cancelNotification(uid)
+        try {
+            val store = openStore()
+            try {
+                val inbox = store.getFolder("INBOX") as IMAPFolder
+                inbox.open(Folder.READ_WRITE)
+                val msg = inbox.getMessageByUID(uid) ?: return@withContext
+                resolveFolder(store, MailFolder.ARCHIVE)?.let { dest ->
+                    if (!dest.exists()) dest.create(Folder.HOLDS_MESSAGES)
+                    inbox.copyMessages(arrayOf(msg), dest)
+                }
                 runCatching { msg.setFlag(Flags.Flag.DELETED, true); inbox.expunge() }
             } finally {
                 runCatching { store.close() }
@@ -1422,11 +1447,23 @@ object MailRepository {
         html: String? = null,
         cc: String = "",
         bcc: String = "",
-        attachments: List<OutAttachment> = emptyList()
+        attachments: List<OutAttachment> = emptyList(),
+        account: String = ""
     ) = withContext(Dispatchers.IO) {
-        val smtpPort = Prefs.smtpPort
+        // Absender-Konto auflösen: leer/aktiv = Prefs, sonst gespeichertes Konto
+        val acc = if (isActiveAccount(account)) {
+            Prefs.Account(
+                Prefs.email, Prefs.authMethod, Prefs.appPassword,
+                Prefs.refreshToken, Prefs.imapHost, Prefs.imapPort,
+                Prefs.smtpHost, Prefs.smtpPort
+            )
+        } else {
+            Prefs.accounts().firstOrNull { it.email.equals(account, ignoreCase = true) }
+                ?: throw IllegalStateException("Absender-Konto $account nicht gefunden")
+        }
+        val smtpPort = acc.smtpPort
         val props = Properties().apply {
-            put("mail.smtp.host", Prefs.smtpHost)
+            put("mail.smtp.host", acc.smtpHost)
             put("mail.smtp.port", smtpPort.toString())
             put("mail.smtp.auth", "true")
             // Port 465 = direktes TLS; alles andere (587) = STARTTLS
@@ -1439,15 +1476,15 @@ object MailRepository {
             put("mail.smtp.connectiontimeout", "15000")
             put("mail.smtp.timeout", "60000")
         }
-        val password = if (Prefs.authMethod == "oauth") {
+        val password = if (acc.authMethod == "oauth") {
             props.put("mail.smtp.auth.mechanisms", "XOAUTH2")
-            GoogleAuth.freshAccessToken()
+            GoogleAuth.freshAccessTokenFor(acc.refreshToken)
         } else {
-            Prefs.appPassword
+            acc.appPassword
         }
         val session = Session.getInstance(props)
         val msg = MimeMessage(session).apply {
-            setFrom(InternetAddress(Prefs.email))
+            setFrom(InternetAddress(acc.email))
             setRecipients(Message.RecipientType.TO, InternetAddress.parse(to))
             if (cc.isNotBlank()) setRecipients(Message.RecipientType.CC, InternetAddress.parse(cc))
             if (bcc.isNotBlank()) setRecipients(Message.RecipientType.BCC, InternetAddress.parse(bcc))
@@ -1493,7 +1530,7 @@ object MailRepository {
         }
         val transport = session.getTransport("smtp")
         try {
-            transport.connect(Prefs.smtpHost, Prefs.email, password)
+            transport.connect(acc.smtpHost, acc.email, password)
             transport.sendMessage(msg, msg.allRecipients)
         } finally {
             runCatching { transport.close() }

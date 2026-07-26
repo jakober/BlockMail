@@ -35,6 +35,8 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AssistChip
@@ -295,6 +297,37 @@ fun DetailScreen(
                                         }
                                     }
                                 )
+                                // VIP-Absender (Toggle)
+                                run {
+                                    val vipSet by com.jakober.klarmail.data.Prefs.vipFlow.collectAsState()
+                                    val isVip = addrKey.isNotEmpty() && addrKey in vipSet
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                if (isVip) "Aus VIP entfernen"
+                                                else "Als VIP-Absender markieren"
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                if (isVip) Icons.Filled.Star
+                                                else Icons.Filled.StarBorder,
+                                                null
+                                            )
+                                        },
+                                        colors = if (isVip) DropdownMenuItemColorsActive() else DropdownMenuItemColorsDefault(),
+                                        onClick = {
+                                            menuOpen = false
+                                            if (isVip) {
+                                                com.jakober.klarmail.data.Prefs.removeVip(mail.fromAddress)
+                                                scope.launch { snackbar.showSnackbar("„${mail.from}“ ist kein VIP mehr") }
+                                            } else {
+                                                com.jakober.klarmail.data.Prefs.addVip(mail.fromAddress)
+                                                scope.launch { snackbar.showSnackbar("„${mail.from}“ als VIP markiert") }
+                                            }
+                                        }
+                                    )
+                                }
                                 // Blockieren / entsperren (Toggle)
                                 DropdownMenuItem(
                                     text = {

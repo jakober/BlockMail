@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.ime
@@ -162,6 +164,11 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
 
     var templateMenuOpen by remember { mutableStateOf(false) }
     var showScheduleDialog by remember { mutableStateOf(false) }
+    // Absender-Konto: bei Antworten das Konto, in dem die Mail ankam
+    var fromAccount by remember {
+        mutableStateOf(original?.account?.takeIf { it.isNotBlank() } ?: Prefs.email)
+    }
+    var fromMenuOpen by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var busyLabel by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
@@ -247,7 +254,8 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                     html = sanitizeOutgoingHtml(editorState.toHtml()),
                     cc = cc.trim(),
                     bcc = bcc.trim(),
-                    attachments = outAttachments
+                    attachments = outAttachments,
+                    account = fromAccount
                 )
                 onBack()
             } catch (e: Exception) {
@@ -291,7 +299,8 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                                             bcc = bcc.trim(),
                                             subject = subject,
                                             body = editorState.annotatedString.text,
-                                            html = sanitizeOutgoingHtml(editorState.toHtml())
+                                            html = sanitizeOutgoingHtml(editorState.toHtml()),
+                                            account = fromAccount
                                         )
                                     )
                                     onBack()
@@ -323,11 +332,48 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                             if (original != null) "Antworten" else "Neue Nachricht",
                             style = MaterialTheme.typography.titleLarge
                         )
-                        Text(
-                            Prefs.email,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        // Absender-Wähler: bei mehreren Konten antippbar
+                        val accounts = remember { Prefs.accounts() }
+                        if (accounts.size > 1) {
+                            Box {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.clickable { fromMenuOpen = true }
+                                ) {
+                                    Text(
+                                        fromAccount,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Icon(
+                                        Icons.Filled.ArrowDropDown,
+                                        contentDescription = "Absender-Konto wählen",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = fromMenuOpen,
+                                    onDismissRequest = { fromMenuOpen = false }
+                                ) {
+                                    accounts.forEach { acc ->
+                                        DropdownMenuItem(
+                                            text = { Text(acc.email) },
+                                            onClick = {
+                                                fromMenuOpen = false
+                                                fromAccount = acc.email
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            Text(
+                                fromAccount,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -574,20 +620,6 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                // Hinweis im Sammel-Posteingang: gesendet wird immer über das
-                // aktive Konto — bei Antworten auf Mails eines anderen Kontos
-                // soll das nicht überraschen
-                if (original != null && original.account.isNotBlank() &&
-                    !original.account.equals(Prefs.email, ignoreCase = true)
-                ) {
-                    Text(
-                        "Hinweis: Diese Antwort wird über dein aktives Konto " +
-                            "(${Prefs.email}) gesendet.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                }
                 RecipientRow(
                     label = "AN:",
                     value = to,

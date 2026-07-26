@@ -86,6 +86,12 @@ class MainActivity : ComponentActivity() {
                         pendingCompose.value = false
                     }
                 }
+                // Erster Start: Willkommens-Bildschirm statt leerem Posteingang
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    if (!Prefs.isConfigured && !Prefs.welcomeShown) {
+                        nav.navigate("welcome")
+                    }
+                }
                 NavHost(navController = nav, startDestination = "inbox") {
                     composable("inbox") {
                         val widthDp = androidx.compose.ui.platform.LocalConfiguration
@@ -147,6 +153,18 @@ class MainActivity : ComponentActivity() {
                         com.jakober.klarmail.ui.SetupWizardScreen(
                             onDone = { nav.popBackStack("inbox", inclusive = false) },
                             onBack = { nav.popBackStack() }
+                        )
+                    }
+                    composable("welcome") {
+                        com.jakober.klarmail.ui.WelcomeScreen(
+                            onSetup = {
+                                Prefs.welcomeShown = true
+                                nav.navigate("setup")
+                            },
+                            onSkip = {
+                                Prefs.welcomeShown = true
+                                nav.popBackStack()
+                            }
                         )
                     }
                     composable("newsletterlog") {

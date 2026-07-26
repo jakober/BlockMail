@@ -695,18 +695,49 @@ fun InboxScreen(
         }
 
         if (searchMode) {
-            val results = serverResults ?: if (query.isBlank()) emptyList() else {
+            // Filter-Chips grenzen die Treffer weiter ein
+            var filterUnread by remember { mutableStateOf(false) }
+            var filterAttachment by remember { mutableStateOf(false) }
+            var filterRecent by remember { mutableStateOf(false) }
+            val unfiltered = serverResults ?: if (query.isBlank()) emptyList() else {
                 messages.filter {
                     it.subject.contains(query, ignoreCase = true) ||
                         it.from.contains(query, ignoreCase = true) ||
                         it.fromAddress.contains(query, ignoreCase = true)
                 }
             }
+            val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+            val results = unfiltered
+                .filter { !filterUnread || !it.seen }
+                .filter { !filterAttachment || it.hasAttachments }
+                .filter { !filterRecent || it.date >= weekAgo }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
             ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    androidx.compose.material3.FilterChip(
+                        selected = filterUnread,
+                        onClick = { filterUnread = !filterUnread },
+                        label = { Text("Ungelesen") }
+                    )
+                    androidx.compose.material3.FilterChip(
+                        selected = filterAttachment,
+                        onClick = { filterAttachment = !filterAttachment },
+                        label = { Text("Mit Anhang") }
+                    )
+                    androidx.compose.material3.FilterChip(
+                        selected = filterRecent,
+                        onClick = { filterRecent = !filterRecent },
+                        label = { Text("Letzte 7 Tage") }
+                    )
+                }
                 if (searching) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }

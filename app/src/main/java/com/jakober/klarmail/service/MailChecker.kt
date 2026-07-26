@@ -85,7 +85,8 @@ object MailChecker {
                 try {
                     MailRepository.send(
                         to = m.to, subject = m.subject, body = m.body,
-                        html = m.html, cc = m.cc, bcc = m.bcc
+                        html = m.html, cc = m.cc, bcc = m.bcc,
+                        account = m.account
                     )
                     Prefs.removeOutbox(m.id)
                     statusNotification(context, "Geplante Mail gesendet: ${m.subject}", timeoutMs = 15_000)
@@ -151,7 +152,11 @@ object MailChecker {
                             }
                             else -> {
                                 MailRepository.onNewMessage(mail)
-                                if (!mail.seen) {
+                                // VIP-Filter: bei „Nur VIP benachrichtigen“ kommen
+                                // andere Absender lautlos an (Mail erscheint normal)
+                                val notifyAllowed = !Prefs.vipOnlyNotifications ||
+                                    Prefs.isVip(addr)
+                                if (!mail.seen && notifyAllowed) {
                                     showNewMailNotification(
                                         context, mail.uid, mail.from, mail.fromAddress, mail.subject
                                     )
@@ -250,15 +255,21 @@ object MailChecker {
             androidx.core.app.Person.Builder().setName("Ich").build()
         ).addMessage(subject, System.currentTimeMillis(), senderPerson)
 
-        val markReadIntent = Intent(context, MarkReadReceiver::class.java).apply {
-            action = "com.jakober.klarmail.MARK_READ"
-            putExtra("uid", uid)
-            putExtra("notifId", notifId)
+        // Aktionen über den Mehrzweck-Receiver: Archivieren und Löschen direkt
+        // aus der Benachrichtigung (eigene requestCodes je Aktion!)
+        fun actionPending(actionName: String, requestCode: Int): PendingIntent {
+            val intent = Intent(context, MarkReadReceiver::class.java).apply {
+                action = actionName
+                putExtra("uid", uid)
+                putExtra("notifId", notifId)
+            }
+            return PendingIntent.getBroadcast(
+                context, requestCode, intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
         }
-        val markReadPending = PendingIntent.getBroadcast(
-            context, notifId, markReadIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val archivePending = actionPending("com.jakober.klarmail.NOTIF_ARCHIVE", notifId + 1)
+        val deletePending = actionPending("com.jakober.klarmail.NOTIF_DELETE", notifId + 2)
         val openPending = PendingIntent.getActivity(
             context, notifId,
             Intent(context, MainActivity::class.java).apply {
@@ -301,7 +312,9 @@ object MailChecker {
             .setAutoCancel(true)
             .setContentIntent(openPending)
             .addAction(replyAction)
-            .addAction(0, "Als gelesen markieren", markReadPending)
+            // Android zeigt max. 3 Aktionen — Öffnen markiert ohnehin als gelesen
+            .addAction(0, "Archivieren", archivePending)
+            .addAction(0, "Löschen", deletePending)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
