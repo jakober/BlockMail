@@ -522,7 +522,8 @@ fun DetailScreen(
                     )
                 }
             }
-            if (phishing?.suspicious == true) {
+            val phishingResult = phishing
+            if (phishingResult != null && phishingResult.suspicious) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.errorContainer,
@@ -546,7 +547,7 @@ fun DetailScreen(
                             )
                         }
                         Spacer(Modifier.height(6.dp))
-                        phishing.reasons.take(3).forEach { reason ->
+                        phishingResult.reasons.take(3).forEach { reason ->
                             Text(
                                 "• $reason",
                                 style = MaterialTheme.typography.bodySmall,
