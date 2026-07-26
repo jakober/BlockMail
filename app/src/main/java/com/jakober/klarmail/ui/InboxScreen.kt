@@ -2733,30 +2733,52 @@ private fun SwipeableMailBlock(
                     else scheme.onPrimaryContainer.copy(alpha = 0.4f + 0.6f * ramp)
                     bg to fg
                 }
+                // Symbol + Aktionstext (wortweise untereinander — in der
+                // schmalen Kachel ist nebeneinander kein Platz)
+                @Composable
+                fun blockSwipeContent(spec: SwipeSpec, fg: Color, end: Boolean) {
+                    Column(
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = if (end) Alignment.End else Alignment.Start,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Icon(spec.icon, contentDescription = spec.label, tint = fg)
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            spec.label.replace(' ', '\n'),
+                            color = fg,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 10.sp,
+                                lineHeight = 12.sp
+                            ),
+                            textAlign = if (end) androidx.compose.ui.text.style.TextAlign.End
+                            else androidx.compose.ui.text.style.TextAlign.Start,
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
                 when (dismissState.dismissDirection) {
                     SwipeToDismissBoxValue.StartToEnd -> {
                         val (bg, fg) = swipeColors(rightSpec)
-                        Row(
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(bg)
-                                .padding(horizontal = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
-                            Icon(rightSpec.icon, contentDescription = rightSpec.label, tint = fg)
+                            blockSwipeContent(rightSpec, fg, end = false)
                         }
                     }
                     SwipeToDismissBoxValue.EndToStart -> {
                         val (bg, fg) = swipeColors(leftSpec)
-                        Row(
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(bg)
-                                .padding(horizontal = 14.dp),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
-                            Icon(leftSpec.icon, contentDescription = leftSpec.label, tint = fg)
+                            blockSwipeContent(leftSpec, fg, end = true)
                         }
                     }
                     else -> {}
