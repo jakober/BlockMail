@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
+import androidx.compose.material.icons.automirrored.filled.ReplyAll
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -363,11 +364,63 @@ fun DetailScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onReply,
-                icon = { Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = null) },
-                text = { Text("Antworten") }
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                // „Allen antworten“, wenn die Mail an weitere Empfänger oder
+                // mit CC ging (eigene Adressen zählen nicht mit)
+                val loadedBody = body
+                if (folder == null && mail != null && loadedBody != null) {
+                    val myAddresses = remember {
+                        (com.jakober.klarmail.data.Prefs.accounts().map { it.email } +
+                            com.jakober.klarmail.data.Prefs.email)
+                            .map { it.trim().lowercase() }.toSet()
+                    }
+                    val senderKey = mail.fromAddress.trim().lowercase()
+                    val otherRecipients = (loadedBody.to + loadedBody.cc)
+                        .map { it.trim() }
+                        .filter {
+                            it.lowercase() !in myAddresses && it.lowercase() != senderKey
+                        }
+                        .distinctBy { it.lowercase() }
+                    if (otherRecipients.isNotEmpty()) {
+                        ExtendedFloatingActionButton(
+                            onClick = {
+                                val allTo = (listOf(mail.fromAddress) + loadedBody.to
+                                    .map { it.trim() }
+                                    .filter {
+                                        it.lowercase() !in myAddresses &&
+                                            it.lowercase() != senderKey
+                                    }).distinctBy { it.lowercase() }
+                                val allCc = loadedBody.cc
+                                    .map { it.trim() }
+                                    .filter { addr ->
+                                        addr.lowercase() !in myAddresses &&
+                                            allTo.none { it.equals(addr, ignoreCase = true) }
+                                    }
+                                MailRepository.pendingReplyAll =
+                                    allTo.joinToString(", ") to allCc.joinToString(", ")
+                                onReply()
+                            },
+                            icon = {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ReplyAll,
+                                    contentDescription = null
+                                )
+                            },
+                            text = { Text("Allen antworten (${otherRecipients.size + 1})") },
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                }
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        MailRepository.pendingReplyAll = null
+                        onReply()
+                    },
+                    icon = { Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = null) },
+                    text = { Text("Antworten") }
+                )
+            }
         }
     ) { padding ->
         if (mail == null) {

@@ -826,8 +826,18 @@ object MailRepository {
     data class MailBody(
         val html: String?,
         val text: String,
-        val attachments: List<MailAttachment> = emptyList()
+        val attachments: List<MailAttachment> = emptyList(),
+        /** An- und CC-Empfänger der Mail (für „Allen antworten“). */
+        val to: List<String> = emptyList(),
+        val cc: List<String> = emptyList()
     )
+
+    /**
+     * Übergabe an das Verfassen-Fenster für „Allen antworten“:
+     * (An-Zeile, CC-Zeile) — wird dort einmalig gelesen und geleert.
+     */
+    @Volatile
+    var pendingReplyAll: Pair<String, String>? = null
 
     private val bodyCache = HashMap<String, MailBody>()
     private val attachmentCache = HashMap<String, ByteArray>()
@@ -859,6 +869,8 @@ object MailRepository {
                 })
             }
         })
+        put("to", org.json.JSONArray(body.to))
+        put("cc", org.json.JSONArray(body.cc))
     }.toString()
 
     private fun bodyFromJson(s: String): MailBody {
@@ -875,10 +887,15 @@ object MailRepository {
                 )
             }
         } ?: emptyList()
+        fun strings(key: String): List<String> = o.optJSONArray(key)?.let { arr ->
+            (0 until arr.length()).map { arr.getString(it) }
+        } ?: emptyList()
         return MailBody(
             html = if (o.isNull("html")) null else o.getString("html"),
             text = o.optString("text"),
-            attachments = atts
+            attachments = atts,
+            to = strings("to"),
+            cc = strings("cc")
         )
     }
 
@@ -1060,6 +1077,14 @@ object MailRepository {
             if (inlineRemoteImages && html != null) {
                 html = embedRemoteImages(html!!)
             }
+            // Empfänger (An/CC) für „Allen antworten“ mitnehmen
+            fun recipients(type: javax.mail.Message.RecipientType): List<String> =
+                runCatching {
+                    local.getRecipients(type)?.mapNotNull { a ->
+                        (a as? javax.mail.internet.InternetAddress)?.address
+                            ?.trim()?.takeIf { it.contains("@") }
+                    } ?: emptyList()
+                }.getOrDefault(emptyList())
             val body = MailBody(
                 html = html,
                 // htmlToVisibleText filtert Style-/Script-Blöcke heraus —
@@ -1068,7 +1093,9 @@ object MailRepository {
                     ?: html?.let { runCatching { htmlToVisibleText(it).trim() }.getOrNull() }
                         ?.takeIf { it.isNotBlank() }
                     ?: "(Kein lesbarer Textinhalt)",
-                attachments = attachments
+                attachments = attachments,
+                to = recipients(javax.mail.Message.RecipientType.TO),
+                cc = recipients(javax.mail.Message.RecipientType.CC)
             )
             synchronized(bodyCache) {
                 if (bodyCache.size > 12) bodyCache.clear() // Speicher begrenzen

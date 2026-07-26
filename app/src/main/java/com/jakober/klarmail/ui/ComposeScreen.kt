@@ -144,12 +144,23 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit, draftId: Long? = null) 
     val original = replyToUid?.let { uid -> MailRepository.messages.value.find { it.uid == uid } }
     // Gespeicherten Entwurf fortsetzen?
     val draft = remember { draftId?.let { id -> Prefs.drafts().find { it.id == id } } }
+    // „Allen antworten“: vorbereitete An-/CC-Zeile aus der Mail-Ansicht
+    val replyAll = remember {
+        val p = MailRepository.pendingReplyAll
+        MailRepository.pendingReplyAll = null
+        if (original != null) p else null
+    }
 
-    var to by remember { mutableStateOf(draft?.to ?: original?.fromAddress ?: "") }
-    var cc by remember { mutableStateOf(draft?.cc ?: "") }
+    var to by remember {
+        mutableStateOf(draft?.to ?: replyAll?.first ?: original?.fromAddress ?: "")
+    }
+    var cc by remember { mutableStateOf(draft?.cc ?: replyAll?.second ?: "") }
     var bcc by remember { mutableStateOf(draft?.bcc ?: "") }
     var showCcBcc by remember {
-        mutableStateOf(draft != null && (draft.cc.isNotBlank() || draft.bcc.isNotBlank()))
+        mutableStateOf(
+            (draft != null && (draft.cc.isNotBlank() || draft.bcc.isNotBlank())) ||
+                !replyAll?.second.isNullOrBlank()
+        )
     }
     var subject by remember {
         mutableStateOf(draft?.subject ?: original?.let { o ->
