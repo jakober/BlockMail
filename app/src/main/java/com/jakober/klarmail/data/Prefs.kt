@@ -14,6 +14,7 @@ object Prefs {
     val colorSchemeFlow = MutableStateFlow("klarmail")
     val darkModeFlow = MutableStateFlow("system")
     val conversationViewFlow = MutableStateFlow(false)
+    val inboxLayoutFlow = MutableStateFlow("list")
     val aiEngineFlow = MutableStateFlow("auto")
     val swipeLeftFlow = MutableStateFlow("delete")
     val swipeRightFlow = MutableStateFlow("read")
@@ -52,6 +53,7 @@ object Prefs {
         darkModeFlow.value = darkMode
         snoozedFlow.value = snoozes().map { it.uid }.toSet()
         conversationViewFlow.value = conversationView
+        inboxLayoutFlow.value = inboxLayout
         aiEngineFlow.value = aiEngine
         swipeLeftFlow.value = swipeLeftAction
         swipeRightFlow.value = swipeRightAction
@@ -413,6 +415,14 @@ object Prefs {
         set(v) {
             sp.edit().putString("color_scheme", v).apply()
             colorSchemeFlow.value = v
+        }
+
+    /** Posteingangs-Darstellung: "list" (klassisch) oder "blocks" (Raster). */
+    var inboxLayout: String
+        get() = sp.getString("inbox_layout", "list") ?: "list"
+        set(v) {
+            sp.edit().putString("inbox_layout", v).apply()
+            inboxLayoutFlow.value = v
         }
 
     /** Posteingang: Mails mit gleichem Betreff als Konversation bündeln. */

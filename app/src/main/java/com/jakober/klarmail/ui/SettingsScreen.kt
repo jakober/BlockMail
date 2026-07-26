@@ -941,6 +941,39 @@ fun SettingsScreen(
             }
 
             SectionCard("Posteingang", Icons.Filled.Inbox) {
+            SectionTitle("Darstellung")
+            val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
+            listOf(
+                Triple("list", "Liste (klassisch)", "Mails untereinander, wie gewohnt."),
+                Triple(
+                    "blocks", "Blöcke (BlockMail-Stil)",
+                    "Mails als gleich große Blöcke im 2-Spalten-Raster — passend zum Logo. " +
+                        "Auch oben im Posteingang umschaltbar."
+                )
+            ).forEach { (id, title, desc) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.inboxLayout = id },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = inboxLayout == id,
+                        onClick = { Prefs.inboxLayout = id }
+                    )
+                    Column {
+                        Text(title, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            desc,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -948,7 +981,8 @@ fun SettingsScreen(
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Konversations-Ansicht", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Mails mit gleichem Betreff werden als ein Gespräch gebündelt (antippen zum Aufklappen).",
+                        "Mails mit gleichem Betreff werden als ein Gespräch gebündelt " +
+                            "(antippen zum Aufklappen). Gilt in der Listen-Ansicht.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

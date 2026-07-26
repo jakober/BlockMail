@@ -16,7 +16,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,7 +40,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Drafts
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.MarkEmailUnread
@@ -118,6 +126,7 @@ fun InboxScreen(
     val selectionMode = selected.isNotEmpty()
     val conversationView by Prefs.conversationViewFlow.collectAsState()
     val unified by MailRepository.unified.collectAsState()
+    val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
     val expandedThreads = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     androidx.activity.compose.BackHandler(enabled = selectionMode) { selected.clear() }
     fun toggleSelect(uid: Long) {
@@ -125,10 +134,14 @@ fun InboxScreen(
     }
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val gridState = rememberLazyGridState()
     // Beim erneuten Öffnen der App nach oben scrollen, wenn Ungelesene vorhanden sind
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
         if (messages.any { !it.seen }) {
-            scope.launch { listState.scrollToItem(0) }
+            scope.launch {
+                if (Prefs.inboxLayout == "blocks") gridState.scrollToItem(0)
+                else listState.scrollToItem(0)
+            }
         }
     }
 
@@ -445,6 +458,23 @@ fun InboxScreen(
                         }
                     },
                     actions = {
+                        // Schnellumschalter Liste ↔ Block-Ansicht
+                        if (configured) {
+                            IconButton(onClick = {
+                                Prefs.inboxLayout =
+                                    if (inboxLayout == "blocks") "list" else "blocks"
+                            }) {
+                                Icon(
+                                    if (inboxLayout == "blocks") Icons.AutoMirrored.Filled.ViewList
+                                    else Icons.Filled.GridView,
+                                    contentDescription = if (inboxLayout == "blocks") {
+                                        "Zur Listen-Ansicht wechseln"
+                                    } else {
+                                        "Zur Block-Ansicht wechseln"
+                                    }
+                                )
+                            }
+                        }
                         IconButton(onClick = onSettings) {
                             Icon(Icons.Filled.Settings, contentDescription = "Einstellungen")
                         }
@@ -669,6 +699,95 @@ fun InboxScreen(
             val unread = messages.filter { !it.seen }
             val read = messages.filter { it.seen }
 
+            if (inboxLayout == "blocks") {
+                // Block-Ansicht: Mails als gleich große Blöcke im 2-Spalten-Raster
+                // (passend zum BlockMail-Logo); Überschriften über volle Breite
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    state = gridState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (unread.isNotEmpty()) {
+                        item(key = "header_unread", span = { GridItemSpan(maxLineSpan) }) {
+                            SectionHeader("Neu (${unread.size})")
+                        }
+                        gridItems(
+                            unread,
+                            key = { "${it.account}:${it.uid}" },
+                            contentType = { "mail" }
+                        ) { mail ->
+                            SwipeableMailBlock(
+                                mail = mail,
+                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                onLongClick = { toggleSelect(mail.uid) },
+                                selected = selected.contains(mail.uid),
+                                selectionMode = selectionMode,
+                                rightSpec = specFor(swipeRight, mail),
+                                leftSpec = specFor(swipeLeft, mail),
+                                modifier = Modifier.animateItem()
+                            )
+                        }
+                    }
+                    groupReadByTime(read).forEach { (label, mails) ->
+                        item(key = "header_$label", span = { GridItemSpan(maxLineSpan) }) {
+                            SectionHeader(label)
+                        }
+                        gridItems(
+                            mails,
+                            key = { "${it.account}:${it.uid}" },
+                            contentType = { "mail" }
+                        ) { mail ->
+                            SwipeableMailBlock(
+                                mail = mail,
+                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                onLongClick = { toggleSelect(mail.uid) },
+                                selected = selected.contains(mail.uid),
+                                selectionMode = selectionMode,
+                                rightSpec = specFor(swipeRight, mail),
+                                leftSpec = specFor(swipeLeft, mail),
+                                modifier = Modifier.animateItem()
+                            )
+                        }
+                    }
+                    if (canLoadMore && messages.isNotEmpty()) {
+                        item(key = "load_more", span = { GridItemSpan(maxLineSpan) }) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(28.dp),
+                                    strokeWidth = 3.dp
+                                )
+                            }
+                            LaunchedEffect(messages.size) {
+                                MailRepository.loadMore()
+                            }
+                        }
+                    }
+                    if (messages.isEmpty() && !loading) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    "Keine E-Mails geladen.\nZum Aktualisieren nach unten ziehen.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 if (!conversationView) {
                     if (unread.isNotEmpty()) {
@@ -818,6 +937,7 @@ fun InboxScreen(
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -1255,3 +1375,277 @@ fun formatMailDate(millis: Long): String {
 
 fun formatMailTime(millis: Long): String =
     SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(millis))
+
+/**
+ * Block-Ansicht: eine Mail als kompakter, quadratisch anmutender Block im
+ * 2-Spalten-Raster. Feste Zeilenzahlen (Betreff 2, Vorschau 1) halten alle
+ * Blöcke gleich hoch; das kleine Farbquadrat oben rechts greift das
+ * BlockMail-Logo auf und zeigt die Konto-Farbe bzw. Ungelesen-Status.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun MailBlock(
+    mail: MailMessage,
+    selected: Boolean,
+    selectionMode: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val bg = when {
+        selected -> MaterialTheme.colorScheme.primaryContainer
+        !mail.seen -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.40f)
+        else -> MaterialTheme.colorScheme.surfaceContainerLow
+    }
+    val colorsVersion by Prefs.accountColorsFlow.collectAsState()
+    val accountColor = remember(colorsVersion, mail.account) {
+        Prefs.accountColor(mail.account.ifBlank { Prefs.email })?.let { Color(it) }
+    }
+    val chipColor = accountColor
+        ?: if (!mail.seen && !selected) MaterialTheme.colorScheme.primary else null
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(MailCardShape)
+            .background(bg)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (selectionMode && selected) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            } else {
+                SenderAvatar(
+                    name = mail.from,
+                    address = mail.fromAddress,
+                    size = 36.dp
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (chipColor != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(chipColor)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                    }
+                    Text(
+                        text = formatMailDate(mail.date),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (mail.seen) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.primary,
+                        fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold
+                    )
+                }
+                Text(
+                    text = formatMailTime(mail.date),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = mail.from,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = mail.subject,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Medium,
+            color = if (mail.seen) MaterialTheme.colorScheme.onSurfaceVariant
+            else MaterialTheme.colorScheme.onSurface,
+            minLines = 2,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(4.dp))
+        // Vorschau wie in der Liste: genau eine Zeile für einheitliche Höhe
+        val snip = mail.snippet
+        Text(
+            text = if (snip != null && snip.isBlank()) "Kein Inhalt" else snip.orEmpty(),
+            style = MaterialTheme.typography.bodySmall,
+            fontStyle = if (snip != null && snip.isBlank()) FontStyle.Italic else FontStyle.Normal,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            minLines = 1,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(6.dp))
+        // Fußzeile mit fester Höhe, damit alle Blöcke gleich hoch bleiben
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (mail.hasAttachments) {
+                Icon(
+                    Icons.Filled.AttachFile,
+                    contentDescription = "Anhang vorhanden",
+                    modifier = Modifier.size(13.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            if (!mail.seen && !selected) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                )
+            }
+        }
+    }
+}
+
+/** Wischbarer Block: gleiche Aktionen wie in der Liste, Hintergrund nur mit Symbol. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeableMailBlock(
+    mail: MailMessage,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    selected: Boolean,
+    selectionMode: Boolean,
+    rightSpec: SwipeSpec,
+    leftSpec: SwipeSpec,
+    modifier: Modifier = Modifier
+) {
+    // Im Auswahlmodus keine Wischgesten – nur antippen/lange drücken
+    if (selectionMode) {
+        MailBlock(mail, selected, true, onClick, onLongClick, modifier)
+        return
+    }
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier) {
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val widthPx = with(density) { maxWidth.toPx() }
+        val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+        // Gleiches Muster wie SwipeableMailRow: Aktion direkt in
+        // confirmValueChange auslösen, Block schnappt von selbst zurück
+        val currentRight = androidx.compose.runtime.rememberUpdatedState(rightSpec)
+        val currentLeft = androidx.compose.runtime.rememberUpdatedState(leftSpec)
+        val triggered = remember(mail.uid) { mutableStateOf(false) }
+        val dismissState = remember(mail.uid) {
+            SwipeToDismissBoxState(
+                initialValue = SwipeToDismissBoxValue.Settled,
+                density = density,
+                confirmValueChange = { value ->
+                    when (value) {
+                        SwipeToDismissBoxValue.StartToEnd -> {
+                            if (!triggered.value) {
+                                triggered.value = true
+                                currentRight.value.onTrigger()
+                            }
+                            false
+                        }
+                        SwipeToDismissBoxValue.EndToStart -> {
+                            if (!triggered.value) {
+                                triggered.value = true
+                                currentLeft.value.onTrigger()
+                            }
+                            false
+                        }
+                        else -> true
+                    }
+                },
+                positionalThreshold = { totalDistance -> totalDistance * SWIPE_THRESHOLD }
+            )
+        }
+
+        var thresholdReached by remember { mutableStateOf(false) }
+        LaunchedEffect(dismissState, widthPx) {
+            androidx.compose.runtime.snapshotFlow {
+                val off = try { dismissState.requireOffset() } catch (e: Exception) { 0f }
+                kotlin.math.abs(off) / widthPx
+            }.collect { fraction ->
+                if (fraction >= SWIPE_THRESHOLD && !thresholdReached) {
+                    thresholdReached = true
+                    haptics.performHapticFeedback(
+                        androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
+                    )
+                } else if (fraction < SWIPE_THRESHOLD - 0.04f && thresholdReached) {
+                    thresholdReached = false
+                }
+                if (fraction < 0.05f) triggered.value = false
+            }
+        }
+
+        SwipeToDismissBox(
+            state = dismissState,
+            modifier = Modifier.clip(MailCardShape),
+            enableDismissFromStartToEnd = true,
+            enableDismissFromEndToStart = true,
+            backgroundContent = {
+                val off = try { dismissState.requireOffset() } catch (e: Exception) { 0f }
+                val fraction = (kotlin.math.abs(off) / widthPx).coerceIn(0f, 1f)
+                val ramp = (fraction / SWIPE_THRESHOLD).coerceIn(0f, 1f)
+                val reached = fraction >= SWIPE_THRESHOLD
+                val scheme = MaterialTheme.colorScheme
+                fun swipeColors(spec: SwipeSpec): Pair<Color, Color> = if (spec.destructive) {
+                    val bg = if (reached) scheme.error
+                    else scheme.errorContainer.copy(alpha = ramp)
+                    val fg = if (reached) scheme.onError
+                    else scheme.onErrorContainer.copy(alpha = 0.4f + 0.6f * ramp)
+                    bg to fg
+                } else {
+                    val bg = if (reached) scheme.primary
+                    else scheme.primaryContainer.copy(alpha = ramp)
+                    val fg = if (reached) scheme.onPrimary
+                    else scheme.onPrimaryContainer.copy(alpha = 0.4f + 0.6f * ramp)
+                    bg to fg
+                }
+                when (dismissState.dismissDirection) {
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        val (bg, fg) = swipeColors(rightSpec)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(bg)
+                                .padding(horizontal = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(rightSpec.icon, contentDescription = rightSpec.label, tint = fg)
+                        }
+                    }
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        val (bg, fg) = swipeColors(leftSpec)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(bg)
+                                .padding(horizontal = 14.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(leftSpec.icon, contentDescription = leftSpec.label, tint = fg)
+                        }
+                    }
+                    else -> {}
+                }
+            }
+        ) {
+            MailBlock(mail, selected, false, onClick, onLongClick)
+        }
+    }
+}
