@@ -427,8 +427,7 @@ fun DetailScreen(
                                 Text(
                                     when {
                                         summarizing -> "Wird zusammengefasst …"
-                                        hasClaudeKey -> "Mit Claude zusammenfassen"
-                                        else -> "Zusammenfassen (Geräte-KI)"
+                                        else -> "Mit KI zusammenfassen"
                                     }
                                 )
                             },

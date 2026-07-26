@@ -474,7 +474,7 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
             if (aiAvailable) {
                 Box {
                     FloatingActionButton(onClick = { aiMenuOpen = true }) {
-                        Icon(Icons.Filled.AutoAwesome, contentDescription = "Claude-KI")
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = "KI-Funktionen")
                     }
                     DropdownMenu(
                         expanded = aiMenuOpen,
@@ -486,7 +486,7 @@ fun ComposeScreen(replyToUid: Long?, onBack: () -> Unit) {
                                 leadingIcon = { Icon(Icons.Filled.AutoAwesome, null) },
                                 onClick = {
                                     aiMenuOpen = false
-                                    runAi("Claude formuliert eine Antwort …", showLanguage = true) {
+                                    runAi("KI formuliert eine Antwort …", showLanguage = true) {
                                         // Die vorbefüllte Signatur ist KEINE Anweisung an
                                         // die KI — sonst entstehen Floskel-Antworten
                                         val instructionText = plainText

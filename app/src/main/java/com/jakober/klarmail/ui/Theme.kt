@@ -54,7 +54,7 @@ private fun makeScheme(
 val colorSchemes = listOf(
     SchemeDef(
         id = "klarmail",
-        label = "KlarMail (Standard)",
+        label = "BlockMail (Standard)",
         preview = Color(0xFFEE5F0F),
         light = lightColorScheme(
             primary = Color(0xFFD9530A),

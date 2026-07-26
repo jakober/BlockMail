@@ -337,6 +337,55 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
+            // Ganz oben: Erscheinungsbild (Hell/Dunkel + Farbwelt)
+            SectionCard("Erscheinungsbild", Icons.Filled.Palette) {
+            listOf(
+                "system" to "Wie das Gerät (automatisch)",
+                "light" to "Hell",
+                "dark" to "Dunkel"
+            ).forEach { (id, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.darkMode = id }
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = darkMode == id,
+                        onClick = { Prefs.darkMode = id }
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            SectionTitle("Farbschema")
+            colorSchemes.forEach { scheme ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.colorScheme = scheme.id }
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selectedScheme == scheme.id,
+                        onClick = { Prefs.colorScheme = scheme.id }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .background(scheme.preview, CircleShape)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(scheme.label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+
+            }
+
             SectionCard("Konto verbinden", Icons.Filled.AccountCircle) {
 
             // Empfohlener Weg: Assistent mit fertigen Server-Vorlagen — nur
@@ -708,7 +757,7 @@ fun SettingsScreen(
 
             SectionCard("Newsletter-Aufräumen (KI)", Icons.Filled.Newspaper) {
             Text(
-                "Täglich um 20 Uhr erkennt Claude Newsletter der letzten 24 Stunden und " +
+                "Täglich um 20 Uhr erkennt die KI Newsletter der letzten 24 Stunden und " +
                     "verschiebt sie in den Ordner „Newsletter“. Im Protokoll findest du alle " +
                     "verschobenen Mails samt Abmelde-Links.",
                 style = MaterialTheme.typography.bodySmall,
@@ -1069,54 +1118,6 @@ fun SettingsScreen(
                 )
             }
             TextButton(onClick = { showTemplateDialog = true }) { Text("Vorlage hinzufügen") }
-
-            }
-
-            SectionCard("Erscheinungsbild", Icons.Filled.Palette) {
-            listOf(
-                "system" to "Wie das Gerät (automatisch)",
-                "light" to "Hell",
-                "dark" to "Dunkel"
-            ).forEach { (id, label) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { Prefs.darkMode = id }
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = darkMode == id,
-                        onClick = { Prefs.darkMode = id }
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(label, style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            SectionTitle("Farbschema")
-            colorSchemes.forEach { scheme ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { Prefs.colorScheme = scheme.id }
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = selectedScheme == scheme.id,
-                        onClick = { Prefs.colorScheme = scheme.id }
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(22.dp)
-                            .background(scheme.preview, CircleShape)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(scheme.label, style = MaterialTheme.typography.bodyLarge)
-                }
-            }
 
             }
 

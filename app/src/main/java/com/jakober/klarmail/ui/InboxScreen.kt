@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Drafts
 import androidx.compose.material.icons.automirrored.filled.ViewList
@@ -57,6 +58,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.Newspaper
@@ -600,6 +602,29 @@ fun InboxScreen(
                         }
                     },
                     actions = {
+                        // Schnellumschalter Hell ↔ Dunkel
+                        if (configured) {
+                            val darkModeSetting by Prefs.darkModeFlow.collectAsState()
+                            val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+                            val isDarkNow = when (darkModeSetting) {
+                                "dark" -> true
+                                "light" -> false
+                                else -> systemDark
+                            }
+                            IconButton(onClick = {
+                                Prefs.darkMode = if (isDarkNow) "light" else "dark"
+                            }) {
+                                Icon(
+                                    if (isDarkNow) Icons.Filled.LightMode
+                                    else Icons.Filled.DarkMode,
+                                    contentDescription = if (isDarkNow) {
+                                        "Zum hellen Design wechseln"
+                                    } else {
+                                        "Zum dunklen Design wechseln"
+                                    }
+                                )
+                            }
+                        }
                         // Schnellumschalter Liste ↔ Block-Ansicht
                         if (configured) {
                             IconButton(onClick = {
