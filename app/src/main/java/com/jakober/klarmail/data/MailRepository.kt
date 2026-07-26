@@ -1047,8 +1047,11 @@ object MailRepository {
             }
             val body = MailBody(
                 html = html,
+                // htmlToVisibleText filtert Style-/Script-Blöcke heraus —
+                // rohes Html.fromHtml würde CSS als "Text" übernehmen
                 text = plain.takeUnless { it.isNullOrBlank() }
-                    ?: html?.let { Html.fromHtml(it, Html.FROM_HTML_MODE_LEGACY).toString().trim() }
+                    ?: html?.let { runCatching { htmlToVisibleText(it).trim() }.getOrNull() }
+                        ?.takeIf { it.isNotBlank() }
                     ?: "(Kein lesbarer Textinhalt)",
                 attachments = attachments
             )
@@ -1076,9 +1079,14 @@ object MailRepository {
      */
     suspend fun loadVisibleText(uid: Long, account: String = ""): String {
         val body = loadBodyContent(uid, account = account)
+        // WICHTIG: htmlToVisibleText statt rohem Html.fromHtml — sonst landet
+        // bei formatierten Mails der komplette CSS-/Style-Block im Text und
+        // die KI sieht Stylesheets statt Inhalt
         val fromHtml = body.html?.let {
-            Html.fromHtml(it, Html.FROM_HTML_MODE_LEGACY).toString().trim()
-        }
+            runCatching { htmlToVisibleText(it) }.getOrNull()
+        }?.replace('\uFFFC', ' ') // Bild-Platzhalter entfernen
+            ?.replace(Regex("\\n{3,}"), "\n\n")
+            ?.trim()
         return fromHtml.takeUnless { it.isNullOrBlank() } ?: body.text
     }
 
