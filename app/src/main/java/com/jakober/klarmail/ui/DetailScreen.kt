@@ -461,6 +461,9 @@ fun DetailScreen(
             // Scrollen des Inhalts aus — gerade im Querformat wäre sonst
             // kaum etwas von der Mail zu sehen
             var headerHidden by remember(uid) { mutableStateOf(false) }
+            // Wenig Bildschirmhöhe (Querformat): Kopf deutlich kompakter
+            val compactHeader = androidx.compose.ui.platform.LocalConfiguration
+                .current.screenHeightDp < 500
             // Pro Mail ein frischer Scroll-Zustand — sonst erbt die nächste
             // Mail die alte Scroll-Position (und der Kopf bliebe versteckt)
             val textScroll = remember(uid) { androidx.compose.foundation.ScrollState(0) }
@@ -481,43 +484,60 @@ fun DetailScreen(
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 Text(
                     text = mail.subject,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = if (compactHeader) MaterialTheme.typography.titleMedium
+                    else MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 3,
+                    maxLines = if (compactHeader) 1 else 3,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(if (compactHeader) 4.dp else 12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     SenderAvatar(
                         name = mail.from,
                         address = mail.fromAddress,
-                        size = 40.dp
+                        size = if (compactHeader) 28.dp else 40.dp
                     )
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(mail.from, style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.width(if (compactHeader) 8.dp else 12.dp))
+                    if (compactHeader) {
+                        // Eine einzige Zeile: Absender · Adresse · Zeit
                         Text(
-                            mail.fromAddress,
+                            "${mail.from} · ${mail.fromAddress} · " +
+                                SimpleDateFormat("d. MMM, HH:mm", Locale.GERMAN)
+                                    .format(Date(mail.date)),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.GERMAN)
-                                .format(Date(mail.date)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    } else {
+                        Column {
+                            Text(mail.from, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                mail.fromAddress,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.GERMAN)
+                                    .format(Date(mail.date)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(if (compactHeader) 6.dp else 12.dp))
             }
             HorizontalDivider()
 
-            // Phishing-Wächter: Prüfung im Hintergrund — beim Zeichnen würde
-            // sie große HTML-Mails blockieren (weiße Anzeige)
+            // Phishing-Wächter: Prüfung im Hintergrund. Der Mail-Inhalt wird
+            // erst NACH der Prüfung aufgebaut — käme das Warnbanner später
+            // dazu, würde es den fertigen WebView umschieben und die Anzeige
+            // bleibt auf manchen Geräten weiß hängen.
             var phishing by remember(uid) {
                 mutableStateOf<com.jakober.klarmail.data.PhishingCheck.Result?>(null)
             }
+            var phishingChecked by remember(uid) { mutableStateOf(false) }
             LaunchedEffect(currentBody) {
                 val b = currentBody ?: return@LaunchedEffect
                 // Eigene Mails (von den eigenen Konten) nie als Phishing werten
@@ -527,6 +547,7 @@ fun DetailScreen(
                 if (mail.fromAddress.trim().lowercase() in ownAddresses) {
                     phishing = null
                     com.jakober.klarmail.data.Prefs.markPhishing(mailAccount, uid, false)
+                    phishingChecked = true
                     return@LaunchedEffect
                 }
                 val result = withContext(Dispatchers.Default) {
@@ -543,6 +564,7 @@ fun DetailScreen(
                         mailAccount, uid, it.suspicious
                     )
                 }
+                phishingChecked = true
             }
             val phishingResult = phishing
             if (phishingResult != null && phishingResult.suspicious) {
@@ -569,22 +591,27 @@ fun DetailScreen(
                             )
                         }
                         Spacer(Modifier.height(6.dp))
-                        phishingResult.reasons.take(3).forEach { reason ->
+                        phishingResult.reasons.take(if (compactHeader) 1 else 3)
+                            .forEach { reason ->
+                                Text(
+                                    "• $reason",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    maxLines = if (compactHeader) 1 else Int.MAX_VALUE,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        if (!compactHeader) {
+                            Spacer(Modifier.height(4.dp))
                             Text(
-                                "• $reason",
+                                "Tippe keine Links an und gib keine Passwörter oder " +
+                                    "Zahlungsdaten ein. Die Prüfung lief komplett auf " +
+                                    "deinem Gerät.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
+                                    .copy(alpha = 0.8f)
                             )
                         }
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "Tippe keine Links an und gib keine Passwörter oder " +
-                                "Zahlungsdaten ein. Die Prüfung lief komplett auf " +
-                                "deinem Gerät.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                                .copy(alpha = 0.8f)
-                        )
                     }
                 }
             }
@@ -598,7 +625,12 @@ fun DetailScreen(
             }
             if ((hasClaudeKey || geminiAvailable) && currentBody != null) {
                 val sum = summary
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Column(
+                    modifier = Modifier.padding(
+                        horizontal = 16.dp,
+                        vertical = if (compactHeader) 2.dp else 8.dp
+                    )
+                ) {
                     if (sum == null) {
                         AssistChip(
                             onClick = {
@@ -850,7 +882,7 @@ fun DetailScreen(
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(20.dp)
                 )
-                currentBody == null -> Box(
+                currentBody == null || !phishingChecked -> Box(
                     Modifier
                         .fillMaxWidth()
                         .weight(1f),
