@@ -99,6 +99,20 @@ object ClaudeClient {
     @Volatile
     var lastReplyLanguage: String = "–"
 
+    /** Tages-/Listen-Überblick: fasst mehrere Mails kompakt zusammen. */
+    suspend fun summarizeDay(apiKey: String, mailList: String): String {
+        val system = "Du bist ein Assistent, der den E-Mail-Tag des Nutzers " +
+            "zusammenfasst. Antworte auf Deutsch, kompakt und übersichtlich in " +
+            "kurzen Stichpunkten (je Punkt eine Zeile, beginnend mit •). Hebe " +
+            "hervor: wichtige Nachrichten, erforderliche Aktionen oder Antworten, " +
+            "Termine und Beträge. Werbung und Newsletter nur in einem einzigen " +
+            "Sammelsatz erwähnen. Keine Einleitung, keine Schlussfloskel."
+        val user = "Hier die E-Mails (Absender, Betreff, ggf. Vorschau):\n\n" +
+            mailList.take(12000) +
+            "\n\nFasse zusammen, was wichtig war."
+        return complete(apiKey, system, user)
+    }
+
     suspend fun draftReply(
         apiKey: String,
         original: MailMessage,

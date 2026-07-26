@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,6 +44,7 @@ import androidx.compose.material.icons.filled.AllInbox
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -135,6 +139,66 @@ fun InboxScreen(
     val conversationView by Prefs.conversationViewFlow.collectAsState()
     val unified by MailRepository.unified.collectAsState()
     val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
+
+    // KI-Menü unten links: Tages-Überblick & Co.
+    val aiEngine by Prefs.aiEngineFlow.collectAsState()
+    var aiMenuOpen by remember { mutableStateOf(false) }
+    var aiBusy by remember { mutableStateOf(false) }
+    var aiResultTitle by remember { mutableStateOf("") }
+    var aiResult by remember { mutableStateOf<String?>(null) }
+
+    /** Fasst eine Mail-Auswahl per KI zusammen und zeigt das Ergebnis im Dialog. */
+    fun summarizeMails(title: String, mails: List<MailMessage>) {
+        if (aiBusy) return
+        if (mails.isEmpty()) {
+            scope.launch { snackbar.showSnackbar("Dafür gibt es gerade keine passenden Mails.") }
+            return
+        }
+        scope.launch {
+            aiBusy = true
+            try {
+                val list = mails.take(30).joinToString("\n") { m ->
+                    val snip = m.snippet?.takeIf { it.isNotBlank() }?.let { " – $it" } ?: ""
+                    "- Von: ${m.from} | Betreff: ${m.subject}" +
+                        (if (m.seen) "" else " (ungelesen)") + snip
+                }
+                val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
+                val result = if (hasClaudeKey) {
+                    com.jakober.klarmail.ai.ClaudeClient.summarizeDay(Prefs.claudeApiKey, list)
+                } else {
+                    com.jakober.klarmail.ai.GeminiNano.summarizeDay(list)
+                }
+                aiResultTitle = title
+                aiResult = result
+            } catch (e: Exception) {
+                snackbar.showSnackbar("KI-Fehler: ${e.message}")
+            } finally {
+                aiBusy = false
+            }
+        }
+    }
+
+    // Ergebnis-Dialog der KI-Zusammenfassung
+    aiResult?.let { result ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { aiResult = null },
+            title = { Text(aiResultTitle) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(result, style = MaterialTheme.typography.bodyMedium)
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { aiResult = null }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
     val expandedThreads = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     androidx.activity.compose.BackHandler(enabled = selectionMode) { selected.clear() }
     fun toggleSelect(uid: Long) {
@@ -697,6 +761,7 @@ fun InboxScreen(
             }
         }
 
+        Box(modifier = Modifier.fillMaxSize()) {
         PullToRefreshBox(
             isRefreshing = loading,
             onRefresh = { scope.launch { MailRepository.refresh() } },
@@ -947,6 +1012,67 @@ fun InboxScreen(
                 }
             }
             }
+        }
+
+        // KI-Knopf unten links (Gegenstück zum Verfassen-Knopf rechts)
+        if (!selectionMode) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(padding)
+                    .padding(16.dp)
+            ) {
+                androidx.compose.material3.SmallFloatingActionButton(
+                    onClick = { if (!aiBusy) aiMenuOpen = true },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ) {
+                    if (aiBusy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    } else {
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = "KI-Funktionen")
+                    }
+                }
+                DropdownMenu(
+                    expanded = aiMenuOpen,
+                    onDismissRequest = { aiMenuOpen = false },
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Meinen Tag zusammenfassen") },
+                        leadingIcon = { Icon(Icons.Filled.AutoAwesome, null) },
+                        onClick = {
+                            aiMenuOpen = false
+                            val startOfToday = Calendar.getInstance().apply {
+                                set(Calendar.HOUR_OF_DAY, 0)
+                                set(Calendar.MINUTE, 0)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }.timeInMillis
+                            summarizeMails(
+                                "Dein Tag im Überblick",
+                                messages.filter { it.date >= startOfToday }
+                            )
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Ungelesene zusammenfassen") },
+                        leadingIcon = { Icon(Icons.Filled.MarkEmailUnread, null) },
+                        onClick = {
+                            aiMenuOpen = false
+                            summarizeMails(
+                                "Ungelesene im Überblick",
+                                messages.filter { !it.seen }
+                            )
+                        }
+                    )
+                }
+            }
+        }
         }
     }
 }
