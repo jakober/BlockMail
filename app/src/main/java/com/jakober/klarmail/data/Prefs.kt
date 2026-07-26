@@ -12,9 +12,9 @@ object Prefs {
     private lateinit var sp: SharedPreferences
 
     val colorSchemeFlow = MutableStateFlow("klarmail")
-    val darkModeFlow = MutableStateFlow("system")
+    val darkModeFlow = MutableStateFlow("dark")
     val conversationViewFlow = MutableStateFlow(false)
-    val inboxLayoutFlow = MutableStateFlow("list")
+    val inboxLayoutFlow = MutableStateFlow("blocks")
     val aiEngineFlow = MutableStateFlow("auto")
     val swipeLeftFlow = MutableStateFlow("delete")
     val swipeRightFlow = MutableStateFlow("read")
@@ -417,9 +417,9 @@ object Prefs {
             colorSchemeFlow.value = v
         }
 
-    /** Posteingangs-Darstellung: "list" (klassisch) oder "blocks" (Raster). */
+    /** Posteingangs-Darstellung: "blocks" (Raster, Standard) oder "list". */
     var inboxLayout: String
-        get() = sp.getString("inbox_layout", "list") ?: "list"
+        get() = sp.getString("inbox_layout", "blocks") ?: "blocks"
         set(v) {
             sp.edit().putString("inbox_layout", v).apply()
             inboxLayoutFlow.value = v
@@ -503,9 +503,9 @@ object Prefs {
         hiddenFoldersFlow.value++
     }
 
-    /** Erscheinungsbild: "system" (Gerät folgt), "light" oder "dark". */
+    /** Erscheinungsbild: "dark" (Standard), "light" oder "system" (Gerät folgt). */
     var darkMode: String
-        get() = sp.getString("dark_mode", "system") ?: "system"
+        get() = sp.getString("dark_mode", "dark") ?: "dark"
         set(v) {
             sp.edit().putString("dark_mode", v).apply()
             darkModeFlow.value = v

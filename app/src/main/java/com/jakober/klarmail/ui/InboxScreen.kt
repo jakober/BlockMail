@@ -101,6 +101,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -783,6 +784,7 @@ fun InboxScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    if (!conversationView) {
                     if (unread.isNotEmpty()) {
                         item(key = "header_unread", span = { GridItemSpan(maxLineSpan) }) {
                             SectionHeader("Neu (${unread.size})")
@@ -824,6 +826,81 @@ fun InboxScreen(
                                 modifier = Modifier.animateItem()
                             )
                         }
+                    }
+                    } else {
+                        // Konversations-Ansicht im Raster: Bündel-Kachel mit
+                        // Zähler; Antippen klappt die Mitglieder auf/zu
+                        val threads = buildThreads(messages)
+                        fun renderThreadBlocks(t: MailThread) {
+                            if (t.mails.size == 1) {
+                                val mail = t.mails.first()
+                                item(
+                                    key = "${mail.account}:${mail.uid}",
+                                    contentType = "mail"
+                                ) {
+                                    SwipeableMailBlock(
+                                        mail = mail,
+                                        onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                        onLongClick = { toggleSelect(mail.uid) },
+                                        selected = selected.contains(mail.uid),
+                                        selectionMode = selectionMode,
+                                        rightSpec = specFor(swipeRight, mail),
+                                        leftSpec = specFor(swipeLeft, mail),
+                                        modifier = Modifier.animateItem()
+                                    )
+                                }
+                            } else {
+                                item(key = "thread_${t.key}", contentType = "mail") {
+                                    MailBlock(
+                                        mail = t.newest.copy(seen = t.unread == 0),
+                                        selected = false,
+                                        selectionMode = false,
+                                        onClick = {
+                                            if (expandedThreads.contains(t.key)) {
+                                                expandedThreads.remove(t.key)
+                                            } else {
+                                                expandedThreads.add(t.key)
+                                            }
+                                        },
+                                        onLongClick = {},
+                                        modifier = Modifier.animateItem(),
+                                        threadCount = t.mails.size
+                                    )
+                                }
+                                if (expandedThreads.contains(t.key)) {
+                                    gridItems(
+                                        t.mails,
+                                        key = { "${it.account}:${it.uid}" },
+                                        contentType = { "mail" }
+                                    ) { mail ->
+                                        SwipeableMailBlock(
+                                            mail = mail,
+                                            onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                            onLongClick = { toggleSelect(mail.uid) },
+                                            selected = selected.contains(mail.uid),
+                                            selectionMode = selectionMode,
+                                            rightSpec = specFor(swipeRight, mail),
+                                            leftSpec = specFor(swipeLeft, mail),
+                                            modifier = Modifier.animateItem()
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        val unreadThreads = threads.filter { it.unread > 0 }
+                        if (unreadThreads.isNotEmpty()) {
+                            item(key = "header_unread", span = { GridItemSpan(maxLineSpan) }) {
+                                SectionHeader("Neu (${unreadThreads.sumOf { it.unread }})")
+                            }
+                            unreadThreads.forEach { renderThreadBlocks(it) }
+                        }
+                        groupByTime(threads.filter { it.unread == 0 }) { it.newest.date }
+                            .forEach { (label, ts) ->
+                                item(key = "header_$label", span = { GridItemSpan(maxLineSpan) }) {
+                                    SectionHeader(label)
+                                }
+                                ts.forEach { renderThreadBlocks(it) }
+                            }
                     }
                     if (canLoadMore && messages.isNotEmpty()) {
                         item(key = "load_more", span = { GridItemSpan(maxLineSpan) }) {
@@ -1342,16 +1419,25 @@ private fun MailRow(
     threadCount: Int? = null
 ) {
     val scheme = MaterialTheme.colorScheme
-    // Gleiche Optik wie die Kacheln: sanfter Verlauf gibt den Zeilen Tiefe
+    // Gleiche Optik wie die Kacheln: sanfter Verlauf gibt den Zeilen Tiefe.
+    // Im Hellmodus liegen die Flächentöne nah beieinander — dort kräftigere
+    // Endpunkte wählen, sonst ist der Verlauf unsichtbar.
+    val isLight = scheme.surface.luminance() > 0.5f
     val bgBrush = when {
         selected -> Brush.verticalGradient(
             listOf(scheme.primaryContainer, scheme.primaryContainer)
         )
         !mail.seen -> Brush.verticalGradient(
-            listOf(scheme.secondaryContainer.copy(alpha = 0.55f), scheme.surfaceContainerLow)
+            listOf(
+                scheme.secondaryContainer.copy(alpha = if (isLight) 0.9f else 0.55f),
+                scheme.surfaceContainerLow
+            )
         )
         else -> Brush.verticalGradient(
-            listOf(scheme.surfaceContainerLow, scheme.surfaceContainerLowest)
+            listOf(
+                if (isLight) scheme.surfaceContainerHigh else scheme.surfaceContainerLow,
+                scheme.surfaceContainerLowest
+            )
         )
     }
     // Beim Antippen federt die Zeile sanft ein (Ripple bleibt erhalten)
@@ -1552,19 +1638,28 @@ private fun MailBlock(
     selectionMode: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    threadCount: Int? = null
 ) {
     val scheme = MaterialTheme.colorScheme
-    // Sanfter Verlauf gibt den Kacheln Tiefe; Ungelesene leuchten oben
+    // Sanfter Verlauf gibt den Kacheln Tiefe; Ungelesene leuchten oben.
+    // Im Hellmodus kräftigere Endpunkte, sonst ist der Verlauf unsichtbar.
+    val isLight = scheme.surface.luminance() > 0.5f
     val bgBrush = when {
         selected -> Brush.verticalGradient(
             listOf(scheme.primaryContainer, scheme.primaryContainer)
         )
         !mail.seen -> Brush.verticalGradient(
-            listOf(scheme.secondaryContainer.copy(alpha = 0.55f), scheme.surfaceContainerLow)
+            listOf(
+                scheme.secondaryContainer.copy(alpha = if (isLight) 0.9f else 0.55f),
+                scheme.surfaceContainerLow
+            )
         )
         else -> Brush.verticalGradient(
-            listOf(scheme.surfaceContainerLow, scheme.surfaceContainerLowest)
+            listOf(
+                if (isLight) scheme.surfaceContainerHigh else scheme.surfaceContainerLow,
+                scheme.surfaceContainerLowest
+            )
         )
     }
     val borderMod = when {
@@ -1681,13 +1776,31 @@ private fun MailBlock(
             }
         }
         Spacer(Modifier.height(10.dp))
-        Text(
-            text = mail.from,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = if (mail.seen) FontWeight.Medium else FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = mail.from,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = if (mail.seen) FontWeight.Medium else FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            if (threadCount != null && threadCount > 1) {
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(scheme.secondaryContainer)
+                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                ) {
+                    Text(
+                        "$threadCount",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scheme.onSecondaryContainer
+                    )
+                }
+            }
+        }
         Spacer(Modifier.height(2.dp))
         Text(
             text = mail.subject,

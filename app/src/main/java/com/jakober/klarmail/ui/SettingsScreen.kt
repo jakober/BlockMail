@@ -982,7 +982,7 @@ fun SettingsScreen(
                     Text("Konversations-Ansicht", style = MaterialTheme.typography.bodyLarge)
                     Text(
                         "Mails mit gleichem Betreff werden als ein Gespräch gebündelt " +
-                            "(antippen zum Aufklappen). Gilt in der Listen-Ansicht.",
+                            "(antippen zum Aufklappen) — in Liste und Kachel-Ansicht.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
