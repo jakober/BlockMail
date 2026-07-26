@@ -464,6 +464,42 @@ fun DetailScreen(
             // Wenig Bildschirmhöhe (Querformat): Kopf deutlich kompakter
             val compactHeader = androidx.compose.ui.platform.LocalConfiguration
                 .current.screenHeightDp < 500
+            // Phishing-Wächter: Prüfung im Hintergrund. Der Mail-Inhalt wird
+            // erst NACH der Prüfung aufgebaut — käme das Warnbanner später
+            // dazu, würde es den fertigen WebView umschieben und die Anzeige
+            // bleibt auf manchen Geräten weiß hängen.
+            var phishing by remember(uid) {
+                mutableStateOf<com.jakober.klarmail.data.PhishingCheck.Result?>(null)
+            }
+            var phishingChecked by remember(uid) { mutableStateOf(false) }
+            LaunchedEffect(currentBody) {
+                val b = currentBody ?: return@LaunchedEffect
+                // Eigene Mails (von den eigenen Konten) nie als Phishing werten
+                val ownAddresses = (com.jakober.klarmail.data.Prefs.accounts()
+                    .map { it.email } + com.jakober.klarmail.data.Prefs.email)
+                    .map { it.trim().lowercase() }.toSet()
+                if (mail.fromAddress.trim().lowercase() in ownAddresses) {
+                    phishing = null
+                    com.jakober.klarmail.data.Prefs.markPhishing(mailAccount, uid, false)
+                    phishingChecked = true
+                    return@LaunchedEffect
+                }
+                val result = withContext(Dispatchers.Default) {
+                    runCatching {
+                        com.jakober.klarmail.data.PhishingCheck.analyze(
+                            mail.from, mail.fromAddress, mail.subject,
+                            b.html?.take(300_000), b.text.take(20_000)
+                        )
+                    }.getOrNull()
+                }
+                phishing = result
+                result?.let {
+                    com.jakober.klarmail.data.Prefs.markPhishing(
+                        mailAccount, uid, it.suspicious
+                    )
+                }
+                phishingChecked = true
+            }
             // Pro Mail ein frischer Scroll-Zustand — sonst erbt die nächste
             // Mail die alte Scroll-Position (und der Kopf bliebe versteckt)
             val textScroll = remember(uid) { androidx.compose.foundation.ScrollState(0) }
@@ -530,42 +566,6 @@ fun DetailScreen(
             }
             HorizontalDivider()
 
-            // Phishing-Wächter: Prüfung im Hintergrund. Der Mail-Inhalt wird
-            // erst NACH der Prüfung aufgebaut — käme das Warnbanner später
-            // dazu, würde es den fertigen WebView umschieben und die Anzeige
-            // bleibt auf manchen Geräten weiß hängen.
-            var phishing by remember(uid) {
-                mutableStateOf<com.jakober.klarmail.data.PhishingCheck.Result?>(null)
-            }
-            var phishingChecked by remember(uid) { mutableStateOf(false) }
-            LaunchedEffect(currentBody) {
-                val b = currentBody ?: return@LaunchedEffect
-                // Eigene Mails (von den eigenen Konten) nie als Phishing werten
-                val ownAddresses = (com.jakober.klarmail.data.Prefs.accounts()
-                    .map { it.email } + com.jakober.klarmail.data.Prefs.email)
-                    .map { it.trim().lowercase() }.toSet()
-                if (mail.fromAddress.trim().lowercase() in ownAddresses) {
-                    phishing = null
-                    com.jakober.klarmail.data.Prefs.markPhishing(mailAccount, uid, false)
-                    phishingChecked = true
-                    return@LaunchedEffect
-                }
-                val result = withContext(Dispatchers.Default) {
-                    runCatching {
-                        com.jakober.klarmail.data.PhishingCheck.analyze(
-                            mail.from, mail.fromAddress, mail.subject,
-                            b.html?.take(300_000), b.text.take(20_000)
-                        )
-                    }.getOrNull()
-                }
-                phishing = result
-                result?.let {
-                    com.jakober.klarmail.data.Prefs.markPhishing(
-                        mailAccount, uid, it.suspicious
-                    )
-                }
-                phishingChecked = true
-            }
             val phishingResult = phishing
             if (phishingResult != null && phishingResult.suspicious) {
                 Surface(
