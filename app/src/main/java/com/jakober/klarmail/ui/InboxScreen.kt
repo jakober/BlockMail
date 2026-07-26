@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Drafts
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
@@ -2055,11 +2056,6 @@ private fun MailRow(
         targetValue = if (pressed) 0.965f else 1f,
         label = "rowPressScale"
     )
-    // Phishing-Wächter: markierte Mails bekommen einen roten Warnrahmen
-    val phishingSet by Prefs.phishingFlow.collectAsState()
-    val phishingWarning = remember(phishingSet, mail.account, mail.uid) {
-        Prefs.phishingKey(mail.account, mail.uid) in phishingSet
-    }
     Box(
         modifier = modifier
             .graphicsLayer {
@@ -2069,11 +2065,6 @@ private fun MailRow(
             .fillMaxWidth()
             .clip(MailCardShape)
             .background(bgBrush)
-            .then(
-                if (phishingWarning) {
-                    Modifier.border(1.5.dp, scheme.error, MailCardShape)
-                } else Modifier
-            )
             .combinedClickable(
                 interactionSource = interaction,
                 indication = LocalIndication.current,
@@ -2191,6 +2182,20 @@ private fun MailRowContent(
         Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Phishing-Wächter: kleines rotes Ausrufezeichen statt Rahmen
+                val phishingSet by Prefs.phishingFlow.collectAsState()
+                val phishingWarning = remember(phishingSet, mail.account, mail.uid) {
+                    Prefs.phishingKey(mail.account, mail.uid) in phishingSet
+                }
+                if (phishingWarning) {
+                    Icon(
+                        Icons.Filled.Error,
+                        contentDescription = "Möglicher Phishing-Versuch",
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(Modifier.width(3.dp))
+                }
                 if (mail.hasAttachments) {
                     Icon(
                         Icons.Filled.AttachFile,
@@ -2320,14 +2325,13 @@ private fun MailBlock(
             )
         )
     }
-    // Phishing-Wächter: markierte Mails bekommen einen roten Warnrahmen
+    // Phishing-Wächter: markierte Mails zeigen ein kleines rotes Ausrufezeichen
     val phishingSet by Prefs.phishingFlow.collectAsState()
     val phishingWarning = remember(phishingSet, mail.account, mail.uid) {
         Prefs.phishingKey(mail.account, mail.uid) in phishingSet
     }
     val borderMod = when {
         selected -> Modifier.border(1.5.dp, scheme.primary, MailBlockShape)
-        phishingWarning -> Modifier.border(1.5.dp, scheme.error, MailBlockShape)
         // Aufgeklappte Bündel-Kachel deutlich markieren
         threadCount != null && threadCount > 1 && threadExpanded ->
             Modifier.border(1.5.dp, scheme.primary.copy(alpha = 0.6f), MailBlockShape)
@@ -2428,6 +2432,15 @@ private fun MailBlock(
                         modifier = Modifier.height(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (phishingWarning) {
+                            Icon(
+                                Icons.Filled.Error,
+                                contentDescription = "Möglicher Phishing-Versuch",
+                                modifier = Modifier.size(12.dp),
+                                tint = scheme.error
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
                         if (mail.hasAttachments) {
                             Icon(
                                 Icons.Filled.AttachFile,
@@ -2456,7 +2469,16 @@ private fun MailBlock(
                     )
                 }
             } else {
-                // Anhang-Symbol zwischen Logo und Datum
+                // Warn- und Anhang-Symbol zwischen Logo und Datum
+                if (phishingWarning) {
+                    Icon(
+                        Icons.Filled.Error,
+                        contentDescription = "Möglicher Phishing-Versuch",
+                        modifier = Modifier.size(15.dp),
+                        tint = scheme.error
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
                 if (mail.hasAttachments) {
                     Icon(
                         Icons.Filled.AttachFile,
