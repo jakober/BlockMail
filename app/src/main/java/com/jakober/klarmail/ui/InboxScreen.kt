@@ -788,44 +788,44 @@ fun InboxScreen(
                                 IconButton(onClick = { searchMode = true }) {
                                     Icon(Icons.Filled.Search, contentDescription = "Suchen")
                                 }
-                                // Durchschalter Liste → Kacheln (2er) → Kompakt (3er);
-                                // das Symbol zeigt jeweils die NÄCHSTE Ansicht
-                                IconButton(onClick = {
-                                    Prefs.inboxLayout = when (inboxLayout) {
-                                        "list" -> "blocks"
-                                        "blocks" -> "blocks3"
-                                        else -> "list"
-                                    }
-                                }) {
+                                // Fokus-Blöcke ein/aus: nach Wichtigkeit statt Zeit
+                                IconButton(onClick = { Prefs.focusMode = !focusMode }) {
                                     Icon(
-                                        when (inboxLayout) {
-                                            "list" -> Icons.Filled.GridView
-                                            "blocks" -> Icons.Filled.ViewModule
-                                            else -> Icons.AutoMirrored.Filled.ViewList
+                                        Icons.Filled.AutoAwesomeMosaic,
+                                        contentDescription = if (focusMode) {
+                                            "Fokus-Blöcke ausschalten"
+                                        } else {
+                                            "Fokus-Blöcke einschalten"
                                         },
-                                        contentDescription = when (inboxLayout) {
-                                            "list" -> "Zur Kachel-Ansicht wechseln"
-                                            "blocks" -> "Zur kompakten Kachel-Ansicht wechseln"
-                                            else -> "Zur Listen-Ansicht wechseln"
-                                        }
+                                        tint = if (focusMode) MaterialTheme.colorScheme.primary
+                                        else LocalContentColor.current
                                     )
                                 }
                             }
                         }
                     },
                     actions = {
-                        // Fokus-Blöcke ein/aus: nach Wichtigkeit statt Zeit gruppieren
+                        // Durchschalter Liste → Kacheln (2er) → Kompakt (3er);
+                        // das Symbol zeigt jeweils die NÄCHSTE Ansicht
                         if (configured) {
-                            IconButton(onClick = { Prefs.focusMode = !focusMode }) {
+                            IconButton(onClick = {
+                                Prefs.inboxLayout = when (inboxLayout) {
+                                    "list" -> "blocks"
+                                    "blocks" -> "blocks3"
+                                    else -> "list"
+                                }
+                            }) {
                                 Icon(
-                                    Icons.Filled.AutoAwesomeMosaic,
-                                    contentDescription = if (focusMode) {
-                                        "Fokus-Blöcke ausschalten"
-                                    } else {
-                                        "Fokus-Blöcke einschalten"
+                                    when (inboxLayout) {
+                                        "list" -> Icons.Filled.GridView
+                                        "blocks" -> Icons.Filled.ViewModule
+                                        else -> Icons.AutoMirrored.Filled.ViewList
                                     },
-                                    tint = if (focusMode) MaterialTheme.colorScheme.primary
-                                    else LocalContentColor.current
+                                    contentDescription = when (inboxLayout) {
+                                        "list" -> "Zur Kachel-Ansicht wechseln"
+                                        "blocks" -> "Zur kompakten Kachel-Ansicht wechseln"
+                                        else -> "Zur Listen-Ansicht wechseln"
+                                    }
                                 )
                             }
                         }
