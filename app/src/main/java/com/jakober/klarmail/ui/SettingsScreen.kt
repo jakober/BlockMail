@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,6 +43,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -401,7 +403,10 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp)
         ) {
             // Ganz oben: Erscheinungsbild (Hell/Dunkel + Farbwelt)
-            SectionCard("Erscheinungsbild", Icons.Filled.Palette) {
+            SectionCard(
+                "Erscheinungsbild", Icons.Filled.Palette,
+                subtitle = "Hell/Dunkel und die Farben der App"
+            ) {
             listOf(
                 "system" to "Wie das Gerät (automatisch)",
                 "light" to "Hell",
@@ -491,7 +496,10 @@ fun SettingsScreen(
 
             }
 
-            SectionCard("Konto verbinden", Icons.Filled.AccountCircle) {
+            SectionCard(
+                "Konto verbinden", Icons.Filled.AccountCircle,
+                subtitle = "Neues Postfach hinzufügen oder Zugangsdaten ändern"
+            ) {
 
             // Empfohlener Weg: Assistent mit fertigen Server-Vorlagen — nur
             // Anbieter wählen, E-Mail und Passwort eingeben.
@@ -724,245 +732,16 @@ fun SettingsScreen(
 
             }
 
-            SectionCard("Echtzeit-Push", Icons.Filled.Sync) {
-            val pushStatus by MailSyncService.pushStatus.collectAsState()
-            Text(
-                pushStatus,
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Spacer(Modifier.height(8.dp))
-            Row {
-                TextButton(onClick = {
-                    MailSyncService.restart(context)
-                    scope.launch { snackbar.showSnackbar("Push-Dienst neu gestartet") }
-                }) { Text("Dienst neu starten") }
-                val pm = context.getSystemService(android.os.PowerManager::class.java)
-                if (pm?.isIgnoringBatteryOptimizations(context.packageName) != true) {
-                    TextButton(onClick = {
-                        try {
-                            context.startActivity(
-                                android.content.Intent(
-                                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                    android.net.Uri.parse("package:${context.packageName}")
-                                )
-                            )
-                        } catch (e: Exception) {
-                            scope.launch { snackbar.showSnackbar("Bitte manuell in den Akku-Einstellungen freigeben") }
-                        }
-                    }) { Text("Akku-Ausnahme erteilen") }
-                }
-            }
-            Text(
-                "Tipp: Die Akku-Ausnahme verhindert, dass Android die Push-Verbindung im Standby trennt.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            }
-
-            SectionCard("KI-Status", Icons.Filled.AutoAwesome) {
-            var deviceAiStatus by remember { mutableStateOf<String?>(null) }
-            var aiTestRunning by remember { mutableStateOf(false) }
-            val aiEngine by Prefs.aiEngineFlow.collectAsState()
-            LaunchedEffect(Unit) {
-                deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
-            }
-            val deviceAiUsable = deviceAiStatus?.startsWith("Nicht verfügbar") == false
-            val activeAi = when {
-                aiEngine == "gemini" ->
-                    if (deviceAiUsable) "Geräte-KI (Gemini Nano) — kostenlos, läuft lokal"
-                    else "Keine — Geräte-KI auf diesem Gerät nicht verfügbar"
-                aiEngine == "claude" ->
-                    if (claudeKey.isNotBlank()) "Claude (eigener API-Schlüssel)"
-                    else "Keine — API-Schlüssel fehlt"
-                claudeKey.isNotBlank() -> "Claude (eigener API-Schlüssel)"
-                deviceAiUsable -> "Geräte-KI (Gemini Nano) — kostenlos, läuft lokal"
-                else -> "Keine — KI-Funktionen sind ausgeblendet"
-            }
-            Text(
-                "Aktive KI: $activeAi",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(Modifier.height(4.dp))
-            listOf(
-                "auto" to "Automatisch (Claude, wenn Schlüssel vorhanden — sonst Geräte-KI)",
-                "claude" to "Immer Claude (braucht API-Schlüssel)",
-                "gemini" to "Immer Geräte-KI (Gemini Nano)"
-            ).forEach { (id, label) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { Prefs.aiEngine = id }
-                        .padding(vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = aiEngine == id,
-                        onClick = { Prefs.aiEngine = id }
-                    )
-                    Text(label, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Geräte-KI (Gemini Nano): ${deviceAiStatus ?: "wird geprüft …"}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Mit Claude laufen alle KI-Funktionen inklusive der täglichen " +
-                    "Newsletter-Erkennung. Die Geräte-KI übernimmt Zusammenfassen, " +
-                    "Antwort entwerfen, Mail formulieren und Rechtschreibprüfung — " +
-                    "komplett auf dem Gerät; die Newsletter-Erkennung nutzt dann die " +
-                    "Abmelde-Header-Regel.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (deviceAiUsable) {
-                TextButton(
-                    enabled = !aiTestRunning,
-                    onClick = {
-                        scope.launch {
-                            aiTestRunning = true
-                            val result = try {
-                                com.jakober.klarmail.ai.GeminiNano.selfTest()
-                            } catch (e: Exception) {
-                                "Test fehlgeschlagen: ${e.message?.take(80)}"
-                            }
-                            aiTestRunning = false
-                            deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
-                            snackbar.showSnackbar(result)
-                        }
-                    }
-                ) { Text(if (aiTestRunning) "Geräte-KI wird getestet …" else "Geräte-KI jetzt testen") }
-            }
-
-            }
-
-            SectionCard("Claude-API-Schlüssel", Icons.Filled.Key) {
-            OutlinedTextField(
-                value = claudeKey,
-                onValueChange = { claudeKey = it },
-                label = { Text("Claude API-Schlüssel") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Optional: Mit einem API-Schlüssel von console.anthropic.com kann Claude " +
-                    "E-Mails formulieren, Antworten entwerfen und die Rechtschreibung prüfen.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            }
-
-            SectionCard("Newsletter-Aufräumen (KI)", Icons.Filled.Newspaper) {
-            Text(
-                "Täglich um 20 Uhr erkennt die KI Newsletter der letzten 24 Stunden und " +
-                    "verschiebt sie in den Ordner „Newsletter“. Im Protokoll findest du alle " +
-                    "verschobenen Mails samt Abmelde-Links.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row {
-                TextButton(onClick = onOpenNewsletterLog) { Text("Protokoll anzeigen") }
-                TextButton(
-                    enabled = !newsletterRunning,
-                    onClick = {
-                        scope.launch {
-                            newsletterRunning = true
-                            newsletterResult = try {
-                                com.jakober.klarmail.data.NewsletterCleaner.run(context)
-                            } catch (e: Exception) {
-                                "Fehler: ${e.message ?: e.javaClass.simpleName}"
-                            }
-                            newsletterRunning = false
-                        }
-                    }
-                ) { Text(if (newsletterRunning) "Läuft …" else "Jetzt ausführen") }
-            }
-
-            }
-
-            SectionCard("Absender-Regeln", Icons.Filled.Block) {
-            val muted by Prefs.mutedFlow.collectAsState()
-            val blocked by Prefs.blockedFlow.collectAsState()
-            val senderSuggestions = remember {
-                val set = LinkedHashSet<String>()
-                MailRepository.messages.value.forEach {
-                    if (it.fromAddress.contains("@")) set.add(it.fromAddress.lowercase())
-                }
-                Prefs.knownRecipients().keys.forEach { set.add(it) }
-                set.toList()
-            }
-            SenderListSection(
-                title = "Stumm geschaltete Absender",
-                description = "Mails dieser Absender werden automatisch als gelesen markiert – ohne Benachrichtigung. Sie bleiben im Posteingang.",
-                entries = muted,
-                suggestions = senderSuggestions,
-                onAdd = { Prefs.addMuted(it) },
-                onRemove = { Prefs.removeMuted(it) }
-            )
-
-            Spacer(Modifier.height(12.dp))
-            SenderListSection(
-                title = "Blockierte Absender",
-                description = "Mails dieser Absender werden nach Ankunft sofort gelöscht – ohne Benachrichtigung.",
-                entries = blocked,
-                suggestions = senderSuggestions,
-                onAdd = { Prefs.addBlocked(it) },
-                onRemove = { Prefs.removeBlocked(it) }
-            )
-
-            Spacer(Modifier.height(12.dp))
-            val vip by Prefs.vipFlow.collectAsState()
-            val vipOnly by Prefs.vipOnlyFlow.collectAsState()
-            SenderListSection(
-                title = "VIP-Absender",
-                description = "Deine wichtigsten Absender. Mit dem Schalter unten " +
-                    "benachrichtigt BlockMail nur noch bei Mails von ihnen — " +
-                    "alles andere kommt lautlos an.",
-                entries = vip,
-                suggestions = senderSuggestions,
-                onAdd = { Prefs.addVip(it) },
-                onRemove = { Prefs.removeVip(it) }
-            )
-            Spacer(Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            SectionCard(
+                "Konten", Icons.Filled.People,
+                subtitle = "Deine Postfächer: Farbe und sichtbare Ordner je Konto"
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Nur VIP-Absender benachrichtigen",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        "Neue Mails anderer Absender erscheinen weiter im Posteingang, " +
-                            "aber ohne Benachrichtigung.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                androidx.compose.material3.Switch(
-                    checked = vipOnly,
-                    onCheckedChange = { Prefs.vipOnlyNotifications = it }
-                )
-            }
-
-            }
-
-            SectionCard("Konten", Icons.Filled.People) {
             Text(
-                "Gespeicherte Konten wechselst du oben im Posteingang über das Ordner-Menü. " +
-                    "Ein neues Konto legst du oben über „Weiteres Konto hinzufügen“ an — " +
-                    "das bisherige bleibt dabei verbunden. Tippe auf den Kreis, um dem " +
-                    "Konto eine Farbe zu geben (Balken vorne an jeder Mail), oder auf das " +
-                    "Ordner-Symbol, um zu wählen, welche Ordner im Ordner-Menü erscheinen.",
+                "Zwischen den Konten wechselst du oben im Posteingang über das " +
+                    "Ordner-Menü. „Farbe wählen“ gibt dem Konto eine eigene Farbe — " +
+                    "sie erscheint als Balken vorne an jeder Mail dieses Kontos. " +
+                    "„Sichtbare Ordner“ legt fest, welche Ordner das Konto im " +
+                    "Ordner-Menü zeigt.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1076,61 +855,329 @@ fun SettingsScreen(
                 val dotColor = remember(colorsVersion, acc.email) {
                     Prefs.accountColor(acc.email)
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(26.dp)
-                            .clip(CircleShape)
-                            .background(
-                                dotColor?.let { Color(it) }
-                                    ?: MaterialTheme.colorScheme.surfaceContainerHighest
-                            )
-                            .clickable { colorPickerFor = acc.email },
-                        contentAlignment = Alignment.Center
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (dotColor == null) {
-                            Icon(
-                                Icons.Filled.Palette,
-                                contentDescription = "Farbe wählen",
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        if (active) "${acc.email} (aktiv)" else acc.email,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (active) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = { folderPickerFor = acc.email }) {
-                        Icon(
-                            Icons.Filled.Folder, contentDescription = "Sichtbare Ordner wählen",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        // Farbpunkt zeigt die aktuell gewählte Konto-Farbe
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    dotColor?.let { Color(it) }
+                                        ?: MaterialTheme.colorScheme.surfaceContainerHighest
+                                )
                         )
-                    }
-                    if (!active) {
-                        IconButton(onClick = {
-                            Prefs.removeAccount(acc.email)
-                            accountList = Prefs.accounts()
-                        }) {
-                            Icon(
-                                Icons.Filled.Close, contentDescription = "Konto entfernen",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            if (active) "${acc.email} (aktiv)" else acc.email,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (active) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (!active) {
+                            IconButton(onClick = {
+                                Prefs.removeAccount(acc.email)
+                                accountList = Prefs.accounts()
+                            }) {
+                                Icon(
+                                    Icons.Filled.Close, contentDescription = "Konto entfernen",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
+                    }
+                    // Klar beschriftete Aktionen statt kleiner Symbole
+                    Row(
+                        modifier = Modifier.padding(start = 32.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AssistChip(
+                            onClick = { colorPickerFor = acc.email },
+                            label = { Text("Farbe wählen") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Palette,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                        AssistChip(
+                            onClick = { folderPickerFor = acc.email },
+                            label = { Text("Sichtbare Ordner") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Folder,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
                     }
                 }
             }
 
             }
 
-            SectionCard("Posteingang", Icons.Filled.Inbox) {
+            SectionCard(
+                "Echtzeit-Push", Icons.Filled.Sync,
+                subtitle = "Sofortige Benachrichtigungen bei neuen Mails"
+            ) {
+            val pushStatus by MailSyncService.pushStatus.collectAsState()
+            Text(
+                pushStatus,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(Modifier.height(8.dp))
+            Row {
+                TextButton(onClick = {
+                    MailSyncService.restart(context)
+                    scope.launch { snackbar.showSnackbar("Push-Dienst neu gestartet") }
+                }) { Text("Dienst neu starten") }
+                val pm = context.getSystemService(android.os.PowerManager::class.java)
+                if (pm?.isIgnoringBatteryOptimizations(context.packageName) != true) {
+                    TextButton(onClick = {
+                        try {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                    android.net.Uri.parse("package:${context.packageName}")
+                                )
+                            )
+                        } catch (e: Exception) {
+                            scope.launch { snackbar.showSnackbar("Bitte manuell in den Akku-Einstellungen freigeben") }
+                        }
+                    }) { Text("Akku-Ausnahme erteilen") }
+                }
+            }
+            Text(
+                "Tipp: Die Akku-Ausnahme verhindert, dass Android die Push-Verbindung im Standby trennt.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            }
+
+            SectionCard(
+                "KI-Status", Icons.Filled.AutoAwesome,
+                subtitle = "Welche KI gerade aktiv ist und was sie übernimmt"
+            ) {
+            var deviceAiStatus by remember { mutableStateOf<String?>(null) }
+            var aiTestRunning by remember { mutableStateOf(false) }
+            val aiEngine by Prefs.aiEngineFlow.collectAsState()
+            LaunchedEffect(Unit) {
+                deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
+            }
+            val deviceAiUsable = deviceAiStatus?.startsWith("Nicht verfügbar") == false
+            val activeAi = when {
+                aiEngine == "gemini" ->
+                    if (deviceAiUsable) "Geräte-KI (Gemini Nano) — kostenlos, läuft lokal"
+                    else "Keine — Geräte-KI auf diesem Gerät nicht verfügbar"
+                aiEngine == "claude" ->
+                    if (claudeKey.isNotBlank()) "Claude (eigener API-Schlüssel)"
+                    else "Keine — API-Schlüssel fehlt"
+                claudeKey.isNotBlank() -> "Claude (eigener API-Schlüssel)"
+                deviceAiUsable -> "Geräte-KI (Gemini Nano) — kostenlos, läuft lokal"
+                else -> "Keine — KI-Funktionen sind ausgeblendet"
+            }
+            Text(
+                "Aktive KI: $activeAi",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(4.dp))
+            listOf(
+                "auto" to "Automatisch (Claude, wenn Schlüssel vorhanden — sonst Geräte-KI)",
+                "claude" to "Immer Claude (braucht API-Schlüssel)",
+                "gemini" to "Immer Geräte-KI (Gemini Nano)"
+            ).forEach { (id, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.aiEngine = id }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = aiEngine == id,
+                        onClick = { Prefs.aiEngine = id }
+                    )
+                    Text(label, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Geräte-KI (Gemini Nano): ${deviceAiStatus ?: "wird geprüft …"}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Mit Claude laufen alle KI-Funktionen inklusive der täglichen " +
+                    "Newsletter-Erkennung. Die Geräte-KI übernimmt Zusammenfassen, " +
+                    "Antwort entwerfen, Mail formulieren und Rechtschreibprüfung — " +
+                    "komplett auf dem Gerät; die Newsletter-Erkennung nutzt dann die " +
+                    "Abmelde-Header-Regel.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (deviceAiUsable) {
+                TextButton(
+                    enabled = !aiTestRunning,
+                    onClick = {
+                        scope.launch {
+                            aiTestRunning = true
+                            val result = try {
+                                com.jakober.klarmail.ai.GeminiNano.selfTest()
+                            } catch (e: Exception) {
+                                "Test fehlgeschlagen: ${e.message?.take(80)}"
+                            }
+                            aiTestRunning = false
+                            deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
+                            snackbar.showSnackbar(result)
+                        }
+                    }
+                ) { Text(if (aiTestRunning) "Geräte-KI wird getestet …" else "Geräte-KI jetzt testen") }
+            }
+
+            }
+
+            SectionCard(
+                "Claude-API-Schlüssel", Icons.Filled.Key,
+                subtitle = "Optional: eigener Schlüssel für die Claude-KI"
+            ) {
+            OutlinedTextField(
+                value = claudeKey,
+                onValueChange = { claudeKey = it },
+                label = { Text("Claude API-Schlüssel") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Optional: Mit einem API-Schlüssel von console.anthropic.com kann Claude " +
+                    "E-Mails formulieren, Antworten entwerfen und die Rechtschreibung prüfen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            }
+
+            SectionCard(
+                "Newsletter-Aufräumen (KI)", Icons.Filled.Newspaper,
+                subtitle = "Werbung landet automatisch im Newsletter-Ordner"
+            ) {
+            Text(
+                "Täglich um 20 Uhr erkennt die KI Newsletter der letzten 24 Stunden und " +
+                    "verschiebt sie in den Ordner „Newsletter“. Im Protokoll findest du alle " +
+                    "verschobenen Mails samt Abmelde-Links.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row {
+                TextButton(onClick = onOpenNewsletterLog) { Text("Protokoll anzeigen") }
+                TextButton(
+                    enabled = !newsletterRunning,
+                    onClick = {
+                        scope.launch {
+                            newsletterRunning = true
+                            newsletterResult = try {
+                                com.jakober.klarmail.data.NewsletterCleaner.run(context)
+                            } catch (e: Exception) {
+                                "Fehler: ${e.message ?: e.javaClass.simpleName}"
+                            }
+                            newsletterRunning = false
+                        }
+                    }
+                ) { Text(if (newsletterRunning) "Läuft …" else "Jetzt ausführen") }
+            }
+
+            }
+
+            SectionCard(
+                "Absender-Regeln", Icons.Filled.Block,
+                subtitle = "Stumm, blockiert und VIP — wer darf dich stören?"
+            ) {
+            val muted by Prefs.mutedFlow.collectAsState()
+            val blocked by Prefs.blockedFlow.collectAsState()
+            val senderSuggestions = remember {
+                val set = LinkedHashSet<String>()
+                MailRepository.messages.value.forEach {
+                    if (it.fromAddress.contains("@")) set.add(it.fromAddress.lowercase())
+                }
+                Prefs.knownRecipients().keys.forEach { set.add(it) }
+                set.toList()
+            }
+            SenderListSection(
+                title = "Stumm geschaltete Absender",
+                description = "Mails dieser Absender werden automatisch als gelesen markiert – ohne Benachrichtigung. Sie bleiben im Posteingang.",
+                entries = muted,
+                suggestions = senderSuggestions,
+                onAdd = { Prefs.addMuted(it) },
+                onRemove = { Prefs.removeMuted(it) }
+            )
+
+            Spacer(Modifier.height(12.dp))
+            SenderListSection(
+                title = "Blockierte Absender",
+                description = "Mails dieser Absender werden nach Ankunft sofort gelöscht – ohne Benachrichtigung.",
+                entries = blocked,
+                suggestions = senderSuggestions,
+                onAdd = { Prefs.addBlocked(it) },
+                onRemove = { Prefs.removeBlocked(it) }
+            )
+
+            Spacer(Modifier.height(12.dp))
+            val vip by Prefs.vipFlow.collectAsState()
+            val vipOnly by Prefs.vipOnlyFlow.collectAsState()
+            SenderListSection(
+                title = "VIP-Absender",
+                description = "Deine wichtigsten Absender. Mit dem Schalter unten " +
+                    "benachrichtigt BlockMail nur noch bei Mails von ihnen — " +
+                    "alles andere kommt lautlos an.",
+                entries = vip,
+                suggestions = senderSuggestions,
+                onAdd = { Prefs.addVip(it) },
+                onRemove = { Prefs.removeVip(it) }
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Nur VIP-Absender benachrichtigen",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        "Neue Mails anderer Absender erscheinen weiter im Posteingang, " +
+                            "aber ohne Benachrichtigung.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = vipOnly,
+                    onCheckedChange = { Prefs.vipOnlyNotifications = it }
+                )
+            }
+
+            }
+
+            SectionCard(
+                "Posteingang", Icons.Filled.Inbox,
+                subtitle = "Darstellung, Konversationen und Wischgesten"
+            ) {
             SectionTitle("Darstellung")
             val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
             listOf(
@@ -1208,7 +1255,10 @@ fun SettingsScreen(
 
             }
 
-            SectionCard("Signatur & Vorlagen", Icons.Filled.Edit) {
+            SectionCard(
+                "Signatur & Vorlagen", Icons.Filled.Edit,
+                subtitle = "Bausteine fürs Schreiben"
+            ) {
             SectionTitle("Signatur")
             Text(
                 "Wird beim Verfassen automatisch unter den Text gesetzt.",
@@ -1457,11 +1507,12 @@ private fun SectionTitle(text: String) {
     )
 }
 
-/** Abgerundete Einstellungs-Karte mit Symbol und Titelzeile. */
+/** Abgerundete Einstellungs-Karte mit Symbol, Titel und optionalem Untertitel. */
 @Composable
 private fun SectionCard(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    subtitle: String? = null,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
 ) {
     androidx.compose.material3.Surface(
@@ -1483,6 +1534,14 @@ private fun SectionCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
+                )
+            }
+            if (subtitle != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Spacer(Modifier.height(10.dp))
