@@ -641,6 +641,18 @@ object Prefs {
     fun isPhishing(account: String, uid: Long) =
         phishingKey(account, uid) in phishingFlow.value
 
+    /** Nutzer-Freigabe: „Das ist kein Phishing“ — Warnung dauerhaft entfernen. */
+    fun markNotPhishing(account: String, uid: Long) {
+        val key = phishingKey(account, uid)
+        val set = loadSet("phishing_ok") + key
+        val capped = if (set.size > 300) set.drop(set.size - 300).toSet() else set
+        saveSet("phishing_ok", capped)
+        markPhishing(account, uid, false)
+    }
+
+    fun isPhishingCleared(account: String, uid: Long) =
+        phishingKey(account, uid) in loadSet("phishing_ok")
+
     // ---- Antwort-Radar: offene Fragen und ausbleibende Antworten ----
 
     /** Fokus-Blöcke: Posteingang nach Wichtigkeit gruppieren statt nach Zeit. */

@@ -474,6 +474,13 @@ fun DetailScreen(
             var phishingChecked by remember(uid) { mutableStateOf(false) }
             LaunchedEffect(currentBody) {
                 val b = currentBody ?: return@LaunchedEffect
+                // Vom Nutzer freigegeben („kein Phishing“)? Dann nie mehr warnen
+                if (com.jakober.klarmail.data.Prefs.isPhishingCleared(mailAccount, uid)) {
+                    phishing = null
+                    com.jakober.klarmail.data.Prefs.markPhishing(mailAccount, uid, false)
+                    phishingChecked = true
+                    return@LaunchedEffect
+                }
                 // Eigene Mails (von den eigenen Konten) nie als Phishing werten
                 val ownAddresses = (com.jakober.klarmail.data.Prefs.accounts()
                     .map { it.email } + com.jakober.klarmail.data.Prefs.email)
@@ -631,6 +638,24 @@ fun DetailScreen(
                                     .copy(alpha = 0.8f)
                             )
                         }
+                        // Fehlalarm? Nutzer kann die Warnung dauerhaft entfernen
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                com.jakober.klarmail.data.Prefs.markNotPhishing(
+                                    mailAccount, uid
+                                )
+                                phishing = null
+                                scope.launch {
+                                    snackbar.showSnackbar(
+                                        "Als „kein Phishing“ markiert — Warnung entfernt"
+                                    )
+                                }
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults
+                                .textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                        ) { Text("Das ist kein Phishing") }
                     }
                 }
             }
