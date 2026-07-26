@@ -99,17 +99,28 @@ object ClaudeClient {
     @Volatile
     var lastReplyLanguage: String = "–"
 
-    /** Tages-/Listen-Überblick: fasst mehrere Mails kompakt zusammen. */
+    /**
+     * Tages-/Listen-Überblick: fasst mehrere (nummerierte) Mails zusammen.
+     * Das feste Format mit [Nr]-Verweisen macht die Zeilen in der App
+     * antippbar (öffnet die jeweilige Mail).
+     */
     suspend fun summarizeDay(apiKey: String, mailList: String): String {
-        val system = "Du bist ein Assistent, der den E-Mail-Tag des Nutzers " +
-            "zusammenfasst. Antworte auf Deutsch, kompakt und übersichtlich in " +
-            "kurzen Stichpunkten (je Punkt eine Zeile, beginnend mit •). Hebe " +
-            "hervor: wichtige Nachrichten, erforderliche Aktionen oder Antworten, " +
-            "Termine und Beträge. Werbung und Newsletter nur in einem einzigen " +
-            "Sammelsatz erwähnen. Keine Einleitung, keine Schlussfloskel."
-        val user = "Hier die E-Mails (Absender, Betreff, ggf. Vorschau):\n\n" +
+        val system = "Du fasst den E-Mail-Eingang des Nutzers zusammen. " +
+            "Antworte auf Deutsch und AUSSCHLIESSLICH in genau diesem Format, " +
+            "ohne Einleitung, Erklärung oder Schlussfloskel:\n" +
+            "WICHTIG:\n" +
+            "[Nr] Ein kurzer Satz zur Mail (konkrete Fakten: Beträge, Termine, geforderte Aktion)\n" +
+            "INFO:\n" +
+            "[Nr] Ein kurzer Satz zur Mail\n" +
+            "WERBUNG & NEWSLETTER:\n" +
+            "Ein einziger Sammelsatz ohne Nummern.\n" +
+            "Regeln: [Nr] ist exakt die Nummer der Mail aus der Liste. Jede Mail " +
+            "höchstens einmal. Innerhalb der Abschnitte nach Wichtigkeit " +
+            "sortieren (Wichtigstes zuerst). Leere Abschnitte komplett weglassen. " +
+            "Höchstens 15 Wörter pro Zeile."
+        val user = "Hier die nummerierten E-Mails (Absender, Betreff, ggf. Vorschau):\n\n" +
             mailList.take(12000) +
-            "\n\nFasse zusammen, was wichtig war."
+            "\n\nErstelle die Zusammenfassung im vorgegebenen Format."
         return complete(apiKey, system, user)
     }
 

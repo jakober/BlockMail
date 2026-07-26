@@ -93,14 +93,21 @@ object GeminiNano {
             "Antwort:"
     )
 
-    /** Tages-/Listen-Überblick: fasst mehrere Mails kompakt zusammen. */
+    /** Tages-/Listen-Überblick: fasst mehrere (nummerierte) Mails zusammen. */
     suspend fun summarizeDay(mailList: String): String = generate(
-        "Du bist ein E-Mail-Assistent. Fasse die folgenden E-Mails auf Deutsch " +
-            "kompakt zusammen: die wichtigsten Nachrichten, nötige Aktionen, " +
-            "Termine und Beträge als kurze Stichpunkte (je Punkt eine Zeile, " +
-            "beginnend mit •). Werbung und Newsletter nur in einem einzigen " +
-            "Sammelsatz erwähnen. Keine Einleitung, keine Schlussfloskel. " +
-            "Antworte NUR mit der Zusammenfassung.\n\n${mailList.take(8000)}"
+        "Du bist ein E-Mail-Assistent. Fasse die folgenden nummerierten " +
+            "E-Mails auf Deutsch zusammen. Antworte AUSSCHLIESSLICH in genau " +
+            "diesem Format, ohne Einleitung und ohne Schlussfloskel:\n" +
+            "WICHTIG:\n" +
+            "[Nr] Ein kurzer Satz zur Mail\n" +
+            "INFO:\n" +
+            "[Nr] Ein kurzer Satz zur Mail\n" +
+            "WERBUNG & NEWSLETTER:\n" +
+            "Ein einziger Sammelsatz ohne Nummern.\n" +
+            "Regeln: [Nr] ist exakt die Nummer der Mail aus der Liste. Jede " +
+            "Mail höchstens einmal. Wichtigstes zuerst. Leere Abschnitte " +
+            "weglassen. Nenne konkrete Fakten (Beträge, Termine, Aktionen).\n\n" +
+            mailList.take(8000)
     )
 
     suspend fun composeMail(instruction: String): String = generate(

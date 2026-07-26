@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Drafts
@@ -149,7 +150,7 @@ fun InboxScreen(
     var aiMenuOpen by remember { mutableStateOf(false) }
     var aiBusy by remember { mutableStateOf(false) }
     var aiResultTitle by remember { mutableStateOf("") }
-    var aiResult by remember { mutableStateOf<String?>(null) }
+    var aiResult by remember { mutableStateOf<List<SummaryLine>?>(null) }
 
     /** Fasst eine Mail-Auswahl per KI zusammen und zeigt das Ergebnis im Dialog. */
     fun summarizeMails(title: String, mails: List<MailMessage>) {
@@ -161,11 +162,14 @@ fun InboxScreen(
         scope.launch {
             aiBusy = true
             try {
-                val list = mails.take(30).joinToString("\n") { m ->
+                // Nummerierte Liste: über die [Nr]-Verweise der KI werden die
+                // Ergebnis-Zeilen später antippbar (öffnen die Mail)
+                val indexed = mails.take(30)
+                val list = indexed.mapIndexed { i, m ->
                     val snip = m.snippet?.takeIf { it.isNotBlank() }?.let { " – $it" } ?: ""
-                    "- Von: ${m.from} | Betreff: ${m.subject}" +
+                    "[${i + 1}] Von: ${m.from} | Betreff: ${m.subject}" +
                         (if (m.seen) "" else " (ungelesen)") + snip
-                }
+                }.joinToString("\n")
                 val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
                 val result = if (hasClaudeKey) {
                     com.jakober.klarmail.ai.ClaudeClient.summarizeDay(Prefs.claudeApiKey, list)
@@ -173,7 +177,7 @@ fun InboxScreen(
                     com.jakober.klarmail.ai.GeminiNano.summarizeDay(list)
                 }
                 aiResultTitle = title
-                aiResult = result
+                aiResult = parseSummary(result, indexed)
             } catch (e: Exception) {
                 snackbar.showSnackbar("KI-Fehler: ${e.message}")
             } finally {
@@ -182,18 +186,80 @@ fun InboxScreen(
         }
     }
 
-    // Ergebnis-Dialog der KI-Zusammenfassung
-    aiResult?.let { result ->
+    // Ergebnis-Dialog der KI-Zusammenfassung: Abschnitte nach Wichtigkeit,
+    // Zeilen mit Mail-Bezug sind antippbar und öffnen die Mail direkt
+    aiResult?.let { resultLines ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { aiResult = null },
             title = { Text(aiResultTitle) },
             text = {
                 Column(
                     modifier = Modifier
-                        .heightIn(max = 420.dp)
+                        .heightIn(max = 440.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    Text(result, style = MaterialTheme.typography.bodyMedium)
+                    resultLines.forEach { line ->
+                        if (line.isHeader) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                line.text,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.height(2.dp))
+                        } else {
+                            val clickMod = if (line.mail != null) {
+                                Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        aiResult = null
+                                        onOpenMail(line.mail.uid)
+                                    }
+                            } else {
+                                Modifier
+                            }
+                            Row(
+                                modifier = clickMod
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 2.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "•  ",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        line.text,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    line.mail?.let { m ->
+                                        Text(
+                                            m.from,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                if (line.mail != null) {
+                                    Icon(
+                                        Icons.Filled.ChevronRight,
+                                        contentDescription = "Mail öffnen",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Antippen öffnet die jeweilige Mail.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             },
             confirmButton = {
@@ -1628,6 +1694,43 @@ fun formatMailDate(millis: Long): String {
 
 fun formatMailTime(millis: Long): String =
     SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(millis))
+
+/** Eine Zeile der KI-Zusammenfassung: Überschrift oder (antippbarer) Punkt. */
+private data class SummaryLine(
+    val text: String,
+    val isHeader: Boolean,
+    val mail: MailMessage?
+)
+
+/**
+ * Zerlegt die KI-Antwort in Abschnitts-Überschriften und Punkte; Zeilen mit
+ * [Nr]-Verweis werden der jeweiligen Mail zugeordnet (→ antippbar).
+ */
+private fun parseSummary(raw: String, indexed: List<MailMessage>): List<SummaryLine> {
+    val refRegex = Regex("^[-•*]?\\s*\\[(\\d+)\\]\\s*[:.\\-–]?\\s*(.*)")
+    val out = mutableListOf<SummaryLine>()
+    raw.lines().map { it.trim() }.filter { it.isNotBlank() }.forEach { line ->
+        val m = refRegex.find(line)
+        when {
+            m != null -> {
+                val idx = m.groupValues[1].toIntOrNull()
+                val text = m.groupValues[2].trim().ifBlank { line }
+                out += SummaryLine(text, false, idx?.let { indexed.getOrNull(it - 1) })
+            }
+            line.endsWith(":") && line.length <= 40 -> {
+                out += SummaryLine(line.removeSuffix(":").trim(), true, null)
+            }
+            else -> {
+                out += SummaryLine(
+                    line.removePrefix("•").removePrefix("-").removePrefix("*").trim(),
+                    false,
+                    null
+                )
+            }
+        }
+    }
+    return out
+}
 
 /**
  * Block-Ansicht: eine Mail als kompakter, quadratisch anmutender Block im
