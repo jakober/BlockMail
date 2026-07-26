@@ -1434,6 +1434,16 @@ private fun MailBlock(
                 )
             }
             Spacer(Modifier.weight(1f))
+            // Anhang-Symbol zwischen Logo und Datum
+            if (mail.hasAttachments) {
+                Icon(
+                    Icons.Filled.AttachFile,
+                    contentDescription = "Anhang vorhanden",
+                    modifier = Modifier.size(15.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(6.dp))
+            }
             Column(horizontalAlignment = Alignment.End) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (chipColor != null) {
@@ -1480,42 +1490,18 @@ private fun MailBlock(
             overflow = TextOverflow.Ellipsis
         )
         Spacer(Modifier.height(4.dp))
-        // Vorschau wie in der Liste: genau eine Zeile für einheitliche Höhe
+        // Vorschau über drei Zeilen: nutzt die Blockhöhe voll aus; feste
+        // Zeilenzahl hält alle Blöcke weiterhin gleich hoch
         val snip = mail.snippet
         Text(
             text = if (snip != null && snip.isBlank()) "Kein Inhalt" else snip.orEmpty(),
             style = MaterialTheme.typography.bodySmall,
             fontStyle = if (snip != null && snip.isBlank()) FontStyle.Italic else FontStyle.Normal,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            minLines = 1,
-            maxLines = 1,
+            minLines = 3,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis
         )
-        Spacer(Modifier.height(6.dp))
-        // Fußzeile mit fester Höhe, damit alle Blöcke gleich hoch bleiben
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (mail.hasAttachments) {
-                Icon(
-                    Icons.Filled.AttachFile,
-                    contentDescription = "Anhang vorhanden",
-                    modifier = Modifier.size(13.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(Modifier.weight(1f))
-            if (!mail.seen && !selected) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(MaterialTheme.colorScheme.primary, CircleShape)
-                )
-            }
-        }
     }
 }
 
