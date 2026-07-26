@@ -1,8 +1,13 @@
 package com.jakober.klarmail.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,7 +94,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -707,8 +714,8 @@ fun InboxScreen(
                     state = gridState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     if (unread.isNotEmpty()) {
                         item(key = "header_unread", span = { GridItemSpan(maxLineSpan) }) {
@@ -1183,6 +1190,9 @@ private fun SwipeableMailRow(
 /** Kartenform der Mail-Einträge — auch fürs Clipping der Wisch-Hintergründe. */
 private val MailCardShape = RoundedCornerShape(16.dp)
 
+/** Kachelform der Block-Ansicht (etwas runder als die Listen-Karten). */
+private val MailBlockShape = RoundedCornerShape(18.dp)
+
 /** Symbol für einen Ordner im Ordner-Menü. */
 private fun folderIcon(f: MailRepository.MailFolder) = when (f) {
     MailRepository.MailFolder.INBOX -> Icons.Filled.Inbox
@@ -1392,46 +1402,100 @@ private fun MailBlock(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bg = when {
-        selected -> MaterialTheme.colorScheme.primaryContainer
-        !mail.seen -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.40f)
-        else -> MaterialTheme.colorScheme.surfaceContainerLow
+    val scheme = MaterialTheme.colorScheme
+    // Sanfter Verlauf gibt den Kacheln Tiefe; Ungelesene leuchten oben
+    val bgBrush = when {
+        selected -> Brush.verticalGradient(
+            listOf(scheme.primaryContainer, scheme.primaryContainer)
+        )
+        !mail.seen -> Brush.verticalGradient(
+            listOf(scheme.secondaryContainer.copy(alpha = 0.55f), scheme.surfaceContainerLow)
+        )
+        else -> Brush.verticalGradient(
+            listOf(scheme.surfaceContainerLow, scheme.surfaceContainerLowest)
+        )
+    }
+    val borderMod = when {
+        selected -> Modifier.border(1.5.dp, scheme.primary, MailBlockShape)
+        !mail.seen -> Modifier.border(
+            1.dp, scheme.primary.copy(alpha = 0.35f), MailBlockShape
+        )
+        else -> Modifier
     }
     val colorsVersion by Prefs.accountColorsFlow.collectAsState()
     val accountColor = remember(colorsVersion, mail.account) {
         Prefs.accountColor(mail.account.ifBlank { Prefs.email })?.let { Color(it) }
     }
     val chipColor = accountColor
-        ?: if (!mail.seen && !selected) MaterialTheme.colorScheme.primary else null
+        ?: if (!mail.seen && !selected) scheme.primary else null
+    // Beim Antippen federt die Kachel sanft ein (Ripple bleibt erhalten)
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.965f else 1f,
+        label = "blockPressScale"
+    )
     Column(
         modifier = modifier
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
             .fillMaxWidth()
-            .clip(MailCardShape)
-            .background(bg)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(12.dp)
+            .clip(MailBlockShape)
+            .background(bgBrush)
+            .then(borderMod)
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onLongClick = onLongClick,
+                onClick = onClick
+            )
+            .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (selectionMode && selected) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(MaterialTheme.colorScheme.primary, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary
+            // Fester 42-dp-Rahmen hält alle Kacheln gleich hoch — mit feinem
+            // Ring um den Avatar bei ungelesenen Mails
+            Box(
+                modifier = Modifier.size(42.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    selectionMode && selected -> Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(scheme.primary, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = scheme.onPrimary
+                        )
+                    }
+                    !mail.seen -> Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .border(
+                                2.dp,
+                                scheme.primary.copy(alpha = 0.55f),
+                                RoundedCornerShape(13.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        SenderAvatar(
+                            name = mail.from,
+                            address = mail.fromAddress,
+                            size = 34.dp
+                        )
+                    }
+                    else -> SenderAvatar(
+                        name = mail.from,
+                        address = mail.fromAddress,
+                        size = 40.dp
                     )
                 }
-            } else {
-                SenderAvatar(
-                    name = mail.from,
-                    address = mail.fromAddress,
-                    size = 36.dp
-                )
             }
             Spacer(Modifier.weight(1f))
             // Anhang-Symbol zwischen Logo und Datum
@@ -1440,41 +1504,35 @@ private fun MailBlock(
                     Icons.Filled.AttachFile,
                     contentDescription = "Anhang vorhanden",
                     modifier = Modifier.size(15.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = scheme.onSurfaceVariant
                 )
                 Spacer(Modifier.width(6.dp))
             }
             Column(horizontalAlignment = Alignment.End) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (chipColor != null) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(chipColor)
-                        )
-                        Spacer(Modifier.width(5.dp))
+                        MiniBlocksLogo(chipColor)
+                        Spacer(Modifier.width(6.dp))
                     }
                     Text(
                         text = formatMailDate(mail.date),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (mail.seen) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.primary,
+                        color = if (mail.seen) scheme.onSurfaceVariant else scheme.primary,
                         fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold
                     )
                 }
                 Text(
                     text = formatMailTime(mail.date),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = scheme.onSurfaceVariant
                 )
             }
         }
         Spacer(Modifier.height(10.dp))
         Text(
             text = mail.from,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = if (mail.seen) FontWeight.Medium else FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -1502,6 +1560,29 @@ private fun MailBlock(
             maxLines = 3,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+/**
+ * Mini-Ausgabe des BlockMail-Logos: vier kleine Blöcke mit Lücken in der
+ * Konto- bzw. Akzentfarbe; unterschiedliche Deckkraft macht es lebendig.
+ */
+@Composable
+private fun MiniBlocksLogo(color: Color, modifier: Modifier = Modifier) {
+    val alphas = listOf(1f, 0.7f, 0.45f, 0.85f)
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.5.dp)) {
+        listOf(0, 2).forEach { rowStart ->
+            Row(horizontalArrangement = Arrangement.spacedBy(1.5.dp)) {
+                (rowStart..rowStart + 1).forEach { i ->
+                    Box(
+                        modifier = Modifier
+                            .size(5.dp)
+                            .clip(RoundedCornerShape(1.5.dp))
+                            .background(color.copy(alpha = alphas[i]))
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1579,7 +1660,7 @@ private fun SwipeableMailBlock(
 
         SwipeToDismissBox(
             state = dismissState,
-            modifier = Modifier.clip(MailCardShape),
+            modifier = Modifier.clip(MailBlockShape),
             enableDismissFromStartToEnd = true,
             enableDismissFromEndToStart = true,
             backgroundContent = {
