@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -457,17 +458,8 @@ fun DetailScreen(
                 .padding(padding)
         ) {
             val currentBody = body
-            // Kopfbereich (Betreff, Absender, Hinweise) blendet sich beim
-            // Scrollen des Inhalts aus — gerade im Querformat wäre sonst
-            // kaum etwas von der Mail zu sehen
-            var headerHidden by remember(uid) { mutableStateOf(false) }
-            // Wenig Bildschirmhöhe (Querformat): Kopf deutlich kompakter
-            val compactHeader = androidx.compose.ui.platform.LocalConfiguration
-                .current.screenHeightDp < 500
-            // Phishing-Wächter: Prüfung im Hintergrund. Der Mail-Inhalt wird
-            // erst NACH der Prüfung aufgebaut — käme das Warnbanner später
-            // dazu, würde es den fertigen WebView umschieben und die Anzeige
-            // bleibt auf manchen Geräten weiß hängen.
+            // Phishing-Wächter: Prüfung im Hintergrund; der Inhalt wird erst
+            // nach der Prüfung aufgebaut, damit das Layout von Anfang an steht
             var phishing by remember(uid) {
                 mutableStateOf<com.jakober.klarmail.data.PhishingCheck.Result?>(null)
             }
@@ -507,419 +499,124 @@ fun DetailScreen(
                 }
                 phishingChecked = true
             }
-            // Pro Mail ein frischer Scroll-Zustand — sonst erbt die nächste
-            // Mail die alte Scroll-Position (und der Kopf bliebe versteckt)
-            val textScroll = remember(uid) { androidx.compose.foundation.ScrollState(0) }
-            // Hysterese gegen Springen: Ausblenden erst nach deutlichem
-            // Scrollen, Einblenden erst ganz oben — dazwischen bleibt der
-            // Zustand stabil (sonst klappt der Kopf beim Scrollen hin und her)
-            fun onContentScroll(y: Int) {
-                if (y > 160) headerHidden = true
-                else if (y < 16) headerHidden = false
-            }
-            LaunchedEffect(textScroll) {
-                androidx.compose.runtime.snapshotFlow { textScroll.value }
-                    .collect { onContentScroll(it) }
-            }
-            androidx.compose.animation.AnimatedVisibility(
-                visible = !headerHidden,
-                enter = androidx.compose.animation.expandVertically(
-                    animationSpec = androidx.compose.animation.core.tween(220)
-                ) + androidx.compose.animation.fadeIn(
-                    animationSpec = androidx.compose.animation.core.tween(220)
-                ),
-                exit = androidx.compose.animation.shrinkVertically(
-                    animationSpec = androidx.compose.animation.core.tween(220)
-                ) + androidx.compose.animation.fadeOut(
-                    animationSpec = androidx.compose.animation.core.tween(220)
-                )
-            ) {
-            // Auch ein Wisch nach oben AUF dem Kopfbereich blendet ihn aus —
-            // im Querformat wäre der Inhaltsbereich sonst winzig
-            Column(
-                modifier = Modifier.pointerInput(Unit) {
-                    detectVerticalDragGestures { _, dragAmount ->
-                        if (dragAmount < -12) headerHidden = true
-                    }
-                }
-            ) {
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                Text(
-                    text = mail.subject,
-                    style = if (compactHeader) MaterialTheme.typography.titleMedium
-                    else MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = if (compactHeader) 1 else 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(Modifier.height(if (compactHeader) 4.dp else 12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SenderAvatar(
-                        name = mail.from,
-                        address = mail.fromAddress,
-                        size = if (compactHeader) 28.dp else 40.dp
-                    )
-                    Spacer(Modifier.width(if (compactHeader) 8.dp else 12.dp))
-                    if (compactHeader) {
-                        // Eine einzige Zeile: Absender · Adresse · Zeit
-                        Text(
-                            "${mail.from} · ${mail.fromAddress} · " +
-                                SimpleDateFormat("d. MMM, HH:mm", Locale.GERMAN)
-                                    .format(Date(mail.date)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    } else {
-                        Column {
-                            Text(mail.from, style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                mail.fromAddress,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.GERMAN)
-                                    .format(Date(mail.date)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(if (compactHeader) 6.dp else 12.dp))
-            }
-            HorizontalDivider()
-
             val phishingResult = phishing
-            if (phishingResult != null && phishingResult.suspicious) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Filled.Warning,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "Vorsicht: mögliche Phishing-Mail",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        phishingResult.reasons.take(if (compactHeader) 1 else 3)
-                            .forEach { reason ->
-                                Text(
-                                    "• $reason",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    maxLines = if (compactHeader) 1 else Int.MAX_VALUE,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        if (!compactHeader) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "Tippe keine Links an und gib keine Passwörter oder " +
-                                    "Zahlungsdaten ein. Die Prüfung lief komplett auf " +
-                                    "deinem Gerät.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                                    .copy(alpha = 0.8f)
-                            )
-                        }
-                        // Fehlalarm? Nutzer kann die Warnung dauerhaft entfernen
-                        androidx.compose.material3.TextButton(
-                            onClick = {
-                                com.jakober.klarmail.data.Prefs.markNotPhishing(
-                                    mailAccount, uid
-                                )
-                                phishing = null
-                                scope.launch {
-                                    snackbar.showSnackbar(
-                                        "Als „kein Phishing“ markiert — Warnung entfernt"
-                                    )
-                                }
-                            },
-                            colors = androidx.compose.material3.ButtonDefaults
-                                .textButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                        ) { Text("Das ist kein Phishing") }
-                    }
-                }
-            }
-            // KI-Zusammenfassung: Claude (mit API-Schlüssel) oder On-Device-Gemini,
-            // gemäß der KI-Wahl in den Einstellungen
+
+            // KI-Verfügbarkeit gemäß der KI-Wahl in den Einstellungen
             val aiEngine by com.jakober.klarmail.data.Prefs.aiEngineFlow.collectAsState()
             val hasClaudeKey = com.jakober.klarmail.data.Prefs.claudeApiKey.isNotBlank() &&
                 aiEngine != "gemini"
             val geminiAvailable by androidx.compose.runtime.produceState(initialValue = false, hasClaudeKey) {
                 value = !hasClaudeKey && com.jakober.klarmail.ai.GeminiNano.available()
             }
-            if ((hasClaudeKey || geminiAvailable) && currentBody != null) {
-                val sum = summary
-                Column(
-                    modifier = Modifier.padding(
-                        horizontal = 16.dp,
-                        vertical = if (compactHeader) 2.dp else 8.dp
-                    )
-                ) {
-                    if (sum == null) {
-                        AssistChip(
-                            onClick = {
-                                if (!summarizing) {
-                                    scope.launch {
-                                        summarizing = true
-                                        summary = try {
-                                            if (hasClaudeKey) {
-                                                com.jakober.klarmail.ai.ClaudeClient.summarize(
-                                                    com.jakober.klarmail.data.Prefs.claudeApiKey,
-                                                    "${mail.from} <${mail.fromAddress}>",
-                                                    mail.subject,
-                                                    currentBody.text
-                                                )
-                                            } else {
-                                                com.jakober.klarmail.ai.GeminiNano.summarize(
-                                                    "${mail.from} <${mail.fromAddress}>",
-                                                    mail.subject,
-                                                    currentBody.text
-                                                )
-                                            }
-                                        } catch (e: Exception) {
-                                            "Zusammenfassung fehlgeschlagen: ${e.message}"
-                                        }
-                                        summarizing = false
-                                    }
-                                }
-                            },
-                            label = {
-                                Text(
-                                    when {
-                                        summarizing -> "Wird zusammengefasst …"
-                                        else -> "Mit KI zusammenfassen"
-                                    }
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Filled.AutoAwesome,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(AssistChipDefaults.IconSize)
-                                )
-                            }
-                        )
-                    } else {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    "✨ Zusammenfassung",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(sum, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                    }
-                }
-            }
-            if (currentBody != null && currentBody.attachments.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    currentBody.attachments.forEach { att ->
-                        var menuOpen by remember(att.name) { mutableStateOf(false) }
-                        Box(modifier = Modifier.padding(end = 8.dp)) {
-                            AssistChip(
-                                onClick = { menuOpen = true },
-                                label = { Text("${att.name} (${formatSize(att.size)})") },
-                                leadingIcon = {
-                                    Icon(
-                                        attachmentIcon(att.mime),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(AssistChipDefaults.IconSize)
-                                    )
-                                }
+            val aiAvailable = hasClaudeKey || geminiAvailable
+
+            fun runSummarize() {
+                val b = body ?: return
+                if (summarizing) return
+                scope.launch {
+                    summarizing = true
+                    launch { snackbar.showSnackbar("Wird zusammengefasst …") }
+                    summary = try {
+                        if (hasClaudeKey) {
+                            com.jakober.klarmail.ai.ClaudeClient.summarize(
+                                com.jakober.klarmail.data.Prefs.claudeApiKey,
+                                "${mail.from} <${mail.fromAddress}>",
+                                mail.subject,
+                                b.text
                             )
-                            DropdownMenu(
-                                expanded = menuOpen,
-                                onDismissRequest = { menuOpen = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Öffnen") },
-                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) },
-                                    onClick = {
-                                        menuOpen = false
-                                        scope.launch {
-                                            try {
-                                                launch {
-                                                    snackbar.showSnackbar("„${att.name}“ wird geladen …")
-                                                }
-                                                val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
-                                                withContext(Dispatchers.IO) {
-                                                    MailRepository.openAttachment(
-                                                        context, att.name, att.mime, bytes
-                                                    )
-                                                }
-                                            } catch (e: Exception) {
-                                                snackbar.showSnackbar("Öffnen fehlgeschlagen: ${e.message}")
-                                            }
-                                        }
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Teilen") },
-                                    leadingIcon = { Icon(Icons.Filled.Share, null) },
-                                    onClick = {
-                                        menuOpen = false
-                                        scope.launch {
-                                            try {
-                                                launch {
-                                                    snackbar.showSnackbar("„${att.name}“ wird geladen …")
-                                                }
-                                                val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
-                                                withContext(Dispatchers.IO) {
-                                                    MailRepository.shareAttachment(
-                                                        context, att.name, att.mime, bytes
-                                                    )
-                                                }
-                                            } catch (e: Exception) {
-                                                snackbar.showSnackbar("Teilen fehlgeschlagen: ${e.message}")
-                                            }
-                                        }
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("In Downloads speichern") },
-                                    leadingIcon = { Icon(Icons.Filled.Download, null) },
-                                    onClick = {
-                                        menuOpen = false
-                                        scope.launch {
-                                            try {
-                                                launch {
-                                                    snackbar.showSnackbar("„${att.name}“ wird geladen …")
-                                                }
-                                                val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
-                                                val target = withContext(Dispatchers.IO) {
-                                                    MailRepository.saveAttachment(
-                                                        context, att.name, att.mime, bytes
-                                                    )
-                                                }
-                                                snackbar.showSnackbar("Gespeichert: $target")
-                                            } catch (e: Exception) {
-                                                snackbar.showSnackbar("Speichern fehlgeschlagen: ${e.message}")
-                                            }
-                                        }
-                                    }
-                                )
-                            }
+                        } else {
+                            com.jakober.klarmail.ai.GeminiNano.summarize(
+                                "${mail.from} <${mail.fromAddress}>",
+                                mail.subject,
+                                b.text
+                            )
                         }
+                    } catch (e: Exception) {
+                        "Zusammenfassung fehlgeschlagen: ${e.message}"
                     }
+                    summarizing = false
                 }
-                // Bild-Anhänge direkt als Vorschau anzeigen (bis 5 MB);
-                // Tippen öffnet das Bild in voller Größe
-                val imageAtts = currentBody.attachments.filter {
-                    it.mime.startsWith("image/") && it.size in 1..5_000_000
-                }
-                if (imageAtts.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 8.dp)
-                    ) {
-                        imageAtts.forEach { att ->
-                            var bmp by remember(uid, att.name) {
-                                mutableStateOf<android.graphics.Bitmap?>(null)
+            }
+
+            // Anhang-Aktionen: Dialog mit Öffnen/Teilen/Speichern
+            var attachmentDialog by remember(uid) {
+                mutableStateOf<MailRepository.MailAttachment?>(null)
+            }
+            fun attachmentAction(att: MailRepository.MailAttachment, action: String) {
+                scope.launch {
+                    try {
+                        launch { snackbar.showSnackbar("„${att.name}“ wird geladen …") }
+                        val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
+                        when (action) {
+                            "open" -> withContext(Dispatchers.IO) {
+                                MailRepository.openAttachment(context, att.name, att.mime, bytes)
                             }
-                            LaunchedEffect(uid, att.name) {
-                                runCatching {
-                                    val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
-                                    bmp = withContext(Dispatchers.IO) {
-                                        android.graphics.BitmapFactory
-                                            .decodeByteArray(bytes, 0, bytes.size)
-                                    }
+                            "share" -> withContext(Dispatchers.IO) {
+                                MailRepository.shareAttachment(context, att.name, att.mime, bytes)
+                            }
+                            else -> {
+                                val target = withContext(Dispatchers.IO) {
+                                    MailRepository.saveAttachment(context, att.name, att.mime, bytes)
                                 }
-                            }
-                            bmp?.let { bitmap ->
-                                androidx.compose.foundation.Image(
-                                    bitmap = bitmap.asImageBitmap(),
-                                    contentDescription = att.name,
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                        .size(120.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable {
-                                            scope.launch {
-                                                try {
-                                                    val bytes = MailRepository
-                                                        .getAttachmentData(uid, att, mailAccount)
-                                                    withContext(Dispatchers.IO) {
-                                                        MailRepository.openAttachment(
-                                                            context, att.name, att.mime, bytes
-                                                        )
-                                                    }
-                                                } catch (e: Exception) {
-                                                    snackbar.showSnackbar(
-                                                        "Öffnen fehlgeschlagen: ${e.message}"
-                                                    )
-                                                }
-                                            }
-                                        }
-                                )
+                                snackbar.showSnackbar("Gespeichert: $target")
                             }
                         }
+                    } catch (e: Exception) {
+                        snackbar.showSnackbar("Aktion fehlgeschlagen: ${e.message}")
                     }
                 }
-                HorizontalDivider()
             }
+            attachmentDialog?.let { att ->
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { attachmentDialog = null },
+                    title = { Text(att.name) },
+                    text = { Text(formatSize(att.size)) },
+                    confirmButton = {
+                        Column {
+                            androidx.compose.material3.TextButton(onClick = {
+                                attachmentDialog = null
+                                attachmentAction(att, "open")
+                            }) { Text("Öffnen") }
+                            androidx.compose.material3.TextButton(onClick = {
+                                attachmentDialog = null
+                                attachmentAction(att, "share")
+                            }) { Text("Teilen") }
+                            androidx.compose.material3.TextButton(onClick = {
+                                attachmentDialog = null
+                                attachmentAction(att, "save")
+                            }) { Text("In Downloads speichern") }
+                        }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = { attachmentDialog = null }) {
+                            Text("Abbrechen")
+                        }
+                    }
+                )
             }
-            }
-            // Eingeklappt: schmale Zeile mit Betreff — Antippen holt den
-            // Kopfbereich zurück
-            androidx.compose.animation.AnimatedVisibility(visible = headerHidden) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { headerHidden = false }
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        mail.subject,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        Icons.Filled.ExpandMore,
-                        contentDescription = "Kopfbereich einblenden",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+            // Bei HTML-Mails liegt der Kopf IM Seiteninhalt — das KI-Ergebnis
+            // kommt deshalb als Dialog
+            if (currentBody?.html != null) {
+                summary?.let { sum ->
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { summary = null },
+                        title = { Text("✨ Zusammenfassung") },
+                        text = {
+                            Column(
+                                modifier = Modifier
+                                    .heightIn(max = 420.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) { Text(sum, style = MaterialTheme.typography.bodyMedium) }
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(onClick = { summary = null }) {
+                                Text("OK")
+                            }
+                        }
                     )
                 }
             }
+
             when {
                 loadError != null -> Text(
                     "Inhalt konnte nicht geladen werden: $loadError",
@@ -932,27 +629,212 @@ fun DetailScreen(
                         .weight(1f),
                     contentAlignment = Alignment.Center
                 ) { CircularProgressIndicator() }
-                currentBody.html != null -> HtmlMailView(
-                    html = currentBody.html,
-                    onScroll = { y -> onContentScroll(y) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                )
-                else -> Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .verticalScroll(textScroll)
-                ) {
-                    SelectionContainer {
-                        Text(
-                            text = currentBody.text,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(
-                                start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp
+                currentBody.html != null -> {
+                    // Kopf (Betreff, Absender, Warnung, KI-Knopf, Anhänge) ist
+                    // Teil der Seite und scrollt ganz normal mit dem Inhalt
+                    val fullHtml = remember(currentBody, phishingResult, aiAvailable) {
+                        buildMailPageHtml(mail, currentBody, phishingResult, aiAvailable)
+                    }
+                    HtmlMailView(
+                        html = fullHtml,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        onAppLink = { link ->
+                            when {
+                                link == "blockmail://summarize" -> runSummarize()
+                                link == "blockmail://notphishing" -> {
+                                    com.jakober.klarmail.data.Prefs.markNotPhishing(
+                                        mailAccount, uid
+                                    )
+                                    phishing = null
+                                    scope.launch {
+                                        snackbar.showSnackbar(
+                                            "Als „kein Phishing“ markiert — Warnung entfernt"
+                                        )
+                                    }
+                                }
+                                link.startsWith("blockmail://att/") -> {
+                                    val idx = link.substringAfterLast('/').toIntOrNull()
+                                    attachmentDialog = idx?.let {
+                                        currentBody.attachments.getOrNull(it)
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
+                else -> {
+                    // Text-Mail: Kopf und Inhalt in EINER Scroll-Spalte —
+                    // alles fährt beim Scrollen gemeinsam nach oben
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .verticalScroll(
+                                remember(uid) { androidx.compose.foundation.ScrollState(0) }
                             )
-                        )
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = mail.subject,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                SenderAvatar(
+                                    name = mail.from,
+                                    address = mail.fromAddress,
+                                    size = 40.dp
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text(mail.from, style = MaterialTheme.typography.titleSmall)
+                                    Text(
+                                        mail.fromAddress,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        SimpleDateFormat(
+                                            "EEEE, d. MMMM yyyy, HH:mm", Locale.GERMAN
+                                        ).format(Date(mail.date)),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                        }
+                        HorizontalDivider()
+                        if (phishingResult != null && phishingResult.suspicious) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Filled.Warning,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "Vorsicht: mögliche Phishing-Mail",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    phishingResult.reasons.take(3).forEach { reason ->
+                                        Text(
+                                            "• $reason",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
+                                    androidx.compose.material3.TextButton(
+                                        onClick = {
+                                            com.jakober.klarmail.data.Prefs.markNotPhishing(
+                                                mailAccount, uid
+                                            )
+                                            phishing = null
+                                            scope.launch {
+                                                snackbar.showSnackbar(
+                                                    "Als „kein Phishing“ markiert — Warnung entfernt"
+                                                )
+                                            }
+                                        },
+                                        colors = androidx.compose.material3.ButtonDefaults
+                                            .textButtonColors(
+                                                contentColor =
+                                                    MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                    ) { Text("Das ist kein Phishing") }
+                                }
+                            }
+                        }
+                        if (aiAvailable) {
+                            val sum = summary
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                            ) {
+                                if (sum == null) {
+                                    AssistChip(
+                                        onClick = { runSummarize() },
+                                        label = {
+                                            Text(
+                                                if (summarizing) "Wird zusammengefasst …"
+                                                else "Mit KI zusammenfassen"
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Filled.AutoAwesome,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(AssistChipDefaults.IconSize)
+                                            )
+                                        }
+                                    )
+                                } else {
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.secondaryContainer
+                                            .copy(alpha = 0.5f),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Text(
+                                                "✨ Zusammenfassung",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(sum, style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (currentBody.attachments.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                            ) {
+                                currentBody.attachments.forEach { att ->
+                                    AssistChip(
+                                        onClick = { attachmentDialog = att },
+                                        label = { Text("${att.name} (${formatSize(att.size)})") },
+                                        leadingIcon = {
+                                            Icon(
+                                                attachmentIcon(att.mime),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(AssistChipDefaults.IconSize)
+                                            )
+                                        },
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                }
+                            }
+                        }
+                        SelectionContainer {
+                            Text(
+                                text = currentBody.text,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(
+                                    start = 20.dp, end = 20.dp, top = 12.dp, bottom = 96.dp
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -965,9 +847,9 @@ fun DetailScreen(
 private fun HtmlMailView(
     html: String,
     modifier: Modifier = Modifier,
-    onScroll: (Int) -> Unit = {}
+    onAppLink: (String) -> Unit = {}
 ) {
-    val currentOnScroll by androidx.compose.runtime.rememberUpdatedState(onScroll)
+    val currentOnAppLink by androidx.compose.runtime.rememberUpdatedState(onAppLink)
     val wrapped = remember(html) {
         """<!DOCTYPE html><html><head>
            <meta charset="utf-8">
@@ -989,16 +871,18 @@ private fun HtmlMailView(
                 settings.builtInZoomControls = true
                 settings.displayZoomControls = false
                 setBackgroundColor(android.graphics.Color.WHITE)
-                // Meldet die Scroll-Position nach oben (Kopfbereich ausblenden)
-                setOnScrollChangeListener { _, _, scrollY, _, _ ->
-                    currentOnScroll(scrollY)
-                }
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(
                         view: WebView?,
                         request: WebResourceRequest?
                     ): Boolean {
                         val url = request?.url ?: return false
+                        // App-interne Aktionen aus dem Seiten-Kopf (KI,
+                        // Anhänge, „kein Phishing“)
+                        if (url.scheme == "blockmail") {
+                            currentOnAppLink(url.toString())
+                            return true
+                        }
                         runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, url)) }
                         return true
                     }
@@ -1014,4 +898,69 @@ private fun HtmlMailView(
             }
         }
     )
+}
+
+private fun htmlEscape(s: String): String = s
+    .replace("&", "&amp;")
+    .replace("<", "&lt;")
+    .replace(">", "&gt;")
+
+/**
+ * Baut die komplette Mail-Seite: Kopf (Betreff, Absender, Datum), ggf.
+ * Phishing-Warnung, KI-Knopf und Anhänge liegen IM Seiteninhalt und
+ * scrollen ganz normal mit. Aktionen laufen über blockmail://-Links.
+ */
+private fun buildMailPageHtml(
+    mail: com.jakober.klarmail.data.MailMessage,
+    body: MailRepository.MailBody,
+    phishing: com.jakober.klarmail.data.PhishingCheck.Result?,
+    aiAvailable: Boolean
+): String {
+    val sb = StringBuilder()
+    sb.append("<div style=\"font-family:sans-serif;padding:2px 2px 0 2px;\">")
+    sb.append("<div style=\"font-size:20px;font-weight:600;color:#1b1b1b;")
+        .append("margin:2px 0 6px 0;line-height:1.3;\">")
+        .append(htmlEscape(mail.subject))
+        .append("</div>")
+    val date = SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.GERMAN)
+        .format(Date(mail.date))
+    sb.append("<div style=\"font-size:13px;color:#666;margin-bottom:8px;\">")
+        .append("<b>").append(htmlEscape(mail.from)).append("</b> &lt;")
+        .append(htmlEscape(mail.fromAddress)).append("&gt;<br>")
+        .append(date)
+        .append("</div>")
+    if (phishing != null && phishing.suspicious) {
+        sb.append("<div style=\"background:#b3261e;color:#fff;border-radius:12px;")
+            .append("padding:10px 12px;margin:6px 0;font-size:13px;line-height:1.5;\">")
+            .append("<b>⚠️ Vorsicht: mögliche Phishing-Mail</b><br>")
+        phishing.reasons.take(3).forEach {
+            sb.append("• ").append(htmlEscape(it)).append("<br>")
+        }
+        sb.append("Tippe keine Links an und gib keine Passwörter oder ")
+            .append("Zahlungsdaten ein.<br>")
+            .append("<a href=\"blockmail://notphishing\" style=\"color:#fff;\">")
+            .append("Das ist kein Phishing – Warnung entfernen</a>")
+            .append("</div>")
+    }
+    if (aiAvailable) {
+        sb.append("<div style=\"margin:6px 0;\">")
+            .append("<a href=\"blockmail://summarize\" style=\"display:inline-block;")
+            .append("border:1px solid #bbb;border-radius:18px;padding:7px 14px;")
+            .append("color:#444;text-decoration:none;font-size:13px;\">")
+            .append("✨ Mit KI zusammenfassen</a></div>")
+    }
+    if (body.attachments.isNotEmpty()) {
+        sb.append("<div style=\"font-size:13px;margin:6px 0;line-height:1.8;\">")
+        body.attachments.forEachIndexed { i, att ->
+            if (i > 0) sb.append(" &nbsp; ")
+            sb.append("📎 <a href=\"blockmail://att/").append(i)
+                .append("\" style=\"color:#3366cc;text-decoration:none;\">")
+                .append(htmlEscape(att.name)).append("</a>")
+        }
+        sb.append("</div>")
+    }
+    sb.append("<hr style=\"border:none;border-top:1px solid #ddd;margin:8px 0 10px 0;\">")
+    sb.append("</div>")
+    sb.append(body.html ?: "")
+    return sb.toString()
 }
