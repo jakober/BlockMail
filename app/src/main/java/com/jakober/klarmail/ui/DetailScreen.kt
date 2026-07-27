@@ -910,56 +910,90 @@ private fun htmlEscape(s: String): String = s
  * Phishing-Warnung, KI-Knopf und Anhänge liegen IM Seiteninhalt und
  * scrollen ganz normal mit. Aktionen laufen über blockmail://-Links.
  */
+/** Freemail-Domains ohne Marken-Logo — dort zeigt der Kopf den Initialen-Kreis. */
+private val headerFreemailDomains = setOf(
+    "gmail.com", "googlemail.com", "outlook.com", "outlook.de", "hotmail.com",
+    "hotmail.de", "live.com", "live.de", "msn.com", "yahoo.com", "yahoo.de",
+    "gmx.de", "gmx.net", "gmx.at", "gmx.ch", "web.de", "icloud.com", "me.com",
+    "mac.com", "t-online.de", "freenet.de", "aol.com", "mail.de", "mail.com",
+    "posteo.de", "proton.me", "protonmail.com", "tutanota.com", "tuta.io"
+)
+
 private fun buildMailPageHtml(
     mail: com.jakober.klarmail.data.MailMessage,
     body: MailRepository.MailBody,
     phishing: com.jakober.klarmail.data.PhishingCheck.Result?,
     aiAvailable: Boolean
 ): String {
+    val orange = "#EE5F0F"
     val sb = StringBuilder()
-    sb.append("<div style=\"font-family:sans-serif;padding:2px 2px 0 2px;\">")
-    sb.append("<div style=\"font-size:20px;font-weight:600;color:#1b1b1b;")
-        .append("margin:2px 0 6px 0;line-height:1.3;\">")
+    sb.append("<div style=\"font-family:sans-serif;padding:6px 4px 0 4px;\">")
+    // Betreff — kräftig wie in der App
+    sb.append("<div style=\"font-size:21px;font-weight:700;color:#1a1a1a;")
+        .append("line-height:1.3;margin:2px 0 12px 0;\">")
         .append(htmlEscape(mail.subject))
         .append("</div>")
+    // Absenderzeile mit Avatar (Marken-Logo oder Initialen-Kreis in Orange)
+    val domain = mail.fromAddress.substringAfterLast("@", "").lowercase().trim()
+    val avatar = if (domain.isNotBlank() && domain !in headerFreemailDomains) {
+        "<img src=\"https://www.google.com/s2/favicons?domain=$domain&amp;sz=128\" " +
+            "style=\"width:42px;height:42px;min-width:42px;border-radius:21px;" +
+            "background:#f2f2f2;object-fit:contain;\">"
+    } else {
+        val initial = htmlEscape(
+            (mail.from.firstOrNull() ?: mail.fromAddress.firstOrNull() ?: '?')
+                .uppercase()
+        )
+        "<div style=\"width:42px;height:42px;min-width:42px;border-radius:21px;" +
+            "background:$orange;color:#fff;font-size:19px;font-weight:600;" +
+            "display:flex;align-items:center;justify-content:center;\">$initial</div>"
+    }
     val date = SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.GERMAN)
         .format(Date(mail.date))
-    sb.append("<div style=\"font-size:13px;color:#666;margin-bottom:8px;\">")
-        .append("<b>").append(htmlEscape(mail.from)).append("</b> &lt;")
-        .append(htmlEscape(mail.fromAddress)).append("&gt;<br>")
-        .append(date)
-        .append("</div>")
+    sb.append("<div style=\"display:flex;align-items:center;margin-bottom:12px;\">")
+        .append(avatar)
+        .append("<div style=\"margin-left:12px;min-width:0;\">")
+        .append("<div style=\"font-size:15px;font-weight:600;color:#1a1a1a;\">")
+        .append(htmlEscape(mail.from)).append("</div>")
+        .append("<div style=\"font-size:12.5px;color:#8a8a8a;\">")
+        .append(htmlEscape(mail.fromAddress)).append("</div>")
+        .append("<div style=\"font-size:12.5px;color:#8a8a8a;\">")
+        .append(date).append("</div>")
+        .append("</div></div>")
     if (phishing != null && phishing.suspicious) {
-        sb.append("<div style=\"background:#b3261e;color:#fff;border-radius:12px;")
-            .append("padding:10px 12px;margin:6px 0;font-size:13px;line-height:1.5;\">")
+        sb.append("<div style=\"background:#b3261e;color:#fff;border-radius:14px;")
+            .append("padding:12px 14px;margin:8px 0;font-size:13px;line-height:1.55;\">")
             .append("<b>⚠️ Vorsicht: mögliche Phishing-Mail</b><br>")
         phishing.reasons.take(3).forEach {
             sb.append("• ").append(htmlEscape(it)).append("<br>")
         }
         sb.append("Tippe keine Links an und gib keine Passwörter oder ")
             .append("Zahlungsdaten ein.<br>")
-            .append("<a href=\"blockmail://notphishing\" style=\"color:#fff;\">")
-            .append("Das ist kein Phishing – Warnung entfernen</a>")
+            .append("<a href=\"blockmail://notphishing\" style=\"color:#fff;")
+            .append("font-weight:600;\">Das ist kein Phishing – Warnung entfernen</a>")
             .append("</div>")
     }
-    if (aiAvailable) {
-        sb.append("<div style=\"margin:6px 0;\">")
-            .append("<a href=\"blockmail://summarize\" style=\"display:inline-block;")
-            .append("border:1px solid #bbb;border-radius:18px;padding:7px 14px;")
-            .append("color:#444;text-decoration:none;font-size:13px;\">")
-            .append("✨ Mit KI zusammenfassen</a></div>")
-    }
-    if (body.attachments.isNotEmpty()) {
-        sb.append("<div style=\"font-size:13px;margin:6px 0;line-height:1.8;\">")
+    // KI-Knopf (oranges Pill) und Anhang-Chips in einer Zeile
+    if (aiAvailable || body.attachments.isNotEmpty()) {
+        sb.append("<div style=\"margin:4px 0 8px 0;line-height:2.4;\">")
+        if (aiAvailable) {
+            sb.append("<a href=\"blockmail://summarize\" style=\"display:inline-block;")
+                .append("background:$orange;color:#fff;border-radius:20px;")
+                .append("padding:8px 16px;text-decoration:none;font-size:13px;")
+                .append("font-weight:600;margin-right:8px;\">")
+                .append("✨ Mit KI zusammenfassen</a>")
+        }
         body.attachments.forEachIndexed { i, att ->
-            if (i > 0) sb.append(" &nbsp; ")
-            sb.append("📎 <a href=\"blockmail://att/").append(i)
-                .append("\" style=\"color:#3366cc;text-decoration:none;\">")
-                .append(htmlEscape(att.name)).append("</a>")
+            sb.append("<a href=\"blockmail://att/").append(i)
+                .append("\" style=\"display:inline-block;background:#f1f1f1;")
+                .append("color:#333;border-radius:16px;padding:7px 13px;")
+                .append("text-decoration:none;font-size:12.5px;margin-right:8px;\">")
+                .append("📎 ").append(htmlEscape(att.name)).append("</a>")
         }
         sb.append("</div>")
     }
-    sb.append("<hr style=\"border:none;border-top:1px solid #ddd;margin:8px 0 10px 0;\">")
+    sb.append("<hr style=\"border:none;border-top:1px solid #e5e5e5;")
+        .append("margin:6px 0 12px 0;\">")
     sb.append("</div>")
     sb.append(body.html ?: "")
     return sb.toString()
