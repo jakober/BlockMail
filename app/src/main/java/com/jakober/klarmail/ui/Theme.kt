@@ -131,6 +131,12 @@ fun customScheme(base: Color): SchemeDef = makeScheme(
     onContainerDark = lerp(base, Color.White, 0.82f)
 )
 
+/**
+ * Kräftige Grundfarbe des gewählten Schemas — im Gegensatz zu
+ * colorScheme.primary auch im Dunkelmodus NICHT aufgehellt.
+ */
+val LocalAccent = androidx.compose.runtime.staticCompositionLocalOf { Color(0xFFD9530A) }
+
 @Composable
 fun KlarMailTheme(
     schemeId: String,
@@ -166,8 +172,12 @@ fun KlarMailTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = scheme,
-        content = content
-    )
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalAccent provides def.light.primary
+    ) {
+        MaterialTheme(
+            colorScheme = scheme,
+            content = content
+        )
+    }
 }

@@ -940,9 +940,9 @@ fun InboxScreen(
             if (configured && !searchMode && !selectionMode) {
                 FloatingActionButton(
                     onClick = onCompose,
-                    // Kräftige Hauptfarbe statt abgeschwächtem Container-Ton,
-                    // Symbol in Weiß
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    // Kräftige Grundfarbe des Schemas — auch im Dunkelmodus
+                    // nicht aufgehellt, Symbol in Weiß
+                    containerColor = LocalAccent.current,
                     contentColor = Color.White
                 ) {
                     Icon(Icons.Filled.Edit, contentDescription = "Neue E-Mail")
