@@ -106,7 +106,13 @@ object GeminiNano {
             "Ein einziger Sammelsatz ohne Nummern.\n" +
             "Regeln: [Nr] ist exakt die Nummer der Mail aus der Liste. Jede " +
             "Mail höchstens einmal. Wichtigstes zuerst. Leere Abschnitte " +
-            "weglassen. Nenne konkrete Fakten (Beträge, Termine, Aktionen).\n\n" +
+            "weglassen. Nenne konkrete Fakten (Beträge, Termine, Aktionen).\n" +
+            "Einordnung: WICHTIG = Rechnungen, Zahlungs-/Abbuchungsbestätigungen, " +
+            "Fristen, Behörden, persönliche Fragen — alles mit Geld ist WICHTIG, " +
+            "nie Werbung. INFO = Statusmeldungen ohne Handlungsbedarf. " +
+            "WERBUNG & NEWSLETTER = nur echte Werbung (Angebote, Rabatte, " +
+            "Newsletter) — ein „Angebot“ ist Werbung, auch wenn es " +
+            "informativ klingt.\n\n" +
             mailList.take(8000)
     )
 
@@ -114,9 +120,11 @@ object GeminiNano {
     suspend fun classifyMails(mailList: String): String = generate(
         "Sortiere die folgenden nummerierten E-Mails in genau vier Kategorien:\n" +
             "A = braucht eine Antwort des Nutzers\n" +
-            "B = wichtig, aber keine Antwort nötig\n" +
-            "C = kann warten\n" +
-            "D = Werbung oder Newsletter\n" +
+            "B = wichtig, keine Antwort nötig (Rechnung, Zahlungsbestätigung, " +
+            "Frist, Behörde — alles mit Geld ist B, nie D)\n" +
+            "C = kann warten (Status ohne Handlungsbedarf)\n" +
+            "D = Werbung oder Newsletter (Angebote sind D, auch wenn sie " +
+            "informativ klingen)\n" +
             "Antworte AUSSCHLIESSLICH mit einer Zeile pro Mail im Format „[Nr] Buchstabe“. " +
             "Keine Erklärungen.\n\n" +
             mailList.take(8000)

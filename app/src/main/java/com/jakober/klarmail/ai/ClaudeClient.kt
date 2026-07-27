@@ -117,7 +117,18 @@ object ClaudeClient {
             "Regeln: [Nr] ist exakt die Nummer der Mail aus der Liste. Jede Mail " +
             "höchstens einmal. Innerhalb der Abschnitte nach Wichtigkeit " +
             "sortieren (Wichtigstes zuerst). Leere Abschnitte komplett weglassen. " +
-            "Höchstens 15 Wörter pro Zeile."
+            "Höchstens 15 Wörter pro Zeile.\n" +
+            "Einordnung — halte dich strikt daran:\n" +
+            "WICHTIG = persönliche Nachrichten, Fragen an den Nutzer, Rechnungen, " +
+            "Zahlungs- und Abbuchungsbestätigungen, Mahnungen, Behörden, Termine, " +
+            "Sicherheitswarnungen. Alles mit Geldbewegung oder Frist ist WICHTIG, " +
+            "nie Werbung.\n" +
+            "INFO = automatische Bestätigungen und Statusmeldungen ohne " +
+            "Handlungsbedarf (Versandstatus, Anmelde-Hinweise, Foren-Benachrichtigungen).\n" +
+            "WERBUNG & NEWSLETTER = nur echte Werbung: Angebote, Rabatte, " +
+            "Produktempfehlungen, Newsletter. Ein „Angebot“ einer Firma (z. B. " +
+            "Marktwert-Berechnung, Probeabo) ist Werbung, auch wenn es " +
+            "informativ klingt."
         val user = "Hier die nummerierten E-Mails (Absender, Betreff, ggf. Vorschau):\n\n" +
             mailList.take(12000) +
             "\n\nErstelle die Zusammenfassung im vorgegebenen Format."
@@ -128,9 +139,13 @@ object ClaudeClient {
     suspend fun classifyMails(apiKey: String, mailList: String): String {
         val system = "Du sortierst E-Mails in genau vier Kategorien:\n" +
             "A = braucht eine Antwort des Nutzers (direkte Frage/Bitte an ihn)\n" +
-            "B = wichtig für den Nutzer, aber keine Antwort nötig (Rechnung, Termin, Behörde)\n" +
-            "C = kann warten (Benachrichtigungen, Bestellstatus, Foren)\n" +
-            "D = Werbung oder Newsletter\n" +
+            "B = wichtig für den Nutzer, aber keine Antwort nötig (Rechnung, " +
+            "Zahlungs-/Abbuchungsbestätigung, Mahnung, Termin, Behörde, " +
+            "Sicherheitswarnung — alles mit Geldbewegung oder Frist ist B, nie D)\n" +
+            "C = kann warten (Statusmeldungen ohne Handlungsbedarf: Versand, " +
+            "Anmelde-Hinweise, Foren)\n" +
+            "D = Werbung oder Newsletter (Angebote, Rabatte, Produktempfehlungen — " +
+            "ein „Angebot“ einer Firma ist D, auch wenn es informativ klingt)\n" +
             "Antworte AUSSCHLIESSLICH mit einer Zeile pro Mail im Format:\n" +
             "[Nr] Buchstabe\n" +
             "Keine Erklärungen, keine sonstigen Zeilen."
