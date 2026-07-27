@@ -115,9 +115,11 @@ object MailChecker {
         try {
             val count = inbox.messageCount
             if (count <= 0) return 0
-            val maxUid = inbox.uidNext.let { next ->
-                if (next > 0) next - 1 else inbox.getUID(inbox.getMessage(count))
-            }
+            // NICHT inbox.uidNext verwenden: Der Wert wird nur beim Öffnen des
+            // Postfachs geliefert und auf einer stehenden IDLE-Verbindung nie
+            // aktualisiert — neue Mails blieben damit unsichtbar. Die UID der
+            // letzten Nachricht wird dagegen frisch vom Server geholt.
+            val maxUid = inbox.getUID(inbox.getMessage(count))
             val lastUid = Prefs.lastPushUid
             if (lastUid <= 0L) {
                 // Erststart: aktuellen Stand merken, ohne alte Mails zu melden
