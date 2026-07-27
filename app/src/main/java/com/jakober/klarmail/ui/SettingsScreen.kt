@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1160,8 +1161,7 @@ fun SettingsScreen(
                             contentDescription = "Position per Ziehen ändern",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.pointerInput(key) {
-                                androidx.compose.foundation.gestures
-                                    .detectVerticalDragGestures(
+                                detectVerticalDragGestures(
                                         onDragStart = {
                                             draggingAction = key
                                             dragOffsetY = 0f
