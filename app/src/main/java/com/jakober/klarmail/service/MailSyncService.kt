@@ -267,12 +267,13 @@ class MailSyncService : Service() {
                 pushStatus.value = "Verbunden – letzte Mail verarbeitet ${now()}"
             }
             MailChecker.syncFlags(this, inbox)
-            // idle() blockiert, bis der Server ein Ereignis meldet, und kehrt dann
-            // zurück. Neue Mails werden HIER verarbeitet (nicht in einem Listener) —
-            // Serverabfragen aus dem IMAP-Ereignis-Thread können die Verbindung
-            // blockieren.
+            // WICHTIG: idle(true) statt idle() — die parameterlose Variante kehrt
+            // bei neuen Mails NICHT zurück (sie feuert nur Listener und blockiert
+            // weiter, bis die Verbindung abreißt). idle(true) kehrt nach der
+            // ersten Server-Meldung zurück, sodass die Schleife die neue Mail
+            // sofort verarbeitet und danach wieder in den Wartemodus geht.
             while (stillActive() && inbox.isOpen) {
-                inbox.idle()
+                inbox.idle(true)
                 lastAliveMs = System.currentTimeMillis()
                 if (!stillActive()) break
                 if (MailChecker.processNewMessages(this, inbox) > 0) {
