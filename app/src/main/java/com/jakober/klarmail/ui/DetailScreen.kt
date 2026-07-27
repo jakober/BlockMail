@@ -76,6 +76,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -632,8 +633,11 @@ fun DetailScreen(
                 currentBody.html != null -> {
                     // Kopf (Betreff, Absender, Warnung, KI-Knopf, Anhänge) ist
                     // Teil der Seite und scrollt ganz normal mit dem Inhalt
-                    val fullHtml = remember(currentBody, phishingResult, aiAvailable) {
-                        buildMailPageHtml(mail, currentBody, phishingResult, aiAvailable)
+                    val darkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+                    val fullHtml = remember(currentBody, phishingResult, aiAvailable, darkTheme) {
+                        buildMailPageHtml(
+                            mail, currentBody, phishingResult, aiAvailable, darkTheme
+                        )
                     }
                     HtmlMailView(
                         html = fullHtml,
@@ -855,7 +859,9 @@ private fun HtmlMailView(
            <meta charset="utf-8">
            <meta name="viewport" content="width=device-width, initial-scale=1.0">
            <style>
-             body { margin: 8px; word-wrap: break-word; }
+             /* Kein Außenrand: Der Kopfbereich (dunkel im Dark Mode) läuft
+                randlos; der Mail-Inhalt bringt sein eigenes Padding mit */
+             body { margin: 0; word-wrap: break-word; }
              img { max-width: 100% !important; height: auto !important; }
              table { max-width: 100% !important; }
            </style>
@@ -923,13 +929,23 @@ private fun buildMailPageHtml(
     mail: com.jakober.klarmail.data.MailMessage,
     body: MailRepository.MailBody,
     phishing: com.jakober.klarmail.data.PhishingCheck.Result?,
-    aiAvailable: Boolean
+    aiAvailable: Boolean,
+    dark: Boolean = false
 ): String {
     val orange = "#EE5F0F"
+    // Dunkles App-Design → dunkler Kopfbereich (der Mail-Inhalt darunter
+    // behält seine eigenen Farben, meist weiß)
+    val headerBg = if (dark) "#101012" else "transparent"
+    val titleColor = if (dark) "#F2F2F2" else "#1a1a1a"
+    val subColor = if (dark) "#A8A8A8" else "#8a8a8a"
+    val chipBg = if (dark) "#2A2A2E" else "#f1f1f1"
+    val chipColor = if (dark) "#E4E4E4" else "#333"
+    val hrColor = if (dark) "#2A2A2E" else "#e5e5e5"
     val sb = StringBuilder()
-    sb.append("<div style=\"font-family:sans-serif;padding:6px 4px 0 4px;\">")
+    sb.append("<div style=\"font-family:sans-serif;background:$headerBg;")
+        .append("padding:12px 12px 2px 12px;\">")
     // Betreff — kräftig wie in der App
-    sb.append("<div style=\"font-size:21px;font-weight:700;color:#1a1a1a;")
+    sb.append("<div style=\"font-size:21px;font-weight:700;color:$titleColor;")
         .append("line-height:1.3;margin:2px 0 12px 0;\">")
         .append(htmlEscape(mail.subject))
         .append("</div>")
@@ -938,7 +954,7 @@ private fun buildMailPageHtml(
     val avatar = if (domain.isNotBlank() && domain !in headerFreemailDomains) {
         "<img src=\"https://www.google.com/s2/favicons?domain=$domain&amp;sz=128\" " +
             "style=\"width:42px;height:42px;min-width:42px;border-radius:21px;" +
-            "background:#f2f2f2;object-fit:contain;\">"
+            "background:${if (dark) "#2A2A2E" else "#f2f2f2"};object-fit:contain;\">"
     } else {
         val initial = htmlEscape(
             (mail.from.firstOrNull() ?: mail.fromAddress.firstOrNull() ?: '?')
@@ -953,11 +969,11 @@ private fun buildMailPageHtml(
     sb.append("<div style=\"display:flex;align-items:center;margin-bottom:12px;\">")
         .append(avatar)
         .append("<div style=\"margin-left:12px;min-width:0;\">")
-        .append("<div style=\"font-size:15px;font-weight:600;color:#1a1a1a;\">")
+        .append("<div style=\"font-size:15px;font-weight:600;color:$titleColor;\">")
         .append(htmlEscape(mail.from)).append("</div>")
-        .append("<div style=\"font-size:12.5px;color:#8a8a8a;\">")
+        .append("<div style=\"font-size:12.5px;color:$subColor;\">")
         .append(htmlEscape(mail.fromAddress)).append("</div>")
-        .append("<div style=\"font-size:12.5px;color:#8a8a8a;\">")
+        .append("<div style=\"font-size:12.5px;color:$subColor;\">")
         .append(date).append("</div>")
         .append("</div></div>")
     if (phishing != null && phishing.suspicious) {
@@ -985,16 +1001,16 @@ private fun buildMailPageHtml(
         }
         body.attachments.forEachIndexed { i, att ->
             sb.append("<a href=\"blockmail://att/").append(i)
-                .append("\" style=\"display:inline-block;background:#f1f1f1;")
-                .append("color:#333;border-radius:16px;padding:7px 13px;")
+                .append("\" style=\"display:inline-block;background:$chipBg;")
+                .append("color:$chipColor;border-radius:16px;padding:7px 13px;")
                 .append("text-decoration:none;font-size:12.5px;margin-right:8px;\">")
                 .append("📎 ").append(htmlEscape(att.name)).append("</a>")
         }
         sb.append("</div>")
     }
-    sb.append("<hr style=\"border:none;border-top:1px solid #e5e5e5;")
-        .append("margin:6px 0 12px 0;\">")
+    sb.append("<hr style=\"border:none;border-top:1px solid $hrColor;")
+        .append("margin:6px 0 0 0;\">")
     sb.append("</div>")
-    sb.append(body.html ?: "")
+    sb.append("<div style=\"padding:8px;\">").append(body.html ?: "").append("</div>")
     return sb.toString()
 }
