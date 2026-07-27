@@ -455,10 +455,11 @@ object MailRepository {
         put("mail.imaps.host", Prefs.imapHost)
         put("mail.imaps.port", Prefs.imapPort.toString())
         put("mail.imaps.connectiontimeout", "15000")
-        // Für die IDLE-Push-Verbindung ein langes Lese-Timeout: Gmail schickt im
-        // Leerlauf minutenlang nichts — ein kurzes Timeout würde die Verbindung
-        // ständig abreißen lassen.
-        put("mail.imaps.timeout", if (idleMode) "600000" else "60000")
+        // Lese-Timeout der IDLE-Push-Verbindung: lang genug für minutenlange
+        // Funkstille im Leerlauf, aber kurz genug, dass eine lautlos gestorbene
+        // Verbindung (Netzwechsel, Funkloch) nach spätestens 5 Minuten auffällt
+        // und neu aufgebaut wird.
+        put("mail.imaps.timeout", if (idleMode) "300000" else "60000")
         put("mail.imaps.ssl.enable", "true")
         // Parts in einem Stück abrufen — vermeidet Dekodierungsfehler beim Teilabruf
         put("mail.imaps.partialfetch", "false")

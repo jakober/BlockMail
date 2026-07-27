@@ -46,6 +46,32 @@ class MailSyncService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private var netCallback: android.net.ConnectivityManager.NetworkCallback? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        // Bei einem Netzwerkwechsel (WLAN <-> Mobilfunk) stirbt die alte
+        // IMAP-Verbindung oft lautlos — sofort neu verbinden, statt bis zum
+        // Lese-Timeout blind zu sein.
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            @Volatile
+            private var lastNet: android.net.Network? = null
+            override fun onAvailable(network: android.net.Network) {
+                val previous = lastNet
+                lastNet = network
+                // Beim Registrieren meldet Android sofort das aktuelle Netz —
+                // erst ein echter Wechsel danach löst den Neuaufbau aus
+                if (previous != null && previous != network && idleJob?.isActive == true) {
+                    pushStatus.value = "Netzwechsel erkannt (${now()}) – verbinde neu …"
+                    restartIdleLoop()
+                }
+            }
+        }
+        runCatching { cm?.registerDefaultNetworkCallback(cb) }
+        netCallback = cb
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(
@@ -261,6 +287,12 @@ class MailSyncService : Service() {
     }
 
     override fun onDestroy() {
+        netCallback?.let { cb ->
+            runCatching {
+                getSystemService(android.net.ConnectivityManager::class.java)
+                    ?.unregisterNetworkCallback(cb)
+            }
+        }
         pushStatus.value = "Gestoppt"
         // Store schließen, um das blockierende idle() zu beenden
         val store = activeStore
