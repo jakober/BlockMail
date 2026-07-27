@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DetailScreen (Mail-Detailansicht) -->
+
+    <!-- Später erinnern (Snooze) -->
+    <string name="detail_snooze_title">Später erinnern</string>
+    <string name="detail_snooze_description">Die Mail verschwindet aus dem Posteingang und kommt zur gewählten Zeit mit einer Erinnerung zurück.</string>
+    <string name="detail_snooze_in_1_hour">In 1 Stunde</string>
+    <string name="detail_snooze_tonight">Heute Abend (18 Uhr)</string>
+    <string name="detail_snooze_tomorrow_morning">Morgen früh (8 Uhr)</string>
+    <string name="detail_snooze_in_3_days">In 3 Tagen (8 Uhr)</string>
+    <string name="detail_snooze_next_week">Nächste Woche (Mo 8 Uhr)</string>
+
+    <!-- Allgemeine Aktionen -->
+    <string name="detail_cancel">Abbrechen</string>
+    <string name="detail_ok">OK</string>
+    <string name="detail_back">Zurück</string>
+    <string name="detail_menu">Menü</string>
+
+    <!-- Menüeinträge -->
+    <string name="detail_menu_forward">Weiterleiten</string>
+    <string name="detail_menu_delete">Diese Mail löschen</string>
+    <string name="detail_menu_unmute">Benachrichtigungen wieder erlauben</string>
+    <string name="detail_menu_mute">Keine Benachrichtigung von diesem Absender</string>
+    <string name="detail_menu_vip_remove">Aus VIP entfernen</string>
+    <string name="detail_menu_vip_add">Als VIP-Absender markieren</string>
+    <string name="detail_menu_unblock">Absender entsperren</string>
+    <string name="detail_menu_block">Absender blockieren</string>
+
+    <!-- Snackbar-Meldungen -->
+    <string name="detail_snackbar_unmuted">Stummschaltung für „%1$s“ aufgehoben</string>
+    <string name="detail_snackbar_muted">„%1$s“ stummgeschaltet – künftige Mails ohne Benachrichtigung</string>
+    <string name="detail_snackbar_vip_removed">„%1$s“ ist kein VIP mehr</string>
+    <string name="detail_snackbar_vip_added">„%1$s“ als VIP markiert</string>
+    <string name="detail_snackbar_unblocked">„%1$s“ entsperrt</string>
+    <string name="detail_snackbar_not_phishing">Als „kein Phishing“ markiert — Warnung entfernt</string>
+
+    <!-- Antworten -->
+    <string name="detail_reply">Antworten</string>
+    <string name="detail_reply_all">Allen antworten (%1$d)</string>
+
+    <!-- Lade-/Fehlerzustände -->
+    <string name="detail_message_not_found">Nachricht nicht gefunden</string>
+    <string name="detail_load_error">Inhalt konnte nicht geladen werden: %1$s</string>
+
+    <!-- KI-Zusammenfassung -->
+    <string name="detail_summarize_ai">Mit KI zusammenfassen</string>
+    <string name="detail_summarizing">Wird zusammengefasst …</string>
+    <string name="detail_summary_title">✨ Zusammenfassung</string>
+    <string name="detail_summarize_failed">Zusammenfassung fehlgeschlagen: %1$s</string>
+
+    <!-- Anhänge -->
+    <string name="detail_attachment_loading">„%1$s“ wird geladen …</string>
+    <string name="detail_attachment_saved">Gespeichert: %1$s</string>
+    <string name="detail_attachment_action_failed">Aktion fehlgeschlagen: %1$s</string>
+    <string name="detail_attachment_open">Öffnen</string>
+    <string name="detail_attachment_share">Teilen</string>
+    <string name="detail_attachment_save">In Downloads speichern</string>
+
+    <!-- Phishing-Warnung -->
+    <string name="detail_phishing_warning">Vorsicht: mögliche Phishing-Mail</string>
+    <string name="detail_phishing_not_phishing">Das ist kein Phishing</string>
+    <string name="detail_page_phishing_advice">Tippe keine Links an und gib keine Passwörter oder Zahlungsdaten ein.</string>
+    <string name="detail_page_not_phishing">Das ist kein Phishing – Warnung entfernen</string>
+</resources>
