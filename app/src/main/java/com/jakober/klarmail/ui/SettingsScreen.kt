@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ImportExport
@@ -411,6 +413,7 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp)
         ) {
             // Ganz oben: Erscheinungsbild (Hell/Dunkel + Farbwelt)
+            GroupHeader("Aussehen")
             SectionCard(
                 "Erscheinungsbild", Icons.Filled.Palette,
                 subtitle = "Hell/Dunkel und die Farben der App"
@@ -504,6 +507,88 @@ fun SettingsScreen(
 
             }
 
+            SectionCard(
+                "Posteingang", Icons.Filled.Inbox,
+                subtitle = "Darstellung, Konversationen und Wischgesten"
+            ) {
+            SectionTitle("Darstellung")
+            val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
+            listOf(
+                Triple("list", "Liste (klassisch)", "Mails untereinander, wie gewohnt."),
+                Triple(
+                    "blocks", "Blöcke (BlockMail-Stil)",
+                    "Mails als gleich große Blöcke im 2-Spalten-Raster mit Vorschautext " +
+                        "— passend zum Logo."
+                ),
+                Triple(
+                    "blocks3", "Kompakte Blöcke (3 Spalten)",
+                    "Noch mehr Mails auf einen Blick: kleinere Blöcke ohne Vorschautext. " +
+                        "Alle Ansichten auch oben im Posteingang durchschaltbar."
+                )
+            ).forEach { (id, title, desc) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.inboxLayout = id },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = inboxLayout == id,
+                        onClick = { Prefs.inboxLayout = id }
+                    )
+                    Column {
+                        Text(title, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            desc,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Konversations-Ansicht", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Mails mit gleichem Betreff werden als ein Gespräch gebündelt " +
+                            "(antippen zum Aufklappen) — in Liste und Kachel-Ansicht.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = conversationView,
+                    onCheckedChange = { Prefs.conversationView = it }
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            SectionTitle("Wischgesten")
+            Text(
+                "Lege fest, was beim Wischen einer Mail nach links oder rechts passiert.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            val swipeLeftAction by Prefs.swipeLeftFlow.collectAsState()
+            val swipeRightAction by Prefs.swipeRightFlow.collectAsState()
+            SwipeActionPicker("Nach links wischen", swipeLeftAction) {
+                Prefs.swipeLeftAction = it
+            }
+            SwipeActionPicker("Nach rechts wischen", swipeRightAction) {
+                Prefs.swipeRightAction = it
+            }
+
+            }
+
+            GroupHeader("Konten & Postfächer")
             SectionCard(
                 "Konto verbinden", Icons.Filled.AccountCircle,
                 subtitle = "Neues Postfach hinzufügen oder Zugangsdaten ändern"
@@ -1005,6 +1090,7 @@ fun SettingsScreen(
 
             }
 
+            GroupHeader("Benachrichtigungen")
             SectionCard(
                 "Echtzeit-Push", Icons.Filled.Sync,
                 subtitle = "Sofortige Benachrichtigungen bei neuen Mails"
@@ -1222,6 +1308,7 @@ fun SettingsScreen(
 
             }
 
+            GroupHeader("Künstliche Intelligenz")
             SectionCard(
                 "KI-Status", Icons.Filled.AutoAwesome,
                 subtitle = "Welche KI gerade aktiv ist und was sie übernimmt"
@@ -1384,6 +1471,7 @@ fun SettingsScreen(
 
             }
 
+            GroupHeader("Regeln & Kontakte")
             SectionCard(
                 "Absender-Regeln", Icons.Filled.Block,
                 subtitle = "Stumm, blockiert und VIP — wer darf dich stören?"
@@ -1555,87 +1643,7 @@ fun SettingsScreen(
             }
             }
 
-            SectionCard(
-                "Posteingang", Icons.Filled.Inbox,
-                subtitle = "Darstellung, Konversationen und Wischgesten"
-            ) {
-            SectionTitle("Darstellung")
-            val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
-            listOf(
-                Triple("list", "Liste (klassisch)", "Mails untereinander, wie gewohnt."),
-                Triple(
-                    "blocks", "Blöcke (BlockMail-Stil)",
-                    "Mails als gleich große Blöcke im 2-Spalten-Raster mit Vorschautext " +
-                        "— passend zum Logo."
-                ),
-                Triple(
-                    "blocks3", "Kompakte Blöcke (3 Spalten)",
-                    "Noch mehr Mails auf einen Blick: kleinere Blöcke ohne Vorschautext. " +
-                        "Alle Ansichten auch oben im Posteingang durchschaltbar."
-                )
-            ).forEach { (id, title, desc) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { Prefs.inboxLayout = id },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = inboxLayout == id,
-                        onClick = { Prefs.inboxLayout = id }
-                    )
-                    Column {
-                        Text(title, style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            desc,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Konversations-Ansicht", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Mails mit gleichem Betreff werden als ein Gespräch gebündelt " +
-                            "(antippen zum Aufklappen) — in Liste und Kachel-Ansicht.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                androidx.compose.material3.Switch(
-                    checked = conversationView,
-                    onCheckedChange = { Prefs.conversationView = it }
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
-            SectionTitle("Wischgesten")
-            Text(
-                "Lege fest, was beim Wischen einer Mail nach links oder rechts passiert.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(4.dp))
-            val swipeLeftAction by Prefs.swipeLeftFlow.collectAsState()
-            val swipeRightAction by Prefs.swipeRightFlow.collectAsState()
-            SwipeActionPicker("Nach links wischen", swipeLeftAction) {
-                Prefs.swipeLeftAction = it
-            }
-            SwipeActionPicker("Nach rechts wischen", swipeRightAction) {
-                Prefs.swipeRightAction = it
-            }
-
-            }
-
+            GroupHeader("Schreiben")
             SectionCard(
                 "Signatur & Vorlagen", Icons.Filled.Edit,
                 subtitle = "Bausteine fürs Schreiben"
@@ -1698,6 +1706,7 @@ fun SettingsScreen(
 
             }
 
+            GroupHeader("Daten & Feedback")
             SectionCard(
                 "Backup & Umzug", Icons.Filled.ImportExport,
                 subtitle = "Einstellungen als Datei sichern und auf einem neuen Gerät einspielen"
@@ -1754,6 +1763,97 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     importLauncher.launch(arrayOf("application/json", "application/octet-stream"))
                 }) { Text("Sicherung einspielen") }
+            }
+            }
+
+            SectionCard(
+                "Feedback an den Entwickler", Icons.Filled.Feedback,
+                subtitle = "Fehler melden oder Verbesserung vorschlagen"
+            ) {
+            var showFeedbackDialog by remember { mutableStateOf(false) }
+            var feedbackText by remember { mutableStateOf("") }
+            var feedbackSending by remember { mutableStateOf(false) }
+            Text(
+                "Etwas funktioniert nicht oder dir fehlt eine Funktion? " +
+                    "Schreib mir — die Nachricht geht über dein Mail-Konto " +
+                    "direkt an den Entwickler.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TextButton(onClick = {
+                if (Prefs.isConfigured) {
+                    showFeedbackDialog = true
+                } else {
+                    scope.launch {
+                        snackbar.showSnackbar("Bitte zuerst ein Konto verbinden")
+                    }
+                }
+            }) { Text("Feedback schreiben") }
+            if (showFeedbackDialog) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { if (!feedbackSending) showFeedbackDialog = false },
+                    title = { Text("Feedback an den Entwickler") },
+                    text = {
+                        Column {
+                            Text(
+                                "Was funktioniert nicht — oder was wünschst du dir? " +
+                                    "Die Nachricht wird an mat.jakober@gmail.com gesendet; " +
+                                    "App- und Geräteinfos hänge ich automatisch an.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = feedbackText,
+                                onValueChange = { feedbackText = it },
+                                placeholder = { Text("Dein Feedback …") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 140.dp)
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            enabled = feedbackText.isNotBlank() && !feedbackSending,
+                            onClick = {
+                                scope.launch {
+                                    feedbackSending = true
+                                    try {
+                                        MailRepository.send(
+                                            to = "mat.jakober@gmail.com",
+                                            subject = "BlockMail-Feedback (v" +
+                                                com.jakober.klarmail.BuildConfig.VERSION_NAME + ")",
+                                            body = feedbackText.trim() +
+                                                "\n\n—\nBlockMail v" +
+                                                com.jakober.klarmail.BuildConfig.VERSION_NAME +
+                                                "\nAndroid " + android.os.Build.VERSION.RELEASE +
+                                                "\nGerät: " + android.os.Build.MANUFACTURER +
+                                                " " + android.os.Build.MODEL
+                                        )
+                                        showFeedbackDialog = false
+                                        feedbackText = ""
+                                        snackbar.showSnackbar(
+                                            "Danke! Dein Feedback wurde gesendet."
+                                        )
+                                    } catch (e: Exception) {
+                                        snackbar.showSnackbar(
+                                            "Senden fehlgeschlagen: ${e.message}"
+                                        )
+                                    } finally {
+                                        feedbackSending = false
+                                    }
+                                }
+                            }
+                        ) { Text(if (feedbackSending) "Wird gesendet …" else "Senden") }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            enabled = !feedbackSending,
+                            onClick = { showFeedbackDialog = false }
+                        ) { Text("Abbrechen") }
+                    }
+                )
             }
             }
 
@@ -1945,6 +2045,26 @@ private fun SectionTitle(text: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
     )
+}
+
+/** Große Gruppen-Überschrift zwischen den Einstellungs-Karten. */
+@Composable
+private fun GroupHeader(text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, end = 4.dp, top = 18.dp, bottom = 8.dp)
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(Modifier.width(12.dp))
+        HorizontalDivider(modifier = Modifier.weight(1f))
+    }
 }
 
 /** Abgerundete Einstellungs-Karte mit Symbol, Titel und optionalem Untertitel. */
