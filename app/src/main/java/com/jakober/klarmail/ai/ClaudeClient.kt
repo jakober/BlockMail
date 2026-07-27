@@ -128,7 +128,10 @@ object ClaudeClient {
             "WERBUNG & NEWSLETTER = nur echte Werbung: Angebote, Rabatte, " +
             "Produktempfehlungen, Newsletter. Ein „Angebot“ einer Firma (z. B. " +
             "Marktwert-Berechnung, Probeabo) ist Werbung, auch wenn es " +
-            "informativ klingt."
+            "informativ klingt.\n" +
+            "Beispiele: „PayPal bestätigt eine Zahlung von 7,99 €“ → WICHTIG. " +
+            "„Deine Kreditkartenabrechnung ist da“ → WICHTIG. " +
+            "„Marktwert-Rechner testen“ → WERBUNG & NEWSLETTER."
         val user = "Hier die nummerierten E-Mails (Absender, Betreff, ggf. Vorschau):\n\n" +
             mailList.take(12000) +
             "\n\nErstelle die Zusammenfassung im vorgegebenen Format."

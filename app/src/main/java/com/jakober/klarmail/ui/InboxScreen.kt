@@ -203,7 +203,13 @@ fun InboxScreen(
                         "A" -> 0; "B" -> 1; "C" -> 2; else -> 3
                     }
                     indexed.getOrNull(idx)?.let {
-                        focusOverrides["${it.account}:${it.uid}"] = cat
+                        // Sicherheitsnetz: Geldbezug nie als Werbung einsortieren
+                        val fixed = if (cat == 3 &&
+                            moneyRegex.containsMatchIn(
+                                "${it.subject} ${it.snippet.orEmpty()}"
+                            )
+                        ) 1 else cat
+                        focusOverrides["${it.account}:${it.uid}"] = fixed
                         applied++
                     }
                 }
@@ -244,7 +250,7 @@ fun InboxScreen(
                     com.jakober.klarmail.ai.GeminiNano.summarizeDay(list)
                 }
                 aiResultTitle = title
-                aiResult = parseSummary(result, indexed)
+                aiResult = fixSummaryCategories(parseSummary(result, indexed))
             } catch (e: Exception) {
                 snackbar.showSnackbar("KI-Fehler: ${e.message}")
             } finally {
@@ -1753,10 +1759,12 @@ private fun focusCategory(m: MailMessage, knownContacts: Set<String>): Int {
     val vip = Prefs.isVip(m.fromAddress)
     val known = addr in knownContacts
     val question = subj.contains('?') || snip.contains('?')
+    // Geldbezug (Zahlung, Rechnung, Abbuchung) ist immer wichtig — nie Werbung
+    val money = moneyRegex.containsMatchIn("$subj $snip")
     return when {
-        (automated || promoHits >= 2) && !vip -> 3
+        (automated || promoHits >= 2) && !vip && !money -> 3
         question && !m.seen && !automated -> 0
-        vip || known -> 1
+        vip || known || money -> 1
         else -> 2
     }
 }
@@ -2282,6 +2290,56 @@ private data class SummaryLine(
     val isHeader: Boolean,
     val mail: MailMessage?
 )
+
+/** Erkennungsmuster für Geldbezug (Zahlungen, Rechnungen, Abbuchungen). */
+private val moneyRegex = Regex(
+    "zahlung|abbuchung|gebucht|rechnung|mahnung|lastschrift|überweisung|" +
+        "abrechnung|beleg|bezahlt|kontoauszug|payment|receipt|invoice|" +
+        "\\d+[.,]\\d{2}\\s*(€|eur)",
+    RegexOption.IGNORE_CASE
+)
+
+/**
+ * Sicherheitsnetz nach der KI-Antwort: Zeilen mit Geldbezug, die fälschlich
+ * unter „Werbung“ gelandet sind, werden nach WICHTIG verschoben — egal wie
+ * die KI entschieden hat. Leere Abschnitte verschwinden dabei.
+ */
+private fun fixSummaryCategories(lines: List<SummaryLine>): List<SummaryLine> {
+    if (lines.isEmpty()) return lines
+    class Section(val header: SummaryLine?, val items: MutableList<SummaryLine>)
+    val sections = mutableListOf<Section>()
+    lines.forEach { l ->
+        if (l.isHeader) {
+            sections.add(Section(l, mutableListOf()))
+        } else {
+            if (sections.isEmpty()) sections.add(Section(null, mutableListOf()))
+            sections.last().items.add(l)
+        }
+    }
+    fun hasMoney(l: SummaryLine): Boolean {
+        val hay = l.text + " " + (l.mail?.subject ?: "") + " " + (l.mail?.snippet ?: "")
+        return moneyRegex.containsMatchIn(hay)
+    }
+    val moved = mutableListOf<SummaryLine>()
+    sections.filter { it.header?.text?.contains("WERBUNG", ignoreCase = true) == true }
+        .forEach { s ->
+            val hits = s.items.filter(::hasMoney)
+            moved.addAll(hits)
+            s.items.removeAll(hits)
+        }
+    if (moved.isNotEmpty()) {
+        var target = sections.firstOrNull {
+            it.header?.text?.contains("WICHTIG", ignoreCase = true) == true
+        }
+        if (target == null) {
+            target = Section(SummaryLine("WICHTIG", true, null), mutableListOf())
+            sections.add(0, target)
+        }
+        target.items.addAll(moved)
+    }
+    return sections.filter { it.items.isNotEmpty() }
+        .flatMap { s -> listOfNotNull(s.header) + s.items }
+}
 
 /**
  * Zerlegt die KI-Antwort in Abschnitts-Überschriften und Punkte; Zeilen mit

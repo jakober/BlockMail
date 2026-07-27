@@ -112,7 +112,8 @@ object GeminiNano {
             "nie Werbung. INFO = Statusmeldungen ohne Handlungsbedarf. " +
             "WERBUNG & NEWSLETTER = nur echte Werbung (Angebote, Rabatte, " +
             "Newsletter) — ein „Angebot“ ist Werbung, auch wenn es " +
-            "informativ klingt.\n\n" +
+            "informativ klingt. Beispiel: „PayPal bestätigt eine Zahlung“ " +
+            "→ WICHTIG, niemals Werbung.\n\n" +
             mailList.take(8000)
     )
 
