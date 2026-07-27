@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BlockMail</string>
+
+    <!-- Launcher shortcuts (long-press on the app icon) -->
+    <string name="shortcut_refresh_short">New mail</string>
+    <string name="shortcut_refresh_long">Check for new mail</string>
+    <string name="shortcut_newsletter_short">Newsletter scan</string>
+    <string name="shortcut_newsletter_long">Run the newsletter scan</string>
+    <string name="shortcut_compose_short">Compose</string>
+    <string name="shortcut_compose_long">Compose a new email</string>
+
+    <!-- Home screen widget -->
+    <string name="widget_description">The latest emails from your inbox</string>
+</resources>
