@@ -124,7 +124,14 @@ object MailChecker {
                 Prefs.lastPushUid = maxUid
                 return 0
             }
-            if (maxUid <= lastUid) return 0
+            if (lastUid > maxUid) {
+                // Merkliste passt nicht zum Postfach (Konto gewechselt oder
+                // UIDVALIDITY geändert): zurücksetzen und frisch aufsetzen,
+                // sonst gilt jede neue Mail dauerhaft als "schon gemeldet"
+                Prefs.lastPushUid = maxUid
+                return 0
+            }
+            if (maxUid == lastUid) return 0
             val msgs = inbox.getMessagesByUID(lastUid + 1, maxUid)
             if (msgs.isNotEmpty()) {
                 val fp = FetchProfile().apply {

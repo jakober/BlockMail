@@ -374,8 +374,12 @@ object Prefs {
     // Pro Konto eigene Merkliste (Fallback auf den alten globalen Schlüssel)
     private fun pushUidKey() = "last_push_uid_" + email.trim().lowercase()
 
+    // KEIN Rückfall auf den alten globalen Schlüssel: Der kann die UID eines
+    // anderen Kontos enthalten — dann gilt jede neue Mail als "schon gemeldet"
+    // und der Push schweigt dauerhaft. Ohne Eintrag (0) wird beim ersten
+    // Verbinden still der aktuelle Stand als Ausgangspunkt gemerkt.
     var lastPushUid: Long
-        get() = sp.getLong(pushUidKey(), sp.getLong("last_push_uid", 0L))
+        get() = sp.getLong(pushUidKey(), 0L)
         set(v) = sp.edit().putLong(pushUidKey(), v).apply()
 
     // Mail-Server des aktiven Kontos (Standard: Gmail)
