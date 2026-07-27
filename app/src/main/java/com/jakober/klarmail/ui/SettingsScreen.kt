@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ImportExport
@@ -72,7 +73,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -1085,20 +1089,49 @@ fun SettingsScreen(
             SectionTitle("Knöpfe in der Benachrichtigung")
             Text(
                 "Welche Aktionen bei einer neuen Mail direkt in der " +
-                    "Benachrichtigung erscheinen. Android zeigt höchstens 3 an.",
+                    "Benachrichtigung erscheinen. Android zeigt höchstens 3 an. " +
+                    "Die Reihenfolge änderst du per Ziehen am Griff rechts.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             val notifActions by Prefs.notifActionsFlow.collectAsState()
-            listOf(
+            val actionLabels = mapOf(
                 "reply" to "Antworten (mit Direkteingabe)",
                 "read" to "Als gelesen markieren",
                 "archive" to "Archivieren",
                 "delete" to "Löschen"
-            ).forEach { (key, label) ->
+            )
+            // Gewählte zuerst — in gespeicherter Reihenfolge (= Reihenfolge
+            // in der Benachrichtigung), danach die abgewählten
+            val orderedActions = notifActions +
+                listOf("reply", "read", "archive", "delete").filter { it !in notifActions }
+            var draggingAction by remember { mutableStateOf<String?>(null) }
+            var dragOffsetY by remember { mutableStateOf(0f) }
+            val actionRowHeight = 52.dp
+            val actionRowPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+                actionRowHeight.toPx()
+            }
+            fun moveAction(key: String, dir: Int) {
+                val list = Prefs.notifActions.toMutableList()
+                val i = list.indexOf(key)
+                val j = i + dir
+                if (i != -1 && j in list.indices) {
+                    val tmp = list[j]
+                    list[j] = list[i]
+                    list[i] = tmp
+                    Prefs.notifActions = list
+                }
+            }
+            orderedActions.forEach { key ->
                 val checked = key in notifActions
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(actionRowHeight)
+                        .graphicsLayer {
+                            translationY = if (draggingAction == key) dragOffsetY else 0f
+                        }
+                        .zIndex(if (draggingAction == key) 1f else 0f),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     androidx.compose.material3.Checkbox(
@@ -1116,7 +1149,46 @@ fun SettingsScreen(
                             }
                         }
                     )
-                    Text(label, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        actionLabels[key] ?: key,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (checked) {
+                        Icon(
+                            Icons.Filled.DragHandle,
+                            contentDescription = "Position per Ziehen ändern",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.pointerInput(key) {
+                                androidx.compose.foundation.gestures
+                                    .detectVerticalDragGestures(
+                                        onDragStart = {
+                                            draggingAction = key
+                                            dragOffsetY = 0f
+                                        },
+                                        onDragEnd = {
+                                            draggingAction = null
+                                            dragOffsetY = 0f
+                                        },
+                                        onDragCancel = {
+                                            draggingAction = null
+                                            dragOffsetY = 0f
+                                        }
+                                    ) { change, amount ->
+                                        change.consume()
+                                        dragOffsetY += amount
+                                        while (dragOffsetY > actionRowPx * 0.6f) {
+                                            moveAction(key, 1)
+                                            dragOffsetY -= actionRowPx
+                                        }
+                                        while (dragOffsetY < -actionRowPx * 0.6f) {
+                                            moveAction(key, -1)
+                                            dragOffsetY += actionRowPx
+                                        }
+                                    }
+                            }
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))

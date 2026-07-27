@@ -320,7 +320,7 @@ object MailChecker {
         Prefs.notifActions.forEach { key ->
             when (key) {
                 "reply" -> builder.addAction(replyAction)
-                "read" -> builder.addAction(0, "Als gelesen", readPending)
+                "read" -> builder.addAction(0, "Als gelesen markieren", readPending)
                 "archive" -> builder.addAction(0, "Archivieren", archivePending)
                 "delete" -> builder.addAction(0, "Löschen", deletePending)
             }

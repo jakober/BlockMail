@@ -256,8 +256,10 @@ object Prefs {
             listOf("reply", "read", "delete")
         }
         set(v) {
-            val cleaned = listOf("reply", "read", "archive", "delete")
-                .filter { it in v }
+            // Reihenfolge des Nutzers beibehalten (per Drag & Drop änderbar)
+            val cleaned = v
+                .filter { it in listOf("reply", "read", "archive", "delete") }
+                .distinct()
                 .take(3)
             sp.edit().putString("notif_actions", org.json.JSONArray(cleaned).toString()).apply()
             notifActionsFlow.value = cleaned
