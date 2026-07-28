@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ComposeScreen (Verfassen-Fenster) -->
+
+    <!-- Titel -->
+    <string name="compose_title_reply">Antworten</string>
+    <string name="compose_title_forward">Weiterleiten</string>
+    <string name="compose_title_new">Neue Nachricht</string>
+    <string name="compose_close_saves_draft">Schließen (Entwurf wird gespeichert)</string>
+    <string name="compose_choose_from_account">Absender-Konto wählen</string>
+
+    <!-- Senden / Später senden -->
+    <string name="compose_send">Senden</string>
+    <string name="compose_send_later">Später senden</string>
+    <string name="compose_schedule_description">Die Mail wird zur gewählten Zeit automatisch gesendet — auch wenn die App geschlossen ist.</string>
+    <string name="compose_schedule_in_1_hour">In 1 Stunde</string>
+    <string name="compose_schedule_tonight">Heute Abend (18 Uhr)</string>
+    <string name="compose_schedule_tomorrow_morning">Morgen früh (8 Uhr)</string>
+    <string name="compose_schedule_tomorrow_evening">Morgen Abend (18 Uhr)</string>
+    <string name="compose_schedule_attachments_unsupported">Geplantes Senden mit Anhängen wird noch nicht unterstützt</string>
+    <string name="compose_cancel">Abbrechen</string>
+    <string name="compose_sending">Nachricht wird gesendet …</string>
+    <string name="compose_send_failed">Senden fehlgeschlagen: %1$s</string>
+
+    <!-- Entwurf -->
+    <string name="compose_draft_saved">Entwurf gespeichert</string>
+
+    <!-- Felder -->
+    <string name="compose_to">AN:</string>
+    <string name="compose_cc">CC:</string>
+    <string name="compose_bcc">BCC:</string>
+    <string name="compose_cc_bcc">CC/BCC</string>
+    <string name="compose_subject">Betreff</string>
+    <string name="compose_message_hint">Nachricht schreiben …</string>
+
+    <!-- Anhänge -->
+    <string name="compose_attachment">Anhang</string>
+    <string name="compose_attachment_remove">Anhang entfernen</string>
+    <string name="compose_attachment_size_kb">" (%1$d KB)"</string>
+    <string name="compose_attachment_unreadable">Anhang „%1$s“ nicht lesbar</string>
+
+    <!-- Formatierung -->
+    <string name="compose_format_bold">Fett</string>
+    <string name="compose_format_italic">Kursiv</string>
+    <string name="compose_format_underline">Unterstrichen</string>
+    <string name="compose_format_list">Aufzählung</string>
+
+    <!-- Vorlagen -->
+    <string name="compose_templates">Vorlagen</string>
+    <string name="compose_templates_empty">Keine Vorlagen – in den Einstellungen anlegen</string>
+
+    <!-- KI -->
+    <string name="compose_ai_functions">KI-Funktionen</string>
+    <string name="compose_ai_draft_reply">Antwort entwerfen</string>
+    <string name="compose_ai_drafting_reply">KI formuliert eine Antwort …</string>
+    <string name="compose_ai_compose_mail">Mail formulieren …</string>
+    <string name="compose_ai_composing">KI formuliert die E-Mail …</string>
+    <string name="compose_ai_proofread">Rechtschreibung prüfen</string>
+    <string name="compose_ai_proofreading">Rechtschreibung wird geprüft …</string>
+    <string name="compose_ai_no_text">Kein Text zum Prüfen vorhanden</string>
+    <string name="compose_ai_error">KI-Fehler: %1$s</string>
+    <string name="compose_ai_mail_load_failed">Inhalt der Mail konnte nicht geladen werden</string>
+    <string name="compose_ai_language_detected">Entwurf erstellt – erkannte Zielsprache: %1$s</string>
+
+    <!-- KI-Prompt-Dialog -->
+    <string name="compose_prompt_title">Was soll die E-Mail sagen?</string>
+    <string name="compose_prompt_placeholder">z. B. Termin am Freitag um 14 Uhr absagen und neuen Vorschlag machen</string>
+    <string name="compose_prompt_confirm">Formulieren</string>
+
+    <!-- Weiterleiten: Zitat-Kopf (nur beim Erzeugen verwendet, wird nie geparst) -->
+    <string name="compose_forward_header">---------- Weitergeleitete Nachricht ----------\nVon: %1$s &lt;%2$s&gt;\nDatum: %3$s\nBetreff: %4$s\n\n</string>
+</resources>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ComposeScreen (compose window) -->
+
+    <!-- Titles -->
+    <string name="compose_title_reply">Reply</string>
+    <string name="compose_title_forward">Forward</string>
+    <string name="compose_title_new">New message</string>
+    <string name="compose_close_saves_draft">Close (draft will be saved)</string>
+    <string name="compose_choose_from_account">Choose sender account</string>
+
+    <!-- Send / send later -->
+    <string name="compose_send">Send</string>
+    <string name="compose_send_later">Send later</string>
+    <string name="compose_schedule_description">The email will be sent automatically at the chosen time — even if the app is closed.</string>
+    <string name="compose_schedule_in_1_hour">In 1 hour</string>
+    <string name="compose_schedule_tonight">This evening (6 pm)</string>
+    <string name="compose_schedule_tomorrow_morning">Tomorrow morning (8 am)</string>
+    <string name="compose_schedule_tomorrow_evening">Tomorrow evening (6 pm)</string>
+    <string name="compose_schedule_attachments_unsupported">Scheduled sending with attachments is not supported yet</string>
+    <string name="compose_cancel">Cancel</string>
+    <string name="compose_sending">Sending message …</string>
+    <string name="compose_send_failed">Sending failed: %1$s</string>
+
+    <!-- Draft -->
+    <string name="compose_draft_saved">Draft saved</string>
+
+    <!-- Fields -->
+    <string name="compose_to">TO:</string>
+    <string name="compose_cc">CC:</string>
+    <string name="compose_bcc">BCC:</string>
+    <string name="compose_cc_bcc">CC/BCC</string>
+    <string name="compose_subject">Subject</string>
+    <string name="compose_message_hint">Write a message …</string>
+
+    <!-- Attachments -->
+    <string name="compose_attachment">Attachment</string>
+    <string name="compose_attachment_remove">Remove attachment</string>
+    <string name="compose_attachment_size_kb">" (%1$d KB)"</string>
+    <string name="compose_attachment_unreadable">Can\'t read attachment “%1$s”</string>
+
+    <!-- Formatting -->
+    <string name="compose_format_bold">Bold</string>
+    <string name="compose_format_italic">Italic</string>
+    <string name="compose_format_underline">Underlined</string>
+    <string name="compose_format_list">Bulleted list</string>
+
+    <!-- Templates -->
+    <string name="compose_templates">Templates</string>
+    <string name="compose_templates_empty">No templates – create them in Settings</string>
+
+    <!-- AI -->
+    <string name="compose_ai_functions">AI features</string>
+    <string name="compose_ai_draft_reply">Draft a reply</string>
+    <string name="compose_ai_drafting_reply">AI is drafting a reply …</string>
+    <string name="compose_ai_compose_mail">Compose email …</string>
+    <string name="compose_ai_composing">AI is composing the email …</string>
+    <string name="compose_ai_proofread">Check spelling</string>
+    <string name="compose_ai_proofreading">Checking spelling …</string>
+    <string name="compose_ai_no_text">No text to check</string>
+    <string name="compose_ai_error">AI error: %1$s</string>
+    <string name="compose_ai_mail_load_failed">Couldn\'t load the email\'s content</string>
+    <string name="compose_ai_language_detected">Draft created – detected target language: %1$s</string>
+
+    <!-- AI prompt dialog -->
+    <string name="compose_prompt_title">What should the email say?</string>
+    <string name="compose_prompt_placeholder">e.g. cancel Friday\'s 2 pm appointment and suggest a new time</string>
+    <string name="compose_prompt_confirm">Compose</string>
+
+    <!-- Forward: quote header (only used when creating, never parsed) -->
+    <string name="compose_forward_header">---------- Forwarded message ----------\nFrom: %1$s &lt;%2$s&gt;\nDate: %3$s\nSubject: %4$s\n\n</string>
+</resources>
