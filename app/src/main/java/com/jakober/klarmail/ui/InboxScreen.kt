@@ -114,13 +114,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jakober.klarmail.R
 import com.jakober.klarmail.data.MailMessage
 import com.jakober.klarmail.data.MailRepository
 import com.jakober.klarmail.data.Prefs
@@ -148,6 +151,7 @@ fun InboxScreen(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
     val configured = Prefs.isConfigured
 
     val selected = remember { androidx.compose.runtime.mutableStateListOf<Long>() }
@@ -175,7 +179,7 @@ fun InboxScreen(
             val grouped = messages.groupBy { m ->
                 focusOverrides["${m.account}:${m.uid}"] ?: focusCategory(m, known)
             }
-            (0..3).mapNotNull { i -> grouped[i]?.let { focusLabels[i] to it } }
+            (0..3).mapNotNull { i -> grouped[i]?.let { focusLabelRes[i] to it } }
         }
     }
 
@@ -215,10 +219,10 @@ fun InboxScreen(
                 }
                 focusAiDone = applied > 0
                 if (applied == 0) {
-                    snackbar.showSnackbar("KI-Sortierung lieferte kein verwertbares Ergebnis")
+                    snackbar.showSnackbar(context.getString(R.string.inbox_ai_no_result))
                 }
             } catch (e: Exception) {
-                snackbar.showSnackbar("KI-Fehler: ${e.message}")
+                snackbar.showSnackbar(context.getString(R.string.inbox_ai_error, e.message))
             } finally {
                 focusAiBusy = false
             }
@@ -229,7 +233,9 @@ fun InboxScreen(
     fun summarizeMails(title: String, mails: List<MailMessage>) {
         if (aiBusy) return
         if (mails.isEmpty()) {
-            scope.launch { snackbar.showSnackbar("Dafür gibt es gerade keine passenden Mails.") }
+            scope.launch {
+                snackbar.showSnackbar(context.getString(R.string.inbox_ai_no_matching_mails))
+            }
             return
         }
         scope.launch {
@@ -252,7 +258,7 @@ fun InboxScreen(
                 aiResultTitle = title
                 aiResult = fixSummaryCategories(parseSummary(result, indexed))
             } catch (e: Exception) {
-                snackbar.showSnackbar("KI-Fehler: ${e.message}")
+                snackbar.showSnackbar(context.getString(R.string.inbox_ai_error, e.message))
             } finally {
                 aiBusy = false
             }
@@ -319,7 +325,7 @@ fun InboxScreen(
                                 if (line.mail != null) {
                                     Icon(
                                         Icons.Filled.ChevronRight,
-                                        contentDescription = "Mail öffnen",
+                                        contentDescription = stringResource(R.string.inbox_ai_open_mail),
                                         modifier = Modifier.size(18.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -329,7 +335,7 @@ fun InboxScreen(
                     }
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        "Antippen öffnet die jeweilige Mail.",
+                        stringResource(R.string.inbox_ai_tap_hint),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -337,7 +343,7 @@ fun InboxScreen(
             },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = { aiResult = null }) {
-                    Text("OK")
+                    Text(stringResource(R.string.inbox_ok))
                 }
             }
         )
@@ -379,11 +385,11 @@ fun InboxScreen(
         val draftList by Prefs.draftsFlow.collectAsState()
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showDraftsDialog = false },
-            title = { Text("Entwürfe") },
+            title = { Text(stringResource(R.string.inbox_drafts_title)) },
             text = {
                 if (draftList.isEmpty()) {
                     Text(
-                        "Keine Entwürfe vorhanden.",
+                        stringResource(R.string.inbox_drafts_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -394,8 +400,7 @@ fun InboxScreen(
                         )
                     ) {
                         Text(
-                            "Angefangene Mails werden beim Verlassen des " +
-                                "Verfassen-Fensters automatisch hier abgelegt.",
+                            stringResource(R.string.inbox_drafts_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -413,7 +418,9 @@ fun InboxScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        d.subject.ifBlank { "(Ohne Betreff)" },
+                                        d.subject.ifBlank {
+                                            stringResource(R.string.inbox_drafts_no_subject)
+                                        },
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = FontWeight.SemiBold,
                                         maxLines = 1,
@@ -421,7 +428,9 @@ fun InboxScreen(
                                     )
                                     Text(
                                         listOfNotNull(
-                                            d.to.ifBlank { null }?.let { "An: $it" },
+                                            d.to.ifBlank { null }?.let {
+                                                stringResource(R.string.inbox_drafts_to, it)
+                                            },
                                             java.text.SimpleDateFormat(
                                                 "d. MMM, HH:mm", java.util.Locale.GERMAN
                                             ).format(java.util.Date(d.savedAt))
@@ -435,7 +444,7 @@ fun InboxScreen(
                                 IconButton(onClick = { Prefs.removeDraft(d.id) }) {
                                     Icon(
                                         Icons.Filled.Delete,
-                                        contentDescription = "Entwurf löschen",
+                                        contentDescription = stringResource(R.string.inbox_drafts_delete),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -446,7 +455,7 @@ fun InboxScreen(
             },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = { showDraftsDialog = false }) {
-                    Text("Schließen")
+                    Text(stringResource(R.string.inbox_close))
                 }
             }
         )
@@ -468,24 +477,38 @@ fun InboxScreen(
                 TopAppBar(
                     navigationIcon = {
                         IconButton(onClick = { selected.clear() }) {
-                            Icon(Icons.Filled.Close, contentDescription = "Auswahl beenden")
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.inbox_selection_close)
+                            )
                         }
                     },
-                    title = { Text("${selected.size} ausgewählt", fontWeight = FontWeight.SemiBold) },
+                    title = {
+                        Text(
+                            stringResource(R.string.inbox_selected_count, selected.size),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    },
                     actions = {
                         IconButton(onClick = {
                             val uids = selected.toList()
                             scope.launch { MailRepository.setSeenBatch(uids, true) }
                             selected.clear()
                         }) {
-                            Icon(Icons.Filled.Drafts, contentDescription = "Als gelesen markieren")
+                            Icon(
+                                Icons.Filled.Drafts,
+                                contentDescription = stringResource(R.string.inbox_mark_read)
+                            )
                         }
                         IconButton(onClick = {
                             val uids = selected.toList()
                             scope.launch { MailRepository.deleteBatch(uids) }
                             selected.clear()
                         }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Löschen")
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = stringResource(R.string.inbox_delete)
+                            )
                         }
                     }
                 )
@@ -493,7 +516,10 @@ fun InboxScreen(
                 TopAppBar(
                     navigationIcon = {
                         IconButton(onClick = { exitSearch() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Suche schließen")
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.inbox_search_close)
+                            )
                         }
                     },
                     title = {
@@ -503,7 +529,7 @@ fun InboxScreen(
                                 query = it
                                 serverResults = null
                             },
-                            placeholder = { Text("Suchen … (Enter für Volltext)") },
+                            placeholder = { Text(stringResource(R.string.inbox_search_placeholder)) },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -524,7 +550,10 @@ fun InboxScreen(
                                             serverResults = MailRepository.search(query)
                                         } catch (e: Exception) {
                                             snackbar.showSnackbar(
-                                                "Suche fehlgeschlagen: ${MailRepository.friendlyError(e)}"
+                                                context.getString(
+                                                    R.string.inbox_search_failed,
+                                                    MailRepository.friendlyError(e)
+                                                )
                                             )
                                         } finally {
                                             searching = false
@@ -538,7 +567,10 @@ fun InboxScreen(
                     actions = {
                         if (query.isNotEmpty()) {
                             IconButton(onClick = { query = ""; serverResults = null }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Eingabe löschen")
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = stringResource(R.string.inbox_search_clear)
+                                )
                             }
                         }
                     }
@@ -556,13 +588,14 @@ fun InboxScreen(
                                 }
                             ) {
                                 Text(
-                                    if (unified) "Alle Konten" else currentFolder.label,
+                                    if (unified) stringResource(R.string.inbox_all_accounts)
+                                    else currentFolder.label,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 if (configured) {
                                     Icon(
                                         Icons.Filled.ArrowDropDown,
-                                        contentDescription = "Ordner wechseln"
+                                        contentDescription = stringResource(R.string.inbox_folder_switch)
                                     )
                                 }
                             }
@@ -630,7 +663,7 @@ fun InboxScreen(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                "Newsletter",
+                                                stringResource(R.string.inbox_newsletter),
                                                 style = MaterialTheme.typography.bodyLarge
                                             )
                                         },
@@ -648,7 +681,7 @@ fun InboxScreen(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                "Entwürfe (${draftList.size})",
+                                                stringResource(R.string.inbox_drafts_count, draftList.size),
                                                 style = MaterialTheme.typography.bodyLarge
                                             )
                                         },
@@ -662,7 +695,7 @@ fun InboxScreen(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            "Anhänge",
+                                            stringResource(R.string.inbox_attachments),
                                             style = MaterialTheme.typography.bodyLarge
                                         )
                                     },
@@ -675,7 +708,7 @@ fun InboxScreen(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            "Statistik",
+                                            stringResource(R.string.inbox_stats),
                                             style = MaterialTheme.typography.bodyLarge
                                         )
                                     },
@@ -700,7 +733,7 @@ fun InboxScreen(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                "Alle Konten",
+                                                stringResource(R.string.inbox_all_accounts),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = if (unified) FontWeight.SemiBold
                                                 else FontWeight.Normal
@@ -792,16 +825,19 @@ fun InboxScreen(
                         if (configured) {
                             Row {
                                 IconButton(onClick = { searchMode = true }) {
-                                    Icon(Icons.Filled.Search, contentDescription = "Suchen")
+                                    Icon(
+                                        Icons.Filled.Search,
+                                        contentDescription = stringResource(R.string.inbox_search)
+                                    )
                                 }
                                 // Fokus-Blöcke ein/aus: nach Wichtigkeit statt Zeit
                                 IconButton(onClick = { Prefs.focusMode = !focusMode }) {
                                     Icon(
                                         Icons.Filled.AutoAwesomeMosaic,
                                         contentDescription = if (focusMode) {
-                                            "Fokus-Blöcke ausschalten"
+                                            stringResource(R.string.inbox_focus_disable)
                                         } else {
-                                            "Fokus-Blöcke einschalten"
+                                            stringResource(R.string.inbox_focus_enable)
                                         },
                                         tint = if (focusMode) MaterialTheme.colorScheme.primary
                                         else LocalContentColor.current
@@ -828,9 +864,9 @@ fun InboxScreen(
                                         else -> Icons.AutoMirrored.Filled.ViewList
                                     },
                                     contentDescription = when (inboxLayout) {
-                                        "list" -> "Zur Kachel-Ansicht wechseln"
-                                        "blocks" -> "Zur kompakten Kachel-Ansicht wechseln"
-                                        else -> "Zur Listen-Ansicht wechseln"
+                                        "list" -> stringResource(R.string.inbox_layout_to_blocks)
+                                        "blocks" -> stringResource(R.string.inbox_layout_to_blocks3)
+                                        else -> stringResource(R.string.inbox_layout_to_list)
                                     }
                                 )
                             }
@@ -840,7 +876,10 @@ fun InboxScreen(
                         var overflowOpen by remember { mutableStateOf(false) }
                         Box {
                             IconButton(onClick = { overflowOpen = true }) {
-                                Icon(Icons.Filled.MoreVert, contentDescription = "Mehr")
+                                Icon(
+                                    Icons.Filled.MoreVert,
+                                    contentDescription = stringResource(R.string.inbox_more)
+                                )
                             }
                             DropdownMenu(
                                 expanded = overflowOpen,
@@ -861,8 +900,11 @@ fun InboxScreen(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                if (isDarkNow) "Helles Design"
-                                                else "Dunkles Design"
+                                                if (isDarkNow) {
+                                                    stringResource(R.string.inbox_theme_light)
+                                                } else {
+                                                    stringResource(R.string.inbox_theme_dark)
+                                                }
                                             )
                                         },
                                         leadingIcon = {
@@ -884,9 +926,21 @@ fun InboxScreen(
                                     )
                                     // Ansicht wählen (aktuelle mit Haken)
                                     listOf(
-                                        Triple("list", "Liste", Icons.AutoMirrored.Filled.ViewList),
-                                        Triple("blocks", "Kacheln (2er)", Icons.Filled.GridView),
-                                        Triple("blocks3", "Kompakt (3er)", Icons.Filled.ViewModule)
+                                        Triple(
+                                            "list",
+                                            stringResource(R.string.inbox_layout_list),
+                                            Icons.AutoMirrored.Filled.ViewList
+                                        ),
+                                        Triple(
+                                            "blocks",
+                                            stringResource(R.string.inbox_layout_blocks),
+                                            Icons.Filled.GridView
+                                        ),
+                                        Triple(
+                                            "blocks3",
+                                            stringResource(R.string.inbox_layout_blocks3),
+                                            Icons.Filled.ViewModule
+                                        )
                                     ).forEach { (value, label, icon) ->
                                         val active = inboxLayout == value
                                         DropdownMenuItem(
@@ -923,7 +977,7 @@ fun InboxScreen(
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text("Einstellungen") },
+                                    text = { Text(stringResource(R.string.inbox_settings)) },
                                     leadingIcon = { Icon(Icons.Filled.Settings, null) },
                                     onClick = {
                                         overflowOpen = false
@@ -945,7 +999,7 @@ fun InboxScreen(
                     containerColor = LocalAccent.current,
                     contentColor = Color.White
                 ) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Neue E-Mail")
+                    Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.inbox_compose))
                 }
             }
         },
@@ -966,15 +1020,18 @@ fun InboxScreen(
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Spacer(Modifier.height(16.dp))
-                Text("Willkommen bei BlockMail", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    stringResource(R.string.inbox_welcome_title),
+                    style = MaterialTheme.typography.headlineSmall
+                )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Verbinde dein Gmail-Konto in den Einstellungen, um loszulegen.",
+                    stringResource(R.string.inbox_welcome_text),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(24.dp))
-                Button(onClick = onSettings) { Text("Konto verbinden") }
+                Button(onClick = onSettings) { Text(stringResource(R.string.inbox_welcome_connect)) }
             }
             return@Scaffold
         }
@@ -1010,17 +1067,17 @@ fun InboxScreen(
                     androidx.compose.material3.FilterChip(
                         selected = filterUnread,
                         onClick = { filterUnread = !filterUnread },
-                        label = { Text("Ungelesen") }
+                        label = { Text(stringResource(R.string.inbox_filter_unread)) }
                     )
                     androidx.compose.material3.FilterChip(
                         selected = filterAttachment,
                         onClick = { filterAttachment = !filterAttachment },
-                        label = { Text("Mit Anhang") }
+                        label = { Text(stringResource(R.string.inbox_filter_attachment)) }
                     )
                     androidx.compose.material3.FilterChip(
                         selected = filterRecent,
                         onClick = { filterRecent = !filterRecent },
-                        label = { Text("Letzte 7 Tage") }
+                        label = { Text(stringResource(R.string.inbox_filter_recent)) }
                     )
                 }
                 if (searching) {
@@ -1030,8 +1087,11 @@ fun InboxScreen(
                     if (query.isNotBlank()) {
                         item(key = "header_search") {
                             SectionHeader(
-                                if (serverResults != null) "Ergebnisse (${results.size})"
-                                else "Ergebnisse in Betreff/Absender (${results.size}) – Enter sucht auch im Text"
+                                if (serverResults != null) {
+                                    stringResource(R.string.inbox_search_results, results.size)
+                                } else {
+                                    stringResource(R.string.inbox_search_results_local, results.size)
+                                }
                             )
                         }
                     }
@@ -1043,7 +1103,7 @@ fun InboxScreen(
                             selected = false,
                             selectionMode = false,
                             rightSpec = SwipeSpec(
-                                if (mail.seen) "Als ungelesen markieren" else "Als gelesen markieren",
+                                if (mail.seen) R.string.inbox_mark_unread else R.string.inbox_mark_read,
                                 if (mail.seen) Icons.Filled.MarkEmailUnread else Icons.Filled.Drafts
                             ) {
                                 val newSeen = !mail.seen
@@ -1053,15 +1113,15 @@ fun InboxScreen(
                                 }
                             },
                             leftSpec = SwipeSpec(
-                                "Löschen", Icons.Filled.Delete, destructive = true
+                                R.string.inbox_delete, Icons.Filled.Delete, destructive = true
                             ) {
                                 val prevResults = serverResults
                                 serverResults = serverResults?.filter { it.uid != mail.uid }
                                 scope.launch {
                                     MailRepository.hideLocally(mail.uid)
                                     val result = snackbar.showSnackbar(
-                                        message = "Mail gelöscht",
-                                        actionLabel = "Rückgängig",
+                                        message = context.getString(R.string.inbox_snackbar_deleted),
+                                        actionLabel = context.getString(R.string.inbox_undo),
                                         duration = SnackbarDuration.Short
                                     )
                                     if (result == SnackbarResult.ActionPerformed) {
@@ -1078,7 +1138,7 @@ fun InboxScreen(
                     if (query.isNotBlank() && results.isEmpty() && !searching) {
                         item {
                             Text(
-                                "Keine Treffer.",
+                                stringResource(R.string.inbox_search_no_results),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(20.dp)
@@ -1096,8 +1156,8 @@ fun InboxScreen(
             scope.launch {
                 MailRepository.hideLocally(mail.uid, mail.account)
                 val result = snackbar.showSnackbar(
-                    message = "Mail gelöscht",
-                    actionLabel = "Rückgängig",
+                    message = context.getString(R.string.inbox_snackbar_deleted),
+                    actionLabel = context.getString(R.string.inbox_undo),
                     duration = SnackbarDuration.Short
                 )
                 if (result == SnackbarResult.ActionPerformed) {
@@ -1113,8 +1173,8 @@ fun InboxScreen(
             scope.launch {
                 MailRepository.hideLocally(mail.uid, mail.account)
                 val result = snackbar.showSnackbar(
-                    message = "Mail archiviert",
-                    actionLabel = "Rückgängig",
+                    message = context.getString(R.string.inbox_snackbar_archived),
+                    actionLabel = context.getString(R.string.inbox_undo),
                     duration = SnackbarDuration.Short
                 )
                 if (result == SnackbarResult.ActionPerformed) {
@@ -1147,8 +1207,8 @@ fun InboxScreen(
                     )
                 )
                 val result = snackbar.showSnackbar(
-                    message = "Erinnerung morgen um 8 Uhr",
-                    actionLabel = "Rückgängig",
+                    message = context.getString(R.string.inbox_snackbar_snoozed),
+                    actionLabel = context.getString(R.string.inbox_undo),
                     duration = SnackbarDuration.Short
                 )
                 if (result == SnackbarResult.ActionPerformed) {
@@ -1163,12 +1223,9 @@ fun InboxScreen(
         confirmDeleteThread?.let { t ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { confirmDeleteThread = null },
-                title = { Text("Konversation löschen?") },
+                title = { Text(stringResource(R.string.inbox_thread_delete_title)) },
                 text = {
-                    Text(
-                        "Diese Konversation enthält ${t.mails.size} Mails. " +
-                            "Sollen alle gelöscht werden?"
-                    )
+                    Text(stringResource(R.string.inbox_thread_delete_text, t.mails.size))
                 },
                 confirmButton = {
                     androidx.compose.material3.TextButton(onClick = {
@@ -1176,12 +1233,12 @@ fun InboxScreen(
                         scope.launch {
                             MailRepository.deleteBatch(t.mails.map { it.uid })
                         }
-                    }) { Text("Alle löschen") }
+                    }) { Text(stringResource(R.string.inbox_delete_all)) }
                 },
                 dismissButton = {
                     androidx.compose.material3.TextButton(onClick = {
                         confirmDeleteThread = null
-                    }) { Text("Abbrechen") }
+                    }) { Text(stringResource(R.string.inbox_cancel)) }
                 }
             )
         }
@@ -1190,8 +1247,10 @@ fun InboxScreen(
             scope.launch {
                 t.mails.forEach { MailRepository.hideLocally(it.uid, it.account) }
                 val result = snackbar.showSnackbar(
-                    message = "Konversation archiviert (${t.mails.size} Mails)",
-                    actionLabel = "Rückgängig",
+                    message = context.getString(
+                        R.string.inbox_snackbar_thread_archived, t.mails.size
+                    ),
+                    actionLabel = context.getString(R.string.inbox_undo),
                     duration = SnackbarDuration.Short
                 )
                 if (result == SnackbarResult.ActionPerformed) {
@@ -1221,8 +1280,10 @@ fun InboxScreen(
                     )
                 }
                 val result = snackbar.showSnackbar(
-                    message = "Erinnerung morgen um 8 Uhr (${t.mails.size} Mails)",
-                    actionLabel = "Rückgängig",
+                    message = context.getString(
+                        R.string.inbox_snackbar_thread_snoozed, t.mails.size
+                    ),
+                    actionLabel = context.getString(R.string.inbox_undo),
                     duration = SnackbarDuration.Short
                 )
                 if (result == SnackbarResult.ActionPerformed) {
@@ -1236,41 +1297,41 @@ fun InboxScreen(
         val swipeRight by Prefs.swipeRightFlow.collectAsState()
         val specFor: (String, MailMessage) -> SwipeSpec = { action, mail ->
             when (action) {
-                "archive" -> SwipeSpec("Archivieren", Icons.Filled.Archive) {
+                "archive" -> SwipeSpec(R.string.inbox_swipe_archive, Icons.Filled.Archive) {
                     archiveWithUndo(mail)
                 }
                 "read" -> SwipeSpec(
-                    if (mail.seen) "Als ungelesen markieren" else "Als gelesen markieren",
+                    if (mail.seen) R.string.inbox_mark_unread else R.string.inbox_mark_read,
                     if (mail.seen) Icons.Filled.MarkEmailUnread else Icons.Filled.Drafts
                 ) {
                     scope.launch { MailRepository.setSeen(mail.uid, !mail.seen, mail.account) }
                 }
-                "snooze" -> SwipeSpec("Morgen erinnern", Icons.Filled.Schedule) {
+                "snooze" -> SwipeSpec(R.string.inbox_swipe_snooze, Icons.Filled.Schedule) {
                     snoozeWithUndo(mail)
                 }
-                else -> SwipeSpec("Löschen", Icons.Filled.Delete, destructive = true) {
+                else -> SwipeSpec(R.string.inbox_delete, Icons.Filled.Delete, destructive = true) {
                     deleteWithUndo(mail)
                 }
             }
         }
         val threadSpecFor: (String, MailThread) -> SwipeSpec = { action, t ->
             when (action) {
-                "archive" -> SwipeSpec("Alle archivieren", Icons.Filled.Archive) {
+                "archive" -> SwipeSpec(R.string.inbox_swipe_archive_all, Icons.Filled.Archive) {
                     archiveThreadWithUndo(t)
                 }
                 "read" -> SwipeSpec(
-                    if (t.unread > 0) "Alle als gelesen markieren"
-                    else "Alle als ungelesen markieren",
+                    if (t.unread > 0) R.string.inbox_swipe_mark_read_all
+                    else R.string.inbox_swipe_mark_unread_all,
                     if (t.unread > 0) Icons.Filled.Drafts else Icons.Filled.MarkEmailUnread
                 ) {
                     scope.launch {
                         MailRepository.setSeenBatch(t.mails.map { it.uid }, t.unread > 0)
                     }
                 }
-                "snooze" -> SwipeSpec("Alle morgen erinnern", Icons.Filled.Schedule) {
+                "snooze" -> SwipeSpec(R.string.inbox_swipe_snooze_all, Icons.Filled.Schedule) {
                     snoozeThreadWithUndo(t)
                 }
-                else -> SwipeSpec("Alle löschen", Icons.Filled.Delete, destructive = true) {
+                else -> SwipeSpec(R.string.inbox_delete_all, Icons.Filled.Delete, destructive = true) {
                     confirmDeleteThread = t
                 }
             }
@@ -1314,9 +1375,14 @@ fun InboxScreen(
                                 onRefine = { refineFocusWithAi() }
                             )
                         }
-                        focusSections.forEach { (label, mails) ->
-                            item(key = "header_$label", span = { GridItemSpan(maxLineSpan) }) {
-                                SectionHeader("$label (${mails.size})")
+                        focusSections.forEach { (labelRes, mails) ->
+                            item(key = "header_$labelRes", span = { GridItemSpan(maxLineSpan) }) {
+                                SectionHeader(
+                                    stringResource(
+                                        R.string.inbox_section_label_count,
+                                        stringResource(labelRes), mails.size
+                                    )
+                                )
                             }
                             gridItems(
                                 mails,
@@ -1339,7 +1405,7 @@ fun InboxScreen(
                     } else if (!conversationView) {
                     if (unread.isNotEmpty()) {
                         item(key = "header_unread", span = { GridItemSpan(maxLineSpan) }) {
-                            SectionHeader("Neu (${unread.size})")
+                            SectionHeader(stringResource(R.string.inbox_section_new, unread.size))
                         }
                         gridItems(
                             unread,
@@ -1361,7 +1427,7 @@ fun InboxScreen(
                     }
                     groupReadByTime(read).forEach { (label, mails) ->
                         item(key = "header_$label", span = { GridItemSpan(maxLineSpan) }) {
-                            SectionHeader(label)
+                            SectionHeader(stringResource(label))
                         }
                         gridItems(
                             mails,
@@ -1451,14 +1517,19 @@ fun InboxScreen(
                         val unreadThreads = threads.filter { it.unread > 0 }
                         if (unreadThreads.isNotEmpty()) {
                             item(key = "header_unread", span = { GridItemSpan(maxLineSpan) }) {
-                                SectionHeader("Neu (${unreadThreads.sumOf { it.unread }})")
+                                SectionHeader(
+                                    stringResource(
+                                        R.string.inbox_section_new,
+                                        unreadThreads.sumOf { it.unread }
+                                    )
+                                )
                             }
                             unreadThreads.forEach { renderThreadBlocks(it) }
                         }
                         groupByTime(threads.filter { it.unread == 0 }) { it.newest.date }
                             .forEach { (label, ts) ->
                                 item(key = "header_$label", span = { GridItemSpan(maxLineSpan) }) {
-                                    SectionHeader(label)
+                                    SectionHeader(stringResource(label))
                                 }
                                 ts.forEach { renderThreadBlocks(it) }
                             }
@@ -1490,7 +1561,7 @@ fun InboxScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    "Keine E-Mails geladen.\nZum Aktualisieren nach unten ziehen.",
+                                    stringResource(R.string.inbox_empty),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1509,9 +1580,15 @@ fun InboxScreen(
                             onRefine = { refineFocusWithAi() }
                         )
                     }
-                    focusSections.forEach { (label, mails) ->
-                        item(key = "header_$label") {
-                            SectionHeader("$label (${mails.size})", Modifier.animateItem())
+                    focusSections.forEach { (labelRes, mails) ->
+                        item(key = "header_$labelRes") {
+                            SectionHeader(
+                                stringResource(
+                                    R.string.inbox_section_label_count,
+                                    stringResource(labelRes), mails.size
+                                ),
+                                Modifier.animateItem()
+                            )
                         }
                         items(mails, key = { "${it.account}:${it.uid}" }, contentType = { "mail" }) { mail ->
                             SwipeableMailRow(
@@ -1529,7 +1606,10 @@ fun InboxScreen(
                 } else if (!conversationView) {
                     if (unread.isNotEmpty()) {
                         item(key = "header_unread") {
-                            SectionHeader("Neu (${unread.size})", Modifier.animateItem())
+                            SectionHeader(
+                                stringResource(R.string.inbox_section_new, unread.size),
+                                Modifier.animateItem()
+                            )
                         }
                         items(unread, key = { "${it.account}:${it.uid}" }, contentType = { "mail" }) { mail ->
                             SwipeableMailRow(
@@ -1546,7 +1626,7 @@ fun InboxScreen(
                     }
                     groupReadByTime(read).forEach { (label, mails) ->
                         item(key = "header_$label") {
-                            SectionHeader(label, Modifier.animateItem())
+                            SectionHeader(stringResource(label), Modifier.animateItem())
                         }
                         items(mails, key = { "${it.account}:${it.uid}" }, contentType = { "mail" }) { mail ->
                             SwipeableMailRow(
@@ -1623,7 +1703,10 @@ fun InboxScreen(
                     if (unreadThreads.isNotEmpty()) {
                         item(key = "header_unread") {
                             SectionHeader(
-                                "Neu (${unreadThreads.sumOf { it.unread }})",
+                                stringResource(
+                                    R.string.inbox_section_new,
+                                    unreadThreads.sumOf { it.unread }
+                                ),
                                 Modifier.animateItem()
                             )
                         }
@@ -1632,7 +1715,7 @@ fun InboxScreen(
                     groupByTime(threads.filter { it.unread == 0 }) { it.newest.date }
                         .forEach { (label, ts) ->
                             item(key = "header_$label") {
-                                SectionHeader(label, Modifier.animateItem())
+                                SectionHeader(stringResource(label), Modifier.animateItem())
                             }
                             ts.forEach { renderThread(it) }
                         }
@@ -1667,7 +1750,7 @@ fun InboxScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                "Keine E-Mails geladen.\nZum Aktualisieren nach unten ziehen.",
+                                stringResource(R.string.inbox_empty),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1698,7 +1781,10 @@ fun InboxScreen(
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     } else {
-                        Icon(Icons.Filled.AutoAwesome, contentDescription = "KI-Funktionen")
+                        Icon(
+                            Icons.Filled.AutoAwesome,
+                            contentDescription = stringResource(R.string.inbox_ai_functions)
+                        )
                     }
                 }
                 DropdownMenu(
@@ -1707,7 +1793,7 @@ fun InboxScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Meinen Tag zusammenfassen") },
+                        text = { Text(stringResource(R.string.inbox_ai_summarize_day)) },
                         leadingIcon = { Icon(Icons.Filled.AutoAwesome, null) },
                         onClick = {
                             aiMenuOpen = false
@@ -1718,18 +1804,18 @@ fun InboxScreen(
                                 set(Calendar.MILLISECOND, 0)
                             }.timeInMillis
                             summarizeMails(
-                                "Dein Tag im Überblick",
+                                context.getString(R.string.inbox_ai_day_title),
                                 messages.filter { it.date >= startOfToday }
                             )
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Ungelesene zusammenfassen") },
+                        text = { Text(stringResource(R.string.inbox_ai_summarize_unread)) },
                         leadingIcon = { Icon(Icons.Filled.MarkEmailUnread, null) },
                         onClick = {
                             aiMenuOpen = false
                             summarizeMails(
-                                "Ungelesene im Überblick",
+                                context.getString(R.string.inbox_ai_unread_title),
                                 messages.filter { !it.seen }
                             )
                         }
@@ -1742,8 +1828,9 @@ fun InboxScreen(
 }
 
 /** Überschriften der Fokus-Blöcke in fester Reihenfolge (Index = Kategorie). */
-private val focusLabels = listOf(
-    "❗ Braucht Antwort", "⭐ Wichtig", "📥 Kann warten", "📣 Werbung & Newsletter"
+private val focusLabelRes = listOf(
+    R.string.inbox_focus_needs_reply, R.string.inbox_focus_important,
+    R.string.inbox_focus_can_wait, R.string.inbox_focus_promo
 )
 
 /**
@@ -1785,7 +1872,7 @@ private fun FocusToolbar(busy: Boolean, refined: Boolean, onRefine: () -> Unit) 
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            "Fokus: nach Wichtigkeit gruppiert",
+            stringResource(R.string.inbox_focus_grouped),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
@@ -1798,7 +1885,10 @@ private fun FocusToolbar(busy: Boolean, refined: Boolean, onRefine: () -> Unit) 
             Spacer(Modifier.width(12.dp))
         } else {
             androidx.compose.material3.TextButton(onClick = onRefine) {
-                Text(if (refined) "Erneut mit KI sortieren" else "Mit KI verfeinern")
+                Text(
+                    if (refined) stringResource(R.string.inbox_focus_refine_again)
+                    else stringResource(R.string.inbox_focus_refine)
+                )
             }
         }
     }
@@ -1815,26 +1905,28 @@ private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
 }
 
 /** Ordnet Einträge Zeitgruppen zu (Reihenfolge der Liste bleibt erhalten). */
-private fun <T> groupByTime(items: List<T>, dateOf: (T) -> Long): List<Pair<String, List<T>>> {
+private fun <T> groupByTime(items: List<T>, dateOf: (T) -> Long): List<Pair<Int, List<T>>> {
     val zone = java.time.ZoneId.systemDefault()
     val today = java.time.LocalDate.now(zone)
     val yesterday = today.minusDays(1)
     val weekStart = today.with(java.time.DayOfWeek.MONDAY)
-    fun labelFor(millis: Long): String {
+    fun labelFor(millis: Long): Int {
         val d = java.time.Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
         return when {
-            !d.isBefore(today) -> "Heute"
-            d == yesterday -> "Gestern"
-            !d.isBefore(weekStart) -> "Diese Woche"
-            else -> "Älter"
+            !d.isBefore(today) -> R.string.inbox_time_today
+            d == yesterday -> R.string.inbox_time_yesterday
+            !d.isBefore(weekStart) -> R.string.inbox_time_this_week
+            else -> R.string.inbox_time_older
         }
     }
     val grouped = items.groupBy { labelFor(dateOf(it)) }
-    return listOf("Heute", "Gestern", "Diese Woche", "Älter")
-        .mapNotNull { label -> grouped[label]?.let { label to it } }
+    return listOf(
+        R.string.inbox_time_today, R.string.inbox_time_yesterday,
+        R.string.inbox_time_this_week, R.string.inbox_time_older
+    ).mapNotNull { label -> grouped[label]?.let { label to it } }
 }
 
-private fun groupReadByTime(read: List<MailMessage>): List<Pair<String, List<MailMessage>>> =
+private fun groupReadByTime(read: List<MailMessage>): List<Pair<Int, List<MailMessage>>> =
     groupByTime(read) { it.date }
 
 /** Konversation: Mails mit gleichem (normalisiertem) Betreff. */
@@ -1861,9 +1953,9 @@ private fun buildThreads(messages: List<MailMessage>): List<MailThread> =
 
 private const val SWIPE_THRESHOLD = 0.30f
 
-/** Beschreibt eine Wisch-Aktion (Label, Symbol, rot eingefärbt?, Ausführung). */
+/** Beschreibt eine Wisch-Aktion (Label-Ressource, Symbol, rot eingefärbt?, Ausführung). */
 class SwipeSpec(
-    val label: String,
+    val labelRes: Int,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val destructive: Boolean = false,
     val onTrigger: () -> Unit
@@ -2005,7 +2097,7 @@ private fun SwipeableMailRow(
                             Icon(rightSpec.icon, contentDescription = null, tint = fg)
                             Spacer(Modifier.width(12.dp))
                             Text(
-                                rightSpec.label,
+                                stringResource(rightSpec.labelRes),
                                 color = fg,
                                 style = MaterialTheme.typography.labelLarge
                             )
@@ -2022,7 +2114,7 @@ private fun SwipeableMailRow(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                leftSpec.label,
+                                stringResource(leftSpec.labelRes),
                                 color = fg,
                                 style = MaterialTheme.typography.labelLarge
                             )
@@ -2212,7 +2304,9 @@ private fun MailRowContent(
             // Leerstring = geladen ohne Text ("Kein Inhalt"), sonst der Text.
             val snip = mail.snippet
             Text(
-                text = if (snip != null && snip.isBlank()) "Kein Inhalt" else snip.orEmpty(),
+                text = if (snip != null && snip.isBlank()) {
+                    stringResource(R.string.inbox_no_content)
+                } else snip.orEmpty(),
                 style = MaterialTheme.typography.bodySmall,
                 fontSize = 11.sp,
                 fontStyle = if (snip != null && snip.isBlank()) FontStyle.Italic else FontStyle.Normal,
@@ -2233,7 +2327,7 @@ private fun MailRowContent(
                 if (phishingWarning) {
                     Icon(
                         Icons.Filled.Error,
-                        contentDescription = "Möglicher Phishing-Versuch",
+                        contentDescription = stringResource(R.string.inbox_phishing_warning),
                         modifier = Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.error
                     )
@@ -2242,14 +2336,14 @@ private fun MailRowContent(
                 if (mail.hasAttachments) {
                     Icon(
                         Icons.Filled.AttachFile,
-                        contentDescription = "Anhang vorhanden",
+                        contentDescription = stringResource(R.string.inbox_has_attachment),
                         modifier = Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.width(3.dp))
                 }
                 Text(
-                    text = formatMailDate(mail.date),
+                    text = formatMailDate(mail.date, stringResource(R.string.inbox_time_today)),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (mail.seen) MaterialTheme.colorScheme.onSurfaceVariant
                     else MaterialTheme.colorScheme.primary,
@@ -2274,13 +2368,13 @@ private fun MailRowContent(
     }
 }
 
-fun formatMailDate(millis: Long): String {
+fun formatMailDate(millis: Long, todayLabel: String): String {
     val now = Calendar.getInstance()
     val then = Calendar.getInstance().apply { time = Date(millis) }
     val sameDay = now.get(Calendar.YEAR) == then.get(Calendar.YEAR) &&
         now.get(Calendar.DAY_OF_YEAR) == then.get(Calendar.DAY_OF_YEAR)
     val pattern = when {
-        sameDay -> return "Heute"
+        sameDay -> return todayLabel
         now.get(Calendar.YEAR) == then.get(Calendar.YEAR) -> "d. MMM"
         else -> "dd.MM.yy"
     }
@@ -2528,7 +2622,7 @@ private fun MailBlock(
                         if (phishingWarning) {
                             Icon(
                                 Icons.Filled.Error,
-                                contentDescription = "Möglicher Phishing-Versuch",
+                                contentDescription = stringResource(R.string.inbox_phishing_warning),
                                 modifier = Modifier.size(12.dp),
                                 tint = scheme.error
                             )
@@ -2537,7 +2631,7 @@ private fun MailBlock(
                         if (mail.hasAttachments) {
                             Icon(
                                 Icons.Filled.AttachFile,
-                                contentDescription = "Anhang vorhanden",
+                                contentDescription = stringResource(R.string.inbox_has_attachment),
                                 modifier = Modifier.size(12.dp),
                                 tint = scheme.onSurfaceVariant
                             )
@@ -2548,7 +2642,7 @@ private fun MailBlock(
                         }
                     }
                     Text(
-                        text = formatMailDate(mail.date),
+                        text = formatMailDate(mail.date, stringResource(R.string.inbox_time_today)),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (mail.seen) scheme.onSurfaceVariant else scheme.primary,
                         fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold,
@@ -2566,7 +2660,7 @@ private fun MailBlock(
                 if (phishingWarning) {
                     Icon(
                         Icons.Filled.Error,
-                        contentDescription = "Möglicher Phishing-Versuch",
+                        contentDescription = stringResource(R.string.inbox_phishing_warning),
                         modifier = Modifier.size(15.dp),
                         tint = scheme.error
                     )
@@ -2575,7 +2669,7 @@ private fun MailBlock(
                 if (mail.hasAttachments) {
                     Icon(
                         Icons.Filled.AttachFile,
-                        contentDescription = "Anhang vorhanden",
+                        contentDescription = stringResource(R.string.inbox_has_attachment),
                         modifier = Modifier.size(15.dp),
                         tint = scheme.onSurfaceVariant
                     )
@@ -2588,7 +2682,7 @@ private fun MailBlock(
                             Spacer(Modifier.width(6.dp))
                         }
                         Text(
-                            text = formatMailDate(mail.date),
+                            text = formatMailDate(mail.date, stringResource(R.string.inbox_time_today)),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (mail.seen) scheme.onSurfaceVariant else scheme.primary,
                             fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold
@@ -2608,7 +2702,7 @@ private fun MailBlock(
             if (inThread) {
                 Icon(
                     Icons.Filled.SubdirectoryArrowRight,
-                    contentDescription = "Teil der Konversation",
+                    contentDescription = stringResource(R.string.inbox_thread_part),
                     modifier = Modifier.size(14.dp),
                     tint = scheme.secondary
                 )
@@ -2639,7 +2733,11 @@ private fun MailBlock(
                 Spacer(Modifier.width(3.dp))
                 Icon(
                     if (threadExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = if (threadExpanded) "Zuklappen" else "Aufklappen",
+                    contentDescription = if (threadExpanded) {
+                        stringResource(R.string.inbox_thread_collapse)
+                    } else {
+                        stringResource(R.string.inbox_thread_expand)
+                    },
                     modifier = Modifier.size(16.dp),
                     tint = scheme.onSurfaceVariant
                 )
@@ -2662,7 +2760,9 @@ private fun MailBlock(
             // Zeilenzahl hält alle Blöcke weiterhin gleich hoch
             val snip = mail.snippet
             Text(
-                text = if (snip != null && snip.isBlank()) "Kein Inhalt" else snip.orEmpty(),
+                text = if (snip != null && snip.isBlank()) {
+                    stringResource(R.string.inbox_no_content)
+                } else snip.orEmpty(),
                 style = MaterialTheme.typography.bodySmall,
                 fontSize = 11.sp,
                 fontStyle = if (snip != null && snip.isBlank()) FontStyle.Italic else FontStyle.Normal,
@@ -2811,10 +2911,11 @@ private fun SwipeableMailBlock(
                         horizontalAlignment = if (end) Alignment.End else Alignment.Start,
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        Icon(spec.icon, contentDescription = spec.label, tint = fg)
+                        val specLabel = stringResource(spec.labelRes)
+                        Icon(spec.icon, contentDescription = specLabel, tint = fg)
                         Spacer(Modifier.height(3.dp))
                         Text(
-                            spec.label.replace(' ', '\n'),
+                            specLabel.replace(' ', '\n'),
                             color = fg,
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 10.sp,

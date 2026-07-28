@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- InboxScreen (inbox) -->
+
+    <!-- Common actions -->
+    <string name="inbox_ok">OK</string>
+    <string name="inbox_cancel">Cancel</string>
+    <string name="inbox_close">Close</string>
+    <string name="inbox_undo">Undo</string>
+    <string name="inbox_delete">Delete</string>
+    <string name="inbox_delete_all">Delete all</string>
+    <string name="inbox_more">More</string>
+    <string name="inbox_settings">Settings</string>
+
+    <!-- Top bar / selection mode -->
+    <string name="inbox_selection_close">Exit selection</string>
+    <string name="inbox_selected_count">%1$d selected</string>
+    <string name="inbox_mark_read">Mark as read</string>
+    <string name="inbox_mark_unread">Mark as unread</string>
+
+    <!-- Search -->
+    <string name="inbox_search">Search</string>
+    <string name="inbox_search_close">Close search</string>
+    <string name="inbox_search_placeholder">Search … (Enter for full text)</string>
+    <string name="inbox_search_clear">Clear input</string>
+    <string name="inbox_search_failed">Search failed: %1$s</string>
+    <string name="inbox_filter_unread">Unread</string>
+    <string name="inbox_filter_attachment">With attachment</string>
+    <string name="inbox_filter_recent">Last 7 days</string>
+    <string name="inbox_search_results">Results (%1$d)</string>
+    <string name="inbox_search_results_local">Results in subject/sender (%1$d) – press Enter to search the full text</string>
+    <string name="inbox_search_no_results">No results.</string>
+
+    <!-- Folder menu -->
+    <string name="inbox_all_accounts">All accounts</string>
+    <string name="inbox_folder_switch">Switch folder</string>
+    <string name="inbox_newsletter">Newsletters</string>
+    <string name="inbox_attachments">Attachments</string>
+    <string name="inbox_stats">Statistics</string>
+
+    <!-- View &amp; theme -->
+    <string name="inbox_focus_enable">Turn on focus blocks</string>
+    <string name="inbox_focus_disable">Turn off focus blocks</string>
+    <string name="inbox_layout_to_blocks">Switch to tile view</string>
+    <string name="inbox_layout_to_blocks3">Switch to compact tile view</string>
+    <string name="inbox_layout_to_list">Switch to list view</string>
+    <string name="inbox_theme_light">Light theme</string>
+    <string name="inbox_theme_dark">Dark theme</string>
+    <string name="inbox_layout_list">List</string>
+    <string name="inbox_layout_blocks">Tiles (2 columns)</string>
+    <string name="inbox_layout_blocks3">Compact (3 columns)</string>
+
+    <!-- Setup / compose -->
+    <string name="inbox_welcome_title">Welcome to BlockMail</string>
+    <string name="inbox_welcome_text">Connect your Gmail account in Settings to get started.</string>
+    <string name="inbox_welcome_connect">Connect account</string>
+    <string name="inbox_compose">New email</string>
+
+    <!-- Drafts -->
+    <string name="inbox_drafts_title">Drafts</string>
+    <string name="inbox_drafts_count">Drafts (%1$d)</string>
+    <string name="inbox_drafts_empty">No drafts.</string>
+    <string name="inbox_drafts_hint">Emails you start writing are saved here automatically when you leave the compose screen.</string>
+    <string name="inbox_drafts_no_subject">(No subject)</string>
+    <string name="inbox_drafts_to">To: %1$s</string>
+    <string name="inbox_drafts_delete">Delete draft</string>
+
+    <!-- Section headers -->
+    <string name="inbox_section_new">New (%1$d)</string>
+    <string name="inbox_section_label_count">%1$s (%2$d)</string>
+    <string name="inbox_time_today">Today</string>
+    <string name="inbox_time_yesterday">Yesterday</string>
+    <string name="inbox_time_this_week">This week</string>
+    <string name="inbox_time_older">Older</string>
+    <string name="inbox_empty">No emails loaded.\nPull down to refresh.</string>
+
+    <!-- Focus blocks -->
+    <string name="inbox_focus_needs_reply">❗ Needs a reply</string>
+    <string name="inbox_focus_important">⭐ Important</string>
+    <string name="inbox_focus_can_wait">📥 Can wait</string>
+    <string name="inbox_focus_promo">📣 Ads &amp; newsletters</string>
+    <string name="inbox_focus_grouped">Focus: grouped by importance</string>
+    <string name="inbox_focus_refine">Refine with AI</string>
+    <string name="inbox_focus_refine_again">Sort again with AI</string>
+
+    <!-- AI features -->
+    <string name="inbox_ai_functions">AI features</string>
+    <string name="inbox_ai_summarize_day">Summarize my day</string>
+    <string name="inbox_ai_summarize_unread">Summarize unread</string>
+    <string name="inbox_ai_day_title">Your day at a glance</string>
+    <string name="inbox_ai_unread_title">Unread at a glance</string>
+    <string name="inbox_ai_no_matching_mails">There are no matching emails right now.</string>
+    <string name="inbox_ai_no_result">AI sorting returned no usable result</string>
+    <string name="inbox_ai_error">AI error: %1$s</string>
+    <string name="inbox_ai_open_mail">Open email</string>
+    <string name="inbox_ai_tap_hint">Tap a line to open its email.</string>
+
+    <!-- Swipe actions &amp; undo -->
+    <string name="inbox_swipe_archive">Archive</string>
+    <string name="inbox_swipe_snooze">Remind me tomorrow</string>
+    <string name="inbox_swipe_archive_all">Archive all</string>
+    <string name="inbox_swipe_mark_read_all">Mark all as read</string>
+    <string name="inbox_swipe_mark_unread_all">Mark all as unread</string>
+    <string name="inbox_swipe_snooze_all">Remind all tomorrow</string>
+    <string name="inbox_snackbar_deleted">Email deleted</string>
+    <string name="inbox_snackbar_archived">Email archived</string>
+    <string name="inbox_snackbar_snoozed">Reminder tomorrow at 8 am</string>
+    <string name="inbox_snackbar_thread_archived">Conversation archived (%1$d emails)</string>
+    <string name="inbox_snackbar_thread_snoozed">Reminder tomorrow at 8 am (%1$d emails)</string>
+
+    <!-- Conversations -->
+    <string name="inbox_thread_delete_title">Delete conversation?</string>
+    <string name="inbox_thread_delete_text">This conversation contains %1$d emails. Delete them all?</string>
+    <string name="inbox_thread_part">Part of the conversation</string>
+    <string name="inbox_thread_expand">Expand</string>
+    <string name="inbox_thread_collapse">Collapse</string>
+
+    <!-- Mail row / tile -->
+    <string name="inbox_no_content">No content</string>
+    <string name="inbox_phishing_warning">Possible phishing attempt</string>
+    <string name="inbox_has_attachment">Has attachment</string>
+</resources>
