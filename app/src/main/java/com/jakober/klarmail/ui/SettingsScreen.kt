@@ -445,187 +445,6 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp)
         ) {
             // Ganz oben: Erscheinungsbild (Hell/Dunkel + Farbwelt)
-            GroupHeader(stringResource(R.string.settings_group_appearance))
-            SectionCard(
-                stringResource(R.string.settings_appearance_title), Icons.Filled.Palette,
-                subtitle = stringResource(R.string.settings_appearance_subtitle)
-            ) {
-            listOf(
-                "system" to stringResource(R.string.settings_darkmode_system),
-                "light" to stringResource(R.string.settings_darkmode_light),
-                "dark" to stringResource(R.string.settings_darkmode_dark)
-            ).forEach { (id, label) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { Prefs.darkMode = id }
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = darkMode == id,
-                        onClick = { Prefs.darkMode = id }
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(label, style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            SectionTitle(stringResource(R.string.settings_color_scheme))
-            colorSchemes.forEach { scheme ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { Prefs.colorScheme = scheme.id }
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = selectedScheme == scheme.id,
-                        onClick = { Prefs.colorScheme = scheme.id }
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(22.dp)
-                            .background(scheme.preview, CircleShape)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(scheme.label, style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-
-            // Frei wählbare Akzentfarbe mit eigenem Farbwähler
-            val customColor by Prefs.customColorFlow.collectAsState()
-            var showColorPicker by remember { mutableStateOf(false) }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        if (selectedScheme == "custom") showColorPicker = true
-                        else Prefs.colorScheme = "custom"
-                    }
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = selectedScheme == "custom",
-                    onClick = { Prefs.colorScheme = "custom" }
-                )
-                Box(
-                    modifier = Modifier
-                        .size(22.dp)
-                        .background(Color(customColor), CircleShape)
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    stringResource(R.string.settings_custom_color),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = { showColorPicker = true }) { Text(stringResource(R.string.settings_change)) }
-            }
-            if (showColorPicker) {
-                ColorPickerDialog(
-                    initial = customColor,
-                    onDismiss = { showColorPicker = false },
-                    onPick = { picked ->
-                        Prefs.customColor = picked
-                        Prefs.colorScheme = "custom"
-                        showColorPicker = false
-                    }
-                )
-            }
-
-            }
-
-            SectionCard(
-                stringResource(R.string.settings_inbox_title), Icons.Filled.Inbox,
-                subtitle = stringResource(R.string.settings_inbox_subtitle)
-            ) {
-            SectionTitle(stringResource(R.string.settings_display))
-            val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
-            listOf(
-                Triple(
-                    "list",
-                    stringResource(R.string.settings_layout_list_title),
-                    stringResource(R.string.settings_layout_list_desc)
-                ),
-                Triple(
-                    "blocks",
-                    stringResource(R.string.settings_layout_blocks_title),
-                    stringResource(R.string.settings_layout_blocks_desc)
-                ),
-                Triple(
-                    "blocks3",
-                    stringResource(R.string.settings_layout_blocks3_title),
-                    stringResource(R.string.settings_layout_blocks3_desc)
-                )
-            ).forEach { (id, title, desc) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { Prefs.inboxLayout = id },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = inboxLayout == id,
-                        onClick = { Prefs.inboxLayout = id }
-                    )
-                    Column {
-                        Text(title, style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            desc,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        stringResource(R.string.settings_conversation_view),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        stringResource(R.string.settings_conversation_view_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                androidx.compose.material3.Switch(
-                    checked = conversationView,
-                    onCheckedChange = { Prefs.conversationView = it }
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
-            SectionTitle(stringResource(R.string.settings_swipe_gestures))
-            Text(
-                stringResource(R.string.settings_swipe_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(4.dp))
-            val swipeLeftAction by Prefs.swipeLeftFlow.collectAsState()
-            val swipeRightAction by Prefs.swipeRightFlow.collectAsState()
-            SwipeActionPicker(stringResource(R.string.settings_swipe_left), swipeLeftAction) {
-                Prefs.swipeLeftAction = it
-            }
-            SwipeActionPicker(stringResource(R.string.settings_swipe_right), swipeRightAction) {
-                Prefs.swipeRightAction = it
-            }
-
-            }
-
             GroupHeader(stringResource(R.string.settings_group_accounts))
             SectionCard(
                 stringResource(R.string.settings_connect_title), Icons.Filled.AccountCircle,
@@ -1131,6 +950,187 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+
+            }
+
+            GroupHeader(stringResource(R.string.settings_group_appearance))
+            SectionCard(
+                stringResource(R.string.settings_appearance_title), Icons.Filled.Palette,
+                subtitle = stringResource(R.string.settings_appearance_subtitle)
+            ) {
+            listOf(
+                "system" to stringResource(R.string.settings_darkmode_system),
+                "light" to stringResource(R.string.settings_darkmode_light),
+                "dark" to stringResource(R.string.settings_darkmode_dark)
+            ).forEach { (id, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.darkMode = id }
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = darkMode == id,
+                        onClick = { Prefs.darkMode = id }
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            SectionTitle(stringResource(R.string.settings_color_scheme))
+            colorSchemes.forEach { scheme ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.colorScheme = scheme.id }
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selectedScheme == scheme.id,
+                        onClick = { Prefs.colorScheme = scheme.id }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .background(scheme.preview, CircleShape)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(scheme.label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+
+            // Frei wählbare Akzentfarbe mit eigenem Farbwähler
+            val customColor by Prefs.customColorFlow.collectAsState()
+            var showColorPicker by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        if (selectedScheme == "custom") showColorPicker = true
+                        else Prefs.colorScheme = "custom"
+                    }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = selectedScheme == "custom",
+                    onClick = { Prefs.colorScheme = "custom" }
+                )
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .background(Color(customColor), CircleShape)
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    stringResource(R.string.settings_custom_color),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { showColorPicker = true }) { Text(stringResource(R.string.settings_change)) }
+            }
+            if (showColorPicker) {
+                ColorPickerDialog(
+                    initial = customColor,
+                    onDismiss = { showColorPicker = false },
+                    onPick = { picked ->
+                        Prefs.customColor = picked
+                        Prefs.colorScheme = "custom"
+                        showColorPicker = false
+                    }
+                )
+            }
+
+            }
+
+            SectionCard(
+                stringResource(R.string.settings_inbox_title), Icons.Filled.Inbox,
+                subtitle = stringResource(R.string.settings_inbox_subtitle)
+            ) {
+            SectionTitle(stringResource(R.string.settings_display))
+            val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
+            listOf(
+                Triple(
+                    "list",
+                    stringResource(R.string.settings_layout_list_title),
+                    stringResource(R.string.settings_layout_list_desc)
+                ),
+                Triple(
+                    "blocks",
+                    stringResource(R.string.settings_layout_blocks_title),
+                    stringResource(R.string.settings_layout_blocks_desc)
+                ),
+                Triple(
+                    "blocks3",
+                    stringResource(R.string.settings_layout_blocks3_title),
+                    stringResource(R.string.settings_layout_blocks3_desc)
+                )
+            ).forEach { (id, title, desc) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.inboxLayout = id },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = inboxLayout == id,
+                        onClick = { Prefs.inboxLayout = id }
+                    )
+                    Column {
+                        Text(title, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            desc,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_conversation_view),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        stringResource(R.string.settings_conversation_view_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = conversationView,
+                    onCheckedChange = { Prefs.conversationView = it }
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            SectionTitle(stringResource(R.string.settings_swipe_gestures))
+            Text(
+                stringResource(R.string.settings_swipe_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            val swipeLeftAction by Prefs.swipeLeftFlow.collectAsState()
+            val swipeRightAction by Prefs.swipeRightFlow.collectAsState()
+            SwipeActionPicker(stringResource(R.string.settings_swipe_left), swipeLeftAction) {
+                Prefs.swipeLeftAction = it
+            }
+            SwipeActionPicker(stringResource(R.string.settings_swipe_right), swipeRightAction) {
+                Prefs.swipeRightAction = it
             }
 
             }
