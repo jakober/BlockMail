@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- MailApp: Benachrichtigungs-Kanäle -->
+    <string name="svc_channel_new_mail">Neue E-Mails</string>
+    <string name="svc_channel_new_mail_desc">Benachrichtigungen bei neuen E-Mails</string>
+    <string name="svc_channel_newsletter">Newsletter-Aufräumen</string>
+    <string name="svc_channel_newsletter_desc">Bericht des täglichen Newsletter-Aufräumens</string>
+    <string name="svc_channel_sync">Hintergrund-Synchronisierung</string>
+    <string name="svc_channel_sync_desc">Dauerhafte Verbindung für Echtzeit-Push</string>
+
+    <!-- MailChecker: Benachrichtigungen -->
+    <string name="svc_snooze_reminder_prefix">"⏰ Erinnerung: "</string>
+    <string name="svc_scheduled_sent">Geplante Mail gesendet: %1$s</string>
+    <string name="svc_scheduled_failed">Geplantes Senden fehlgeschlagen (%1$s) — neuer Versuch in 15 min</string>
+    <string name="svc_sender_fallback">Absender</string>
+    <string name="svc_me">Ich</string>
+    <string name="svc_reply_hint">Antworten …</string>
+    <string name="svc_action_reply">Antworten</string>
+    <string name="svc_action_mark_read">Als gelesen markieren</string>
+    <string name="svc_action_archive">Archivieren</string>
+    <string name="svc_action_delete">Löschen</string>
+    <string name="svc_reply_sent">Antwort gesendet ✓</string>
+    <string name="svc_reply_failed">Antwort fehlgeschlagen: %1$s</string>
+    <string name="svc_error_generic">Fehler</string>
+    <string name="svc_radar_title">Antwort-Radar</string>
+    <string name="svc_radar_needs_reply">❓ %1$s: „%2$s“ — seit %3$d Tagen unbeantwortet</string>
+    <string name="svc_radar_waiting">⏳ Keine Antwort von %1$s seit %2$d Tagen — nachhaken?</string>
+
+    <!-- MailSyncService: Push-Statuszeile und Dienst-Benachrichtigung -->
+    <string name="svc_push_not_started">Noch nicht gestartet</string>
+    <string name="svc_push_net_change">Netzwechsel erkannt (%1$s) – verbinde neu …</string>
+    <string name="svc_no_account">Kein Konto verbunden</string>
+    <string name="svc_push_disconnected_retry">Getrennt (%1$s) – verbinde gleich neu …</string>
+    <string name="svc_push_disconnected_error">Getrennt (%1$s): %2$s – neuer Versuch in %3$ds</string>
+    <string name="svc_push_connecting">Verbinde … (%1$s)</string>
+    <string name="svc_push_connected_waiting">Verbunden – wartet auf Mails (seit %1$s)</string>
+    <string name="svc_push_connected_processed">Verbunden – letzte Mail verarbeitet %1$s</string>
+    <string name="svc_push_stopped">Gestoppt</string>
+    <string name="svc_sync_notif_title">BlockMail aktiv</string>
+    <string name="svc_sync_notif_text">Wartet auf neue E-Mails — zum Ausblenden wegwischen</string>
+    <string name="svc_check_no_new">Keine neuen Mails</string>
+    <string name="svc_check_failed">Prüfung fehlgeschlagen — bitte Verbindung prüfen</string>
+
+    <!-- Homescreen-Widget -->
+    <string name="svc_widget_title">Posteingang</string>
+    <string name="svc_widget_empty">Keine Mails geladen</string>
+    <string name="svc_widget_unread">%1$d neu</string>
+
+    <!-- NewsletterCleaner: Status- und Benachrichtigungstexte des Aufräum-Laufs -->
+    <string name="svc_unknown_sender">Unbekannt</string>
+    <string name="svc_no_subject">(Kein Betreff)</string>
+    <string name="svc_nl_none_found">Keine Mails in den letzten 24 Stunden gefunden (Suche leer).</string>
+    <string name="svc_nl_none_within">%1$d Mail(s) gefunden, aber keine innerhalb der letzten 24 Stunden.</string>
+    <string name="svc_nl_all_known">%1$d Mail(s) geprüft, alle als „kein Newsletter“ bekannt.</string>
+    <string name="svc_nl_method_no_ai">ohne KI (nur Abmelde-Header)</string>
+    <string name="svc_nl_none_detected">%1$d Mail(s) der letzten 24 h geprüft (%2$s), keine als Newsletter erkannt.</string>
+    <string name="svc_nl_folder_failed">Ordner „Newsletter“ konnte nicht angelegt werden.</string>
+    <string name="svc_nl_success">%1$d Mail(s) geprüft (%2$s): %3$d Newsletter in den Ordner „Newsletter“ verschoben.</string>
+    <string name="svc_nl_error_cleanup">Fehler beim Aufräumen: %1$s</string>
+    <string name="svc_nl_error">Fehler: %1$s</string>
+    <string name="svc_nl_scan_done">Newsletter-Scan abgeschlossen</string>
+    <string name="svc_nl_cleaned_title">%1$d Newsletter aufgeräumt</string>
+    <string name="svc_nl_cleaned_text">Tippen für das Protokoll mit Abmelde-Links</string>
+</resources>
