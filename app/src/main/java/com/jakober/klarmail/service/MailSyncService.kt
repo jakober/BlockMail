@@ -74,9 +74,11 @@ class MailSyncService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (Build.VERSION.SDK_INT >= 34) {
+            // specialUse: darf im Gegensatz zu dataSync auch direkt nach dem
+            // Geräteneustart (BOOT_COMPLETED) gestartet werden
             startForeground(
                 SERVICE_NOTIF_ID, serviceNotification(),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             )
         } else {
             startForeground(SERVICE_NOTIF_ID, serviceNotification())

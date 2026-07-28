@@ -4,7 +4,11 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- specialUse statt dataSync: Ein dataSync-Dienst darf ab Ziel-API 35
+         nicht mehr vom BOOT_COMPLETED-Empfänger gestartet werden (Absturz
+         auf Android 15+). Der Echtzeit-Push braucht aber genau das — und
+         hat keine FCM-Alternative, weil IMAP direkt zum Anbieter spricht. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -59,7 +63,11 @@
         <service
             android:name=".service.MailSyncService"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Real-time email push: maintains a persistent IMAP IDLE connection to the user's own mail server so new emails arrive as instant notifications, including after device reboot. No FCM/cloud alternative exists because IMAP connects directly to the user's mail provider." />
+        </service>
 
         <receiver
             android:name=".service.MarkReadReceiver"
