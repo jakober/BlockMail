@@ -1241,8 +1241,12 @@ object MailRepository {
      * System-Mails ist oft nur (englisches) Vorlagen-Gerüst und entspricht
      * nicht dem, was der Nutzer tatsächlich liest.
      */
-    suspend fun loadVisibleText(uid: Long, account: String = ""): String {
-        val body = loadBodyContent(uid, account = account)
+    suspend fun loadVisibleText(
+        uid: Long,
+        account: String = "",
+        folder: MailFolder = _currentFolder.value
+    ): String {
+        val body = loadBodyContent(uid, folder = folder, account = account)
         // WICHTIG: htmlToVisibleText statt rohem Html.fromHtml — sonst landet
         // bei formatierten Mails der komplette CSS-/Style-Block im Text und
         // die KI sieht Stylesheets statt Inhalt

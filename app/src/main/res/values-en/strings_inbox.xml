@@ -103,6 +103,7 @@
     <string name="inbox_ai_answer_close">Close AI answer</string>
     <string name="inbox_ai_hits_header">AI matches (%1$d)</string>
     <string name="inbox_ai_hit_newsletter_info">This email is in the “Newsletter” folder and can’t be opened from here.</string>
+    <string name="inbox_ai_reading">Reading %1$d emails …</string>
 
     <!-- Swipe actions &amp; undo -->
     <string name="inbox_swipe_archive">Archive</string>

@@ -424,6 +424,9 @@ fun InboxScreen(
     var showDraftsDialog by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     var aiAskBusy by remember { mutableStateOf(false) }
+    // Lese-Runde (Agent-Modus Stufe 2): Anzahl der Mails, deren Volltext
+    // gerade geladen wird — 0 = keine Lese-Runde aktiv
+    var aiReadingCount by remember { mutableStateOf(0) }
     var aiAnswer by remember { mutableStateOf<String?>(null) }
     var aiHits by remember {
         mutableStateOf<List<MailRepository.AiSearchHit>>(emptyList())
@@ -538,8 +541,67 @@ fun InboxScreen(
                 } else {
                     com.jakober.klarmail.ai.GeminiNano.askMailbox(question, list)
                 }
-                // Marker-Zeile "TREFFER: 3,7,12" bzw. "TREFFER: -" auswerten
-                val lines = raw.lines()
+                // Agent-Modus Stufe 2: Beginnt die Antwort mit der
+                // Marker-Zeile "LESEN: …", fordert die KI die Volltexte
+                // bestimmter Mails an. Diese laden (Newsletter-Ordner ist
+                // hier nicht ladbar → kennzeichnen; Ladefehler einzelner
+                // Mails ebenso) und answerWithContents final antworten
+                // lassen. Maximal EINE Lese-Runde.
+                var answerRaw = raw
+                val firstLine = raw.lineSequence()
+                    .firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+                if (firstLine.uppercase().startsWith("LESEN:")) {
+                    // Deckel: 15 Mails bei Claude, 4 bei Nano — überzählige
+                    // Nummern werden ignoriert
+                    val readLimit = if (hasClaudeKey) 15 else 4
+                    val toRead = Regex("\\d+")
+                        .findAll(firstLine.substringAfter(":"))
+                        .mapNotNull { it.value.toIntOrNull() }
+                        .distinct()
+                        .mapNotNull { n -> indexed.getOrNull(n - 1)?.let { n to it } }
+                        .take(readLimit)
+                        .toList()
+                    if (toRead.isNotEmpty()) {
+                        aiReadingCount = toRead.size
+                        // Marker für die KI, nicht fürs UI — Sprache folgt
+                        // der Prompt-Sprache (deutsch/englisch)
+                        val unavailable = if (Locale.getDefault().language == "de") {
+                            "[Inhalt nicht verfügbar]"
+                        } else "[Content not available]"
+                        val contents = toRead.joinToString("\n\n") { (n, h) ->
+                            val text = if (h.folder != MailRepository.MailFolder.INBOX) {
+                                unavailable
+                            } else {
+                                runCatching {
+                                    MailRepository.loadVisibleText(
+                                        h.mail.uid,
+                                        h.mail.account,
+                                        MailRepository.MailFolder.INBOX
+                                    )
+                                }.getOrNull()?.take(3000) ?: unavailable
+                            }
+                            "=== MAIL [$n] ===\n$text"
+                        }
+                        answerRaw = if (hasClaudeKey) {
+                            com.jakober.klarmail.ai.ClaudeClient.answerWithContents(
+                                Prefs.claudeApiKey, question, list, contents
+                            )
+                        } else {
+                            com.jakober.klarmail.ai.GeminiNano.answerWithContents(
+                                question, list, contents
+                            )
+                        }
+                        aiReadingCount = 0
+                    }
+                }
+                // Marker-Zeile "TREFFER: 3,7,12" bzw. "TREFFER: -" auswerten.
+                // Defensiv: Fordert die KI wider Erwarten erneut "LESEN:" an
+                // (oder gab es keine gültigen Nummern), fliegt diese Zeile
+                // raus und der Rest wird als normale Antwort ohne Treffer
+                // behandelt.
+                val lines = answerRaw.lines().filterNot {
+                    it.trim().uppercase().startsWith("LESEN:")
+                }
                 val hitIdx = lines.indexOfFirst {
                     it.trim().uppercase().startsWith("TREFFER:")
                 }
@@ -556,6 +618,7 @@ fun InboxScreen(
                 snackbar.showSnackbar(context.getString(R.string.inbox_ai_error, e.message))
             } finally {
                 aiAskBusy = false
+                aiReadingCount = 0
             }
         }
     }
@@ -1423,6 +1486,16 @@ fun InboxScreen(
                     }
                 )
                 if (aiAskBusy) {
+                    if (aiReadingCount > 0) {
+                        // Lese-Runde: KI hat Mail-Inhalte angefordert
+                        Text(
+                            stringResource(R.string.inbox_ai_reading, aiReadingCount),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp

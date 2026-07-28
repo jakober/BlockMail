@@ -103,6 +103,7 @@
     <string name="inbox_ai_answer_close">KI-Antwort schließen</string>
     <string name="inbox_ai_hits_header">KI-Treffer (%1$d)</string>
     <string name="inbox_ai_hit_newsletter_info">Diese Mail liegt im Ordner „Newsletter“ und kann hier nicht geöffnet werden.</string>
+    <string name="inbox_ai_reading">Lese %1$d Mails …</string>
 
     <!-- Wisch-Aktionen &amp; Rückgängig -->
     <string name="inbox_swipe_archive">Archivieren</string>
