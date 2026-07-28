@@ -63,7 +63,7 @@ class MailSyncService : Service() {
                 // Beim Registrieren meldet Android sofort das aktuelle Netz —
                 // erst ein echter Wechsel danach löst den Neuaufbau aus
                 if (previous != null && previous != network && idleJob?.isActive == true) {
-                    pushStatus.value = getString(R.string.svc_push_net_change, now())
+                    pushStatus.value = PushState(PushKind.NET_CHANGE, now())
                     restartIdleLoop()
                 }
             }
@@ -232,22 +232,21 @@ class MailSyncService : Service() {
             while (isActive) {
                 lastAliveMs = System.currentTimeMillis()
                 if (!Prefs.isConfigured) {
-                    pushStatus.value = getString(R.string.svc_no_account)
+                    pushStatus.value = PushState(PushKind.NO_ACCOUNT)
                     delay(30_000)
                     continue
                 }
                 try {
                     connectAndIdle(stillActive) { backoff = 5_000L }
                     if (!isActive) break
-                    pushStatus.value = getString(R.string.svc_push_disconnected_retry, now())
+                    pushStatus.value = PushState(PushKind.DISCONNECTED, now())
                     delay(3_000)
                 } catch (e: Exception) {
                     if (!isActive) break
-                    pushStatus.value = getString(
-                        R.string.svc_push_disconnected_error,
-                        now(),
-                        e.message?.take(80) ?: getString(R.string.svc_error_generic),
-                        backoff / 1000
+                    pushStatus.value = PushState(
+                        PushKind.DISCONNECTED_ERROR, now(),
+                        detail = e.message?.take(80).orEmpty(),
+                        retrySeconds = backoff / 1000
                     )
                     delay(backoff)
                     backoff = min(backoff * 2, 120_000L)
@@ -257,7 +256,7 @@ class MailSyncService : Service() {
     }
 
     private fun connectAndIdle(stillActive: () -> Boolean, onConnected: () -> Unit) {
-        pushStatus.value = getString(R.string.svc_push_connecting, now())
+        pushStatus.value = PushState(PushKind.CONNECTING, now())
         val store = MailRepository.openStore(idleMode = true)
         activeStore = store
         try {
@@ -265,10 +264,10 @@ class MailSyncService : Service() {
             inbox.open(Folder.READ_ONLY)
             onConnected()
             lastAliveMs = System.currentTimeMillis()
-            pushStatus.value = getString(R.string.svc_push_connected_waiting, now())
+            pushStatus.value = PushState(PushKind.WAITING, now())
             // Nachholen, was während einer Verbindungslücke angekommen ist
             if (MailChecker.processNewMessages(this, inbox) > 0) {
-                pushStatus.value = getString(R.string.svc_push_connected_processed, now())
+                pushStatus.value = PushState(PushKind.PROCESSED, now())
             }
             MailChecker.syncFlags(this, inbox)
             // WICHTIG: idle(true) statt idle() — die parameterlose Variante kehrt
@@ -281,7 +280,7 @@ class MailSyncService : Service() {
                 lastAliveMs = System.currentTimeMillis()
                 if (!stillActive()) break
                 if (MailChecker.processNewMessages(this, inbox) > 0) {
-                    pushStatus.value = getString(R.string.svc_push_connected_processed, now())
+                    pushStatus.value = PushState(PushKind.PROCESSED, now())
                 }
                 MailChecker.syncFlags(this, inbox)
             }
@@ -298,13 +297,26 @@ class MailSyncService : Service() {
                     ?.unregisterNetworkCallback(cb)
             }
         }
-        pushStatus.value = getString(R.string.svc_push_stopped)
+        pushStatus.value = PushState(PushKind.STOPPED)
         // Store schließen, um das blockierende idle() zu beenden
         val store = activeStore
         Thread { runCatching { store?.close() } }.start()
         scope.cancel()
         super.onDestroy()
     }
+
+    /**
+     * Sprachneutraler Push-Zustand: Der Dienst speichert nur WAS passiert ist
+     * (plus Uhrzeit/Detail), die Einstellungs-UI übersetzt ihn live in die
+     * aktuelle App-Sprache — so bleibt die Statuszeile bei Sprachwechsel korrekt.
+     */
+    enum class PushKind { NOT_STARTED, NO_ACCOUNT, NET_CHANGE, CONNECTING, WAITING, PROCESSED, DISCONNECTED, DISCONNECTED_ERROR, STOPPED }
+    data class PushState(
+        val kind: PushKind,
+        val time: String = "",
+        val detail: String = "",
+        val retrySeconds: Long = 0
+    )
 
     companion object {
         private const val SERVICE_NOTIF_ID = 1
@@ -334,7 +346,7 @@ class MailSyncService : Service() {
          * Die Einstellungs-UI zeigt bei leerem Wert stattdessen den
          * Ressourcen-Text R.string.svc_push_not_started an.
          */
-        val pushStatus = MutableStateFlow("")
+        val pushStatus = MutableStateFlow(PushState(PushKind.NOT_STARTED))
 
         fun start(context: Context) {
             // Sparmodus: keine Dauerverbindung — der Wächter-Worker prüft alle
