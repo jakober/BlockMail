@@ -851,6 +851,92 @@ object MailRepository {
         }
     }
 
+    /**
+     * Treffer der KI-Stichwortsuche: Mail plus Herkunftsordner. Der Ordner ist
+     * wichtig, weil UIDs ordnerspezifisch sind — eine Newsletter-Mail lässt
+     * sich über den Posteingangs-Detailweg (detail/{uid}) NICHT öffnen.
+     */
+    data class AiSearchHit(val mail: MailMessage, val folder: MailFolder)
+
+    /**
+     * Server-Stichwortsuche für die KI-Frage: durchsucht je Stichwort den
+     * KOMPLETTEN Posteingang (nicht nur die letzten N Mails) sowie zusätzlich
+     * den Ordner "Newsletter", falls er existiert. Bewusst nur Absender +
+     * Betreff (kein BodyTerm): schneller und auf allen Servern robust.
+     * Geholt werden nur Kopfdaten (ENVELOPE-Fetch wie bei headerIndex);
+     * Fehler je Stichwort/Ordner werden geschluckt, Teilergebnisse kommen
+     * trotzdem zurück. Dedupliziert über Ordner + UID.
+     */
+    suspend fun searchHeadersFor(
+        keywords: List<String>,
+        maxPerKeyword: Int = 100
+    ): List<AiSearchHit> = withContext(Dispatchers.IO) {
+        if (keywords.isEmpty()) return@withContext emptyList()
+        val hits = mutableListOf<AiSearchHit>()
+        val seen = HashSet<String>() // "ORDNER:uid"
+        runCatching {
+            val store = openStore()
+            try {
+                runCatching {
+                    val inbox = (store.getFolder("INBOX") as IMAPFolder)
+                        .apply { open(Folder.READ_ONLY) }
+                    searchFolderForAi(inbox, MailFolder.INBOX, keywords, maxPerKeyword, seen, hits)
+                }
+                runCatching {
+                    val nl = store.getFolder("Newsletter")
+                    if (nl.exists()) {
+                        (nl as IMAPFolder).open(Folder.READ_ONLY)
+                        searchFolderForAi(
+                            nl, MailFolder.NEWSLETTER, keywords, maxPerKeyword, seen, hits
+                        )
+                    }
+                }
+            } finally {
+                runCatching { store.close() }
+            }
+        }
+        hits
+    }
+
+    /** Ein Suchlauf der KI-Stichwortsuche über einen bereits geöffneten Ordner. */
+    private fun searchFolderForAi(
+        folder: IMAPFolder,
+        kind: MailFolder,
+        keywords: List<String>,
+        maxPerKeyword: Int,
+        seen: MutableSet<String>,
+        out: MutableList<AiSearchHit>
+    ) {
+        // CONTENT_INFO wie bei headerIndex mitholen, damit hasAttachments
+        // keine Einzelabfragen pro Mail auslöst
+        val fp = FetchProfile().apply {
+            add(FetchProfile.Item.ENVELOPE)
+            add(FetchProfile.Item.FLAGS)
+            add(FetchProfile.Item.CONTENT_INFO)
+            add(UIDFolder.FetchProfileItem.UID)
+        }
+        for (kw in keywords) {
+            runCatching {
+                val found = folder.search(
+                    javax.mail.search.OrTerm(
+                        javax.mail.search.FromStringTerm(kw),
+                        javax.mail.search.SubjectTerm(kw)
+                    )
+                ).takeLast(maxPerKeyword).toTypedArray()
+                if (found.isEmpty()) return@runCatching
+                folder.fetch(found, fp)
+                found.forEach { m ->
+                    runCatching {
+                        val uid = folder.getUID(m)
+                        if (seen.add("${kind.name}:$uid")) {
+                            out += AiSearchHit(toMailMessage(uid, m), kind)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /** Anhang-Referenz: nur Metadaten; die Daten werden erst bei Bedarf geladen. */
     data class MailAttachment(
         val name: String,

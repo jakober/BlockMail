@@ -99,8 +99,10 @@
     <string name="inbox_ai_tap_hint">Tap a line to open its email.</string>
     <string name="inbox_ai_ask_placeholder">Ask AI or search</string>
     <string name="inbox_ai_ask_no_hits">No matching emails found.</string>
+    <string name="inbox_ai_ask_no_hits_nano_tip">Tip: With a Claude API key, the AI can search far more of your emails.</string>
     <string name="inbox_ai_answer_close">Close AI answer</string>
     <string name="inbox_ai_hits_header">AI matches (%1$d)</string>
+    <string name="inbox_ai_hit_newsletter_info">This email is in the “Newsletter” folder and can’t be opened from here.</string>
 
     <!-- Swipe actions &amp; undo -->
     <string name="inbox_swipe_archive">Archive</string>

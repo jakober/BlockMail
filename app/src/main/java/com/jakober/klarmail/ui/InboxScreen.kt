@@ -127,11 +127,62 @@ import com.jakober.klarmail.R
 import com.jakober.klarmail.data.MailMessage
 import com.jakober.klarmail.data.MailRepository
 import com.jakober.klarmail.data.Prefs
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+
+/**
+ * Stoppwörter (de + en), die als Suchstichwörter für die KI-Stichwortsuche
+ * nichts taugen — Frage-, Füll- und Mail-Allerweltswörter.
+ */
+private val aiStopWords = setOf(
+    // Deutsch
+    "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem",
+    "einer", "und", "oder", "aber", "nicht", "kein", "keine", "ich", "du",
+    "wir", "ihr", "sie", "mir", "mich", "dir", "dich", "uns", "mein", "meine",
+    "meinem", "meinen", "meiner", "was", "wer", "wie", "wann", "wo", "warum",
+    "wieso", "welche", "welcher", "welches", "hat", "habe", "haben", "hatte",
+    "ist", "sind", "war", "waren", "wird", "werden", "wurde", "kam", "kommt",
+    "gibt", "gab", "mit", "von", "vom", "aus", "bei", "für", "nach", "über",
+    "unter", "auf", "zum", "zur", "als", "auch", "noch", "schon", "mal",
+    "alle", "alles", "etwas", "heute", "gestern", "letzte", "letzten",
+    "letzter", "letztes", "neue", "neuen", "zeig", "zeige", "zeigen", "such",
+    "suche", "finde", "mail", "mails", "email", "emails", "nachricht",
+    "nachrichten", "geschrieben", "geschickt", "gesendet", "bekommen",
+    "erhalten",
+    // Englisch
+    "the", "and", "for", "not", "any", "all", "you", "your", "this", "that",
+    "what", "who", "when", "where", "why", "how", "which", "did", "does",
+    "has", "have", "had", "was", "were", "will", "are", "with", "from",
+    "about", "show", "find", "search", "give", "get", "got", "sent", "send",
+    "write", "wrote", "receive", "received", "last", "latest", "recent",
+    "new", "old", "today", "yesterday", "please", "mailbox", "inbox",
+    "message", "messages"
+)
+
+/**
+ * Zieht die 2–4 aussagekräftigsten Stichwörter aus einer Nutzerfrage für die
+ * Server-Stichwortsuche: nur Wörter ab 3 Zeichen, ohne Stoppwörter;
+ * großgeschriebene Wörter (Namen wie "Stefan", "Amazon") kommen zuerst,
+ * danach die längsten übrigen Wörter. Liefert eine leere Liste, wenn die
+ * Frage keine brauchbaren Stichwörter enthält (z. B. "zeig mir alles von
+ * heute") — dann läuft nur der normale Kopfdaten-Index-Weg.
+ */
+private fun extractAiKeywords(question: String): List<String> {
+    val words = Regex("[\\p{L}\\p{N}@._\\-]+").findAll(question)
+        .map { it.value.trim('.', '-', '_') }
+        .filter { it.length >= 3 }
+        .filter { it.lowercase() !in aiStopWords }
+        .toList()
+        .distinctBy { it.lowercase() }
+    if (words.isEmpty()) return emptyList()
+    val (caps, rest) = words.partition { it.first().isUpperCase() }
+    return (caps + rest.sortedByDescending { it.length }).take(4)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -374,7 +425,11 @@ fun InboxScreen(
     var searching by remember { mutableStateOf(false) }
     var aiAskBusy by remember { mutableStateOf(false) }
     var aiAnswer by remember { mutableStateOf<String?>(null) }
-    var aiHits by remember { mutableStateOf<List<MailMessage>>(emptyList()) }
+    var aiHits by remember {
+        mutableStateOf<List<MailRepository.AiSearchHit>>(emptyList())
+    }
+    // Lief die letzte KI-Frage über Gemini Nano? (ehrlicher Kein-Treffer-Hinweis)
+    var aiUsedNano by remember { mutableStateOf(false) }
 
     fun exitSearch() {
         query = ""
@@ -389,11 +444,16 @@ fun InboxScreen(
 
     /**
      * KI-Anfrage ans Postfach: baut eine nummerierte Metadaten-Liste (kein
-     * Mail-Inhalt) und fragt Claude bzw. Gemini Nano. Grundlage sind die per
-     * Kopfdaten-Index vom Server geholten letzten Mails (deckt auch ältere
-     * ab); schlägt der Abruf fehl (offline), dienen die geladenen und
-     * gecachten Mails als Rückfallebene. Die Antwort beginnt mit der
-     * Marker-Zeile "TREFFER: …", deren Nummern die Treffer-Mails benennen.
+     * Mail-Inhalt) und fragt Claude bzw. Gemini Nano. Datengrundlage sind
+     * ZWEI parallel laufende Server-Abfragen: (a) der Kopfdaten-Index der
+     * letzten Mails und (b) eine Stichwortsuche über den KOMPLETTEN
+     * Posteingang plus den Ordner "Newsletter" (findet auch Jahre alte und
+     * wegsortierte Mails). Der Mail-Pool beginnt mit den Stichwort-Treffern,
+     * dann füllen die neuesten Mails aus Anzeige/Cache/Index auf — so sieht
+     * auch das kleine Nano-Modell vor allem relevante Mails. Schlägt alles
+     * fehl (offline), bleiben die geladenen und gecachten Mails als
+     * Rückfallebene. Die Antwort beginnt mit der Marker-Zeile "TREFFER: …",
+     * deren Nummern die Treffer-Mails benennen.
      */
     fun askAi(question: String) {
         if (aiAskBusy || question.isBlank()) return
@@ -402,19 +462,60 @@ fun InboxScreen(
             aiAskBusy = true
             try {
                 val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
+                aiUsedNano = !hasClaudeKey
                 // Gemini Nano hat ein kleines Kontextfenster — deutlich
                 // weniger Mails mitschicken als bei Claude
                 val limit = if (hasClaudeKey) 500 else 60
-                val fromServer = runCatching {
-                    MailRepository.headerIndex(limit)
-                }.getOrDefault(emptyList())
-                // Geladene Mails zuerst (sie haben Vorschau-Texte), dann der
-                // Server-Index und der Platten-Cache; Doppelte fliegen raus
+                // Kopfzeilen sind billig: bei Claude mehr Index holen, als in
+                // den Pool passt — Stichwort-Treffer verdrängen dann nur die
+                // unwichtigsten (ältesten) Index-Mails
+                val headerLimit = if (hasClaudeKey) 800 else 60
+                val keywords = extractAiKeywords(question)
+                // Beide Server-Abfragen parallel (je eigene IMAP-Verbindung)
+                val (fromServer, keywordHits) = coroutineScope {
+                    val idx = async {
+                        runCatching { MailRepository.headerIndex(headerLimit) }
+                            .getOrDefault(emptyList())
+                    }
+                    val kw = async {
+                        if (keywords.isEmpty()) emptyList()
+                        else runCatching { MailRepository.searchHeadersFor(keywords) }
+                            .getOrDefault(emptyList())
+                    }
+                    idx.await() to kw.await()
+                }
+                // Vorschau-Texte der bereits geladenen/gecachten Mails den
+                // Posteingangs-Treffern mitgeben (Kopfdaten haben keine)
+                val fillMails = messages + MailRepository.cachedInboxMails() + fromServer
+                val snippets = fillMails
+                    .filter { it.snippet?.isNotBlank() == true }
+                    .associate { "${it.account}:${it.uid}" to it.snippet }
+                // Pool: ZUERST alle Stichwort-Treffer (nach Datum absteigend),
+                // dann mit den neuesten Mails auffüllen; Doppelte fliegen raus
                 val seenKeys = HashSet<String>()
-                val indexed = (messages + MailRepository.cachedInboxMails() + fromServer)
-                    .filter { seenKeys.add("${it.account}:${it.uid}") }
+                val pool = mutableListOf<MailRepository.AiSearchHit>()
+                keywordHits
+                    .sortedByDescending { it.mail.date }
+                    .forEach { h ->
+                        if (seenKeys.add("${h.folder.name}:${h.mail.account}:${h.mail.uid}")) {
+                            val snip =
+                                if (h.folder == MailRepository.MailFolder.INBOX) {
+                                    snippets["${h.mail.account}:${h.mail.uid}"]
+                                } else null
+                            pool += if (snip != null) {
+                                h.copy(mail = h.mail.copy(snippet = snip))
+                            } else h
+                        }
+                    }
+                fillMails
+                    .filter {
+                        seenKeys.add(
+                            "${MailRepository.MailFolder.INBOX.name}:${it.account}:${it.uid}"
+                        )
+                    }
                     .sortedByDescending { it.date }
-                    .take(limit)
+                    .forEach { pool += MailRepository.AiSearchHit(it, MailRepository.MailFolder.INBOX) }
+                val indexed = pool.take(limit)
                 if (indexed.isEmpty()) {
                     snackbar.showSnackbar(
                         context.getString(R.string.inbox_ai_no_matching_mails)
@@ -422,7 +523,8 @@ fun InboxScreen(
                     return@launch
                 }
                 val df = SimpleDateFormat("dd.MM. HH:mm", Locale.GERMAN)
-                val list = indexed.mapIndexed { i, m ->
+                val list = indexed.mapIndexed { i, h ->
+                    val m = h.mail
                     // Kopfdaten vom Server haben keine Vorschau — dann ohne
                     val snip = m.snippet?.takeIf { it.isNotBlank() }
                         ?.let { " | ${it.take(80)}" } ?: ""
@@ -446,7 +548,7 @@ fun InboxScreen(
                         .mapNotNull { it.value.toIntOrNull() }.toList()
                 } else emptyList()
                 aiHits = nums.mapNotNull { indexed.getOrNull(it - 1) }
-                    .distinctBy { "${it.account}:${it.uid}" }
+                    .distinctBy { "${it.folder.name}:${it.mail.account}:${it.mail.uid}" }
                 aiAnswer = lines.filterIndexed { i, _ -> i != hitIdx }
                     .joinToString("\n").trim()
                     .ifBlank { context.getString(R.string.inbox_ai_ask_no_hits) }
@@ -1387,13 +1489,35 @@ fun InboxScreen(
                         }
                     }
                 }
+                // Newsletter-Treffer: UIDs sind ordnerspezifisch, der
+                // Detail-Weg (detail/{uid}) lädt aber immer aus dem aktuellen
+                // Ordner. Solche Treffer werden deshalb angezeigt, aber ohne
+                // Öffnen/Wischen — ein Tipp darauf erklärt das per Snackbar.
+                val newsletterHitInfo: () -> Unit = {
+                    scope.launch {
+                        snackbar.showSnackbar(
+                            context.getString(R.string.inbox_ai_hit_newsletter_info)
+                        )
+                    }
+                }
                 if (aiHits.isEmpty()) {
-                    Text(
-                        stringResource(R.string.inbox_ai_ask_no_hits),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(20.dp)
-                    )
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            stringResource(R.string.inbox_ai_ask_no_hits),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (aiUsedNano) {
+                            // Ehrlich bleiben: Nano sieht nur einen kleinen
+                            // Ausschnitt des Postfachs
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                stringResource(R.string.inbox_ai_ask_no_hits_nano_tip),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     Spacer(Modifier.weight(1f))
                 } else if (inboxLayout.startsWith("blocks")) {
                     val compact = inboxLayout == "blocks3"
@@ -1415,20 +1539,33 @@ fun InboxScreen(
                         }
                         gridItems(
                             aiHits,
-                            key = { "${it.account}:${it.uid}" },
+                            key = { "${it.folder.name}:${it.mail.account}:${it.mail.uid}" },
                             contentType = { "mail" }
-                        ) { mail ->
-                            SwipeableMailBlock(
-                                mail = mail,
-                                onClick = { onOpenMail(mail.uid) },
-                                onLongClick = {},
-                                selected = false,
-                                selectionMode = false,
-                                rightSpec = specFor(swipeRight, mail),
-                                leftSpec = specFor(swipeLeft, mail),
-                                modifier = Modifier.animateItem(),
-                                compact = compact
-                            )
+                        ) { hit ->
+                            val mail = hit.mail
+                            if (hit.folder == MailRepository.MailFolder.NEWSLETTER) {
+                                MailBlock(
+                                    mail = mail,
+                                    selected = false,
+                                    selectionMode = false,
+                                    onClick = newsletterHitInfo,
+                                    onLongClick = {},
+                                    modifier = Modifier.animateItem(),
+                                    compact = compact
+                                )
+                            } else {
+                                SwipeableMailBlock(
+                                    mail = mail,
+                                    onClick = { onOpenMail(mail.uid) },
+                                    onLongClick = {},
+                                    selected = false,
+                                    selectionMode = false,
+                                    rightSpec = specFor(swipeRight, mail),
+                                    leftSpec = specFor(swipeLeft, mail),
+                                    modifier = Modifier.animateItem(),
+                                    compact = compact
+                                )
+                            }
                         }
                     }
                 } else {
@@ -1440,19 +1577,33 @@ fun InboxScreen(
                         }
                         items(
                             aiHits,
-                            key = { "${it.account}:${it.uid}" },
+                            key = { "${it.folder.name}:${it.mail.account}:${it.mail.uid}" },
                             contentType = { "mail" }
-                        ) { mail ->
-                            SwipeableMailRow(
-                                mail = mail,
-                                onClick = { onOpenMail(mail.uid) },
-                                onLongClick = {},
-                                selected = false,
-                                selectionMode = false,
-                                rightSpec = specFor(swipeRight, mail),
-                                leftSpec = specFor(swipeLeft, mail),
-                                modifier = Modifier.animateItem()
-                            )
+                        ) { hit ->
+                            val mail = hit.mail
+                            if (hit.folder == MailRepository.MailFolder.NEWSLETTER) {
+                                MailRow(
+                                    mail = mail,
+                                    selected = false,
+                                    selectionMode = false,
+                                    onClick = newsletterHitInfo,
+                                    onLongClick = {},
+                                    modifier = Modifier
+                                        .animateItem()
+                                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                                )
+                            } else {
+                                SwipeableMailRow(
+                                    mail = mail,
+                                    onClick = { onOpenMail(mail.uid) },
+                                    onLongClick = {},
+                                    selected = false,
+                                    selectionMode = false,
+                                    rightSpec = specFor(swipeRight, mail),
+                                    leftSpec = specFor(swipeLeft, mail),
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
                         }
                     }
                 }
