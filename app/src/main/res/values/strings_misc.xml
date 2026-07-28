@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- WelcomeScreen (Willkommens-Bildschirm) -->
+    <string name="welcome_title">Willkommen bei BlockMail</string>
+    <string name="welcome_subtitle">Die klare, schnelle Mail-App.</string>
+    <string name="welcome_feature_blocks_title">Fokus-Blöcke</string>
+    <string name="welcome_feature_blocks_text">Der Posteingang sortiert sich nach Wichtigkeit: Braucht Antwort, Wichtig, Kann warten, Werbung — als übersichtliche Kacheln.</string>
+    <string name="welcome_feature_phishing_title">Phishing-Wächter</string>
+    <string name="welcome_feature_phishing_text">Erkennt Betrugs-Mails direkt auf dem Gerät und warnt mit rotem Rahmen — keine Daten verlassen dein Handy.</string>
+    <string name="welcome_feature_radar_title">Antwort-Radar</string>
+    <string name="welcome_feature_radar_text">Erinnert an offene Fragen in deinem Postfach — und wenn du selbst zu lange auf Antwort wartest.</string>
+    <string name="welcome_feature_push_title">Neue Mails sofort</string>
+    <string name="welcome_feature_push_text">Echtzeit-Push mit Schnellantwort direkt aus der Benachrichtigung.</string>
+    <string name="welcome_feature_accounts_title">Alle Konten, ein Überblick</string>
+    <string name="welcome_feature_accounts_text">Mehrere Postfächer mit eigenen Farben — einzeln oder gemeinsam.</string>
+    <string name="welcome_feature_ai_title">KI, die auf dem Gerät bleibt</string>
+    <string name="welcome_feature_ai_text">Zusammenfassen, Antworten entwerfen, Tages-Überblick und Newsletter-Ordnung.</string>
+    <string name="welcome_setup">Konto einrichten</string>
+    <string name="welcome_skip">Später erkunden</string>
+
+    <!-- StatsScreen (Statistik) -->
+    <string name="stats_title">Statistik</string>
+    <string name="stats_back">Zurück</string>
+    <string name="stats_based_on">Bezogen auf die %1$d aktuell geladenen Mails.</string>
+    <string name="stats_tile_loaded">Mails geladen</string>
+    <string name="stats_tile_unread">Ungelesen</string>
+    <string name="stats_tile_with_attachment">Mit Anhang</string>
+    <string name="stats_tile_per_day">Pro Tag (Ø 4 Wochen)</string>
+    <string name="stats_card_weekdays">Mails je Wochentag</string>
+    <string name="stats_card_weeks">Aufkommen der letzten 4 Wochen</string>
+    <string name="stats_week_3_ago">vor 3 Wo.</string>
+    <string name="stats_week_2_ago">vor 2 Wo.</string>
+    <string name="stats_week_last">letzte Wo.</string>
+    <string name="stats_week_this">diese Wo.</string>
+    <string name="stats_card_top_senders">Top-Absender</string>
+    <string name="stats_no_data">Noch keine Daten.</string>
+
+    <!-- AttachmentsScreen (Anhang-Galerie) -->
+    <string name="att_title">Anhänge</string>
+    <string name="att_back">Zurück</string>
+    <string name="att_filter_all">Alle</string>
+    <string name="att_filter_images">Bilder</string>
+    <string name="att_filter_docs">Dokumente</string>
+    <string name="att_empty_title">Noch keine Anhänge gefunden.</string>
+    <string name="att_empty_text">Anhänge erscheinen hier, sobald die zugehörige Mail einmal geladen wurde — das Vorladen läuft automatisch im Hintergrund.</string>
+    <string name="att_loading">„%1$s“ wird geladen …</string>
+    <string name="att_open_failed">Öffnen fehlgeschlagen: %1$s</string>
+    <string name="att_share_failed">Teilen fehlgeschlagen: %1$s</string>
+    <string name="att_share">Teilen</string>
+
+    <!-- TwoPaneScreen (zweispaltige Ansicht) -->
+    <string name="pane_select_mail">Wähle links eine E-Mail aus</string>
+
+    <!-- NewsletterLogScreen (Newsletter-Protokoll) -->
+    <string name="nlog_title">Newsletter-Protokoll</string>
+    <string name="nlog_back">Zurück</string>
+    <string name="nlog_empty">Noch keine Aufräumläufe.\nDer erste Lauf startet heute um 20 Uhr –\noder über „Jetzt ausführen“ in den Einstellungen.</string>
+    <string name="nlog_run_header">%1$s – %2$d verschoben</string>
+    <string name="nlog_deleted">%1$d Newsletter gelöscht</string>
+    <string name="nlog_removed_from_log">Aus Protokoll entfernt</string>
+    <string name="nlog_marked_not_newsletter">Als „kein Newsletter“ gemerkt</string>
+    <string name="nlog_marked_not_newsletter_restored">Als „kein Newsletter“ gemerkt – %1$d zurück im Posteingang</string>
+    <string name="nlog_unsubscribe">Abmelden</string>
+    <string name="nlog_actions">Aktionen</string>
+    <string name="nlog_not_newsletter">Kein Newsletter</string>
+    <string name="nlog_delete">Löschen</string>
+</resources>

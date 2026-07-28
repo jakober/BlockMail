@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- WelcomeScreen -->
+    <string name="welcome_title">Welcome to BlockMail</string>
+    <string name="welcome_subtitle">The clear, fast mail app.</string>
+    <string name="welcome_feature_blocks_title">Focus blocks</string>
+    <string name="welcome_feature_blocks_text">Your inbox sorts itself by importance: Needs reply, Important, Can wait, Promotions — as clear tiles.</string>
+    <string name="welcome_feature_phishing_title">Phishing guard</string>
+    <string name="welcome_feature_phishing_text">Detects scam emails right on your device and warns you with a red border — no data leaves your phone.</string>
+    <string name="welcome_feature_radar_title">Reply radar</string>
+    <string name="welcome_feature_radar_text">Reminds you of open questions in your mailbox — and when you\'ve been waiting too long for a reply yourself.</string>
+    <string name="welcome_feature_push_title">New mail instantly</string>
+    <string name="welcome_feature_push_text">Real-time push with quick reply straight from the notification.</string>
+    <string name="welcome_feature_accounts_title">All accounts, one overview</string>
+    <string name="welcome_feature_accounts_text">Multiple mailboxes with their own colors — separately or combined.</string>
+    <string name="welcome_feature_ai_title">AI that stays on your device</string>
+    <string name="welcome_feature_ai_text">Summarize, draft replies, daily overview and newsletter tidying.</string>
+    <string name="welcome_setup">Set up account</string>
+    <string name="welcome_skip">Explore later</string>
+
+    <!-- StatsScreen -->
+    <string name="stats_title">Statistics</string>
+    <string name="stats_back">Back</string>
+    <string name="stats_based_on">Based on the %1$d currently loaded emails.</string>
+    <string name="stats_tile_loaded">Emails loaded</string>
+    <string name="stats_tile_unread">Unread</string>
+    <string name="stats_tile_with_attachment">With attachment</string>
+    <string name="stats_tile_per_day">Per day (avg. 4 weeks)</string>
+    <string name="stats_card_weekdays">Emails by weekday</string>
+    <string name="stats_card_weeks">Volume over the last 4 weeks</string>
+    <string name="stats_week_3_ago">3 wks ago</string>
+    <string name="stats_week_2_ago">2 wks ago</string>
+    <string name="stats_week_last">last wk</string>
+    <string name="stats_week_this">this wk</string>
+    <string name="stats_card_top_senders">Top senders</string>
+    <string name="stats_no_data">No data yet.</string>
+
+    <!-- AttachmentsScreen -->
+    <string name="att_title">Attachments</string>
+    <string name="att_back">Back</string>
+    <string name="att_filter_all">All</string>
+    <string name="att_filter_images">Images</string>
+    <string name="att_filter_docs">Documents</string>
+    <string name="att_empty_title">No attachments found yet.</string>
+    <string name="att_empty_text">Attachments appear here once the corresponding email has been loaded — preloading runs automatically in the background.</string>
+    <string name="att_loading">Loading “%1$s” …</string>
+    <string name="att_open_failed">Opening failed: %1$s</string>
+    <string name="att_share_failed">Sharing failed: %1$s</string>
+    <string name="att_share">Share</string>
+
+    <!-- TwoPaneScreen -->
+    <string name="pane_select_mail">Select an email on the left</string>
+
+    <!-- NewsletterLogScreen -->
+    <string name="nlog_title">Newsletter log</string>
+    <string name="nlog_back">Back</string>
+    <string name="nlog_empty">No cleanup runs yet.\nThe first run starts today at 8 pm –\nor via “Run now” in the settings.</string>
+    <string name="nlog_run_header">%1$s – %2$d moved</string>
+    <string name="nlog_deleted">%1$d newsletters deleted</string>
+    <string name="nlog_removed_from_log">Removed from log</string>
+    <string name="nlog_marked_not_newsletter">Remembered as “not a newsletter”</string>
+    <string name="nlog_marked_not_newsletter_restored">Remembered as “not a newsletter” – %1$d back in the inbox</string>
+    <string name="nlog_unsubscribe">Unsubscribe</string>
+    <string name="nlog_actions">Actions</string>
+    <string name="nlog_not_newsletter">Not a newsletter</string>
+    <string name="nlog_delete">Delete</string>
+</resources>
