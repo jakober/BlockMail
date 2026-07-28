@@ -568,7 +568,10 @@ fun InboxScreen(
                         val unavailable = if (Locale.getDefault().language == "de") {
                             "[Inhalt nicht verfügbar]"
                         } else "[Content not available]"
-                        val contents = toRead.joinToString("\n\n") { (n, h) ->
+                        // Schleife statt joinToString-Lambda: loadVisibleText
+                        // ist eine suspend-Funktion und braucht Coroutine-Kontext
+                        val parts = mutableListOf<String>()
+                        for ((n, h) in toRead) {
                             val text = if (h.folder != MailRepository.MailFolder.INBOX) {
                                 unavailable
                             } else {
@@ -580,8 +583,9 @@ fun InboxScreen(
                                     )
                                 }.getOrNull()?.take(3000) ?: unavailable
                             }
-                            "=== MAIL [$n] ===\n$text"
+                            parts += "=== MAIL [$n] ===\n$text"
                         }
+                        val contents = parts.joinToString("\n\n")
                         answerRaw = if (hasClaudeKey) {
                             com.jakober.klarmail.ai.ClaudeClient.answerWithContents(
                                 Prefs.claudeApiKey, question, list, contents
