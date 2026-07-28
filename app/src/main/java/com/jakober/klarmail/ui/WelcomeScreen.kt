@@ -73,8 +73,8 @@ fun WelcomeScreen(onSetup: () -> Unit, onSkip: () -> Unit) {
             Spacer(Modifier.height(28.dp))
             WelcomeFeature(
                 Icons.Filled.AutoAwesomeMosaic,
-                stringResource(R.string.welcome_feature_blocks_title),
-                stringResource(R.string.welcome_feature_blocks_text)
+                stringResource(R.string.welcome_feature_ask_title),
+                stringResource(R.string.welcome_feature_ask_text)
             )
             Spacer(Modifier.height(14.dp))
             WelcomeFeature(

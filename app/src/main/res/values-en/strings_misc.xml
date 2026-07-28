@@ -64,4 +64,6 @@
     <string name="nlog_actions">Actions</string>
     <string name="nlog_not_newsletter">Not a newsletter</string>
     <string name="nlog_delete">Delete</string>
+    <string name="welcome_feature_ask_title">Ask your mailbox</string>
+    <string name="welcome_feature_ask_text">The AI search answers free-form questions like "How much did I spend at Amazon?" — and finds years-old emails too.</string>
 </resources>

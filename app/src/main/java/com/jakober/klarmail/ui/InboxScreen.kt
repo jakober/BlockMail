@@ -220,7 +220,9 @@ fun InboxScreen(
 
     // Fokus-Blöcke: Posteingang nach Wichtigkeit statt nach Zeit gruppieren.
     // Heuristik sofort, per KI-Knopf verfeinerbar (Zuordnungen überschreiben).
-    val focusMode by Prefs.focusModeFlow.collectAsState()
+    // Fokus-Blöcke wurden auf Nutzerwunsch entfernt — der Zustand bleibt
+    // dauerhaft aus, damit alle Render-Pfade der Blöcke stillgelegt sind
+    val focusMode = false
     val focusOverrides = remember { androidx.compose.runtime.mutableStateMapOf<String, Int>() }
     var focusAiBusy by remember { mutableStateOf(false) }
     var focusAiDone by remember { mutableStateOf(false) }
@@ -1096,35 +1098,37 @@ fun InboxScreen(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                             ) {
                                 if (configured) {
-                                    // Fokus-Blöcke ein/aus (früher eigenes Icon
-                                    // in der Kopfzeile): gleiche Wirkung wie
-                                    // damals — Prefs.focusMode umschalten
+                                    // Hell/Dunkel auch als Menü-Eintrag —
+                                    // zusätzlich zum Icon links in der Kopfzeile
+                                    val menuDarkSetting by Prefs.darkModeFlow.collectAsState()
+                                    val menuSystemDark =
+                                        androidx.compose.foundation.isSystemInDarkTheme()
+                                    val menuIsDark = when (menuDarkSetting) {
+                                        "dark" -> true
+                                        "light" -> false
+                                        else -> menuSystemDark
+                                    }
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                stringResource(R.string.inbox_focus_blocks),
-                                                fontWeight = if (focusMode) FontWeight.SemiBold
-                                                else FontWeight.Normal
+                                                if (menuIsDark) {
+                                                    stringResource(R.string.inbox_theme_light)
+                                                } else {
+                                                    stringResource(R.string.inbox_theme_dark)
+                                                }
                                             )
                                         },
                                         leadingIcon = {
-                                            Icon(Icons.Filled.AutoAwesomeMosaic, null)
-                                        },
-                                        trailingIcon = if (focusMode) {
-                                            { Icon(Icons.Filled.Check, null) }
-                                        } else null,
-                                        colors = if (focusMode) {
-                                            androidx.compose.material3.MenuDefaults.itemColors(
-                                                textColor = MaterialTheme.colorScheme.primary,
-                                                leadingIconColor = MaterialTheme.colorScheme.primary,
-                                                trailingIconColor = MaterialTheme.colorScheme.primary
+                                            Icon(
+                                                if (menuIsDark) Icons.Filled.LightMode
+                                                else Icons.Filled.DarkMode,
+                                                null
                                             )
-                                        } else {
-                                            androidx.compose.material3.MenuDefaults.itemColors()
                                         },
                                         onClick = {
                                             overflowOpen = false
-                                            Prefs.focusMode = !focusMode
+                                            Prefs.darkMode =
+                                                if (menuIsDark) "light" else "dark"
                                         }
                                     )
                                     HorizontalDivider(

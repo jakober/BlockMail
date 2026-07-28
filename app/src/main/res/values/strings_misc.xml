@@ -64,4 +64,6 @@
     <string name="nlog_actions">Aktionen</string>
     <string name="nlog_not_newsletter">Kein Newsletter</string>
     <string name="nlog_delete">Löschen</string>
+    <string name="welcome_feature_ask_title">Frag dein Postfach</string>
+    <string name="welcome_feature_ask_text">Die KI-Suche beantwortet freie Fragen wie „Wie viel habe ich bei Amazon ausgegeben?" — und findet auch jahrealte Mails.</string>
 </resources>
