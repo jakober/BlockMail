@@ -70,12 +70,14 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.jakober.klarmail.R
 import com.jakober.klarmail.ai.ClaudeClient
 import com.jakober.klarmail.data.MailRepository
 import com.jakober.klarmail.data.Prefs
@@ -115,6 +117,7 @@ private fun sanitizeOutgoingHtml(html: String): String = html
 private data class PickedFile(val uri: android.net.Uri, val name: String, val size: Long)
 
 /** Auswahlzeiten für „Später senden“ (Label + Zeitpunkt in Millis). */
+@Composable
 private fun scheduleChoices(): List<Pair<String, Long>> {
     val now = System.currentTimeMillis()
     fun at(daysFromToday: Int, hour: Int): Long = java.util.Calendar.getInstance().apply {
@@ -124,13 +127,15 @@ private fun scheduleChoices(): List<Pair<String, Long>> {
         set(java.util.Calendar.SECOND, 0)
         set(java.util.Calendar.MILLISECOND, 0)
     }.timeInMillis
-    val choices = mutableListOf("In 1 Stunde" to now + 60 * 60 * 1000L)
+    val choices = mutableListOf(
+        stringResource(R.string.compose_schedule_in_1_hour) to now + 60 * 60 * 1000L
+    )
     val eveningToday = at(0, 18)
     if (eveningToday > now + 15 * 60 * 1000L) {
-        choices.add("Heute Abend (18 Uhr)" to eveningToday)
+        choices.add(stringResource(R.string.compose_schedule_tonight) to eveningToday)
     }
-    choices.add("Morgen früh (8 Uhr)" to at(1, 8))
-    choices.add("Morgen Abend (18 Uhr)" to at(1, 18))
+    choices.add(stringResource(R.string.compose_schedule_tomorrow_morning) to at(1, 8))
+    choices.add(stringResource(R.string.compose_schedule_tomorrow_evening) to at(1, 18))
     return choices
 }
 
@@ -202,10 +207,11 @@ fun ComposeScreen(
             val dateText = java.text.SimpleDateFormat(
                 "EEEE, d. MMMM yyyy, HH:mm", java.util.Locale.GERMAN
             ).format(java.util.Date(forwardOriginal.date))
-            val header = "---------- Weitergeleitete Nachricht ----------\n" +
-                "Von: ${forwardOriginal.from} <${forwardOriginal.fromAddress}>\n" +
-                "Datum: $dateText\n" +
-                "Betreff: ${forwardOriginal.subject}\n\n"
+            val header = context.getString(
+                R.string.compose_forward_header,
+                forwardOriginal.from, forwardOriginal.fromAddress,
+                dateText, forwardOriginal.subject
+            )
             val sig = Prefs.signature
             val sigPart = if (sig.isNotBlank()) "${plainToHtml(sig)}<br><br>" else ""
             editorState.setHtml(
@@ -266,7 +272,7 @@ fun ComposeScreen(
         ActivityResultContracts.GetMultipleContents()
     ) { uris ->
         uris.forEach { uri ->
-            var name = "Anhang"
+            var name = context.getString(R.string.compose_attachment)
             var size = 0L
             try {
                 context.contentResolver.query(uri, null, null, null, null)?.use { c ->
@@ -298,7 +304,7 @@ fun ComposeScreen(
                     lastLanguage = ClaudeClient.lastReplyLanguage
                 }
             } catch (e: Exception) {
-                snackbar.showSnackbar("KI-Fehler: ${e.message}")
+                snackbar.showSnackbar(context.getString(R.string.compose_ai_error, e.message))
             } finally {
                 busy = false
             }
@@ -322,7 +328,7 @@ fun ComposeScreen(
                 )
             )
             android.widget.Toast.makeText(
-                context, "Entwurf gespeichert", android.widget.Toast.LENGTH_SHORT
+                context, context.getString(R.string.compose_draft_saved), android.widget.Toast.LENGTH_SHORT
             ).show()
         } else if (draft != null) {
             Prefs.removeDraft(draft.id)
@@ -338,7 +344,9 @@ fun ComposeScreen(
                     pickedFiles.map { f ->
                         val bytes = context.contentResolver
                             .openInputStream(f.uri)?.use { it.readBytes() }
-                            ?: throw IllegalStateException("Anhang „${f.name}“ nicht lesbar")
+                            ?: throw IllegalStateException(
+                                context.getString(R.string.compose_attachment_unreadable, f.name)
+                            )
                         MailRepository.OutAttachment(
                             name = f.name,
                             mime = context.contentResolver.getType(f.uri) ?: "",
@@ -377,7 +385,7 @@ fun ComposeScreen(
                     ?.let { Prefs.addSentLog(it, subject) }
                 onBack()
             } catch (e: Exception) {
-                snackbar.showSnackbar("Senden fehlgeschlagen: ${e.message}")
+                snackbar.showSnackbar(context.getString(R.string.compose_send_failed, e.message))
             } finally {
                 sending = false
             }
@@ -387,12 +395,11 @@ fun ComposeScreen(
     if (showScheduleDialog) {
         AlertDialog(
             onDismissRequest = { showScheduleDialog = false },
-            title = { Text("Später senden") },
+            title = { Text(stringResource(R.string.compose_send_later)) },
             text = {
                 Column {
                     Text(
-                        "Die Mail wird zur gewählten Zeit automatisch gesendet — auch " +
-                            "wenn die App geschlossen ist.",
+                        stringResource(R.string.compose_schedule_description),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -404,7 +411,9 @@ fun ComposeScreen(
                                 if (pickedFiles.isNotEmpty() || fwdAttachments.isNotEmpty()) {
                                     scope.launch {
                                         snackbar.showSnackbar(
-                                            "Geplantes Senden mit Anhängen wird noch nicht unterstützt"
+                                            context.getString(
+                                                R.string.compose_schedule_attachments_unsupported
+                                            )
                                         )
                                     }
                                 } else {
@@ -432,7 +441,9 @@ fun ComposeScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showScheduleDialog = false }) { Text("Abbrechen") }
+                TextButton(onClick = { showScheduleDialog = false }) {
+                    Text(stringResource(R.string.compose_cancel))
+                }
             }
         )
     }
@@ -445,16 +456,19 @@ fun ComposeScreen(
             TopAppBar(
                 navigationIcon = {
                     IconButton(onClick = { closeSavingDraft() }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Schließen (Entwurf wird gespeichert)")
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.compose_close_saves_draft)
+                        )
                     }
                 },
                 title = {
                     Column {
                         Text(
                             when {
-                                original != null -> "Antworten"
-                                forwardOriginal != null -> "Weiterleiten"
-                                else -> "Neue Nachricht"
+                                original != null -> stringResource(R.string.compose_title_reply)
+                                forwardOriginal != null -> stringResource(R.string.compose_title_forward)
+                                else -> stringResource(R.string.compose_title_new)
                             },
                             style = MaterialTheme.typography.titleLarge
                         )
@@ -473,7 +487,7 @@ fun ComposeScreen(
                                     )
                                     Icon(
                                         Icons.Filled.ArrowDropDown,
-                                        contentDescription = "Absender-Konto wählen",
+                                        contentDescription = stringResource(R.string.compose_choose_from_account),
                                         modifier = Modifier.size(18.dp),
                                         tint = MaterialTheme.colorScheme.primary
                                     )
@@ -510,7 +524,7 @@ fun ComposeScreen(
                     ) {
                         Icon(
                             Icons.Filled.Schedule,
-                            contentDescription = "Später senden",
+                            contentDescription = stringResource(R.string.compose_send_later),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -521,7 +535,7 @@ fun ComposeScreen(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Senden",
+                            contentDescription = stringResource(R.string.compose_send),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -540,7 +554,7 @@ fun ComposeScreen(
                 ) {
                     lastLanguage?.let { lang ->
                         Text(
-                            "Entwurf erstellt – erkannte Zielsprache: $lang",
+                            stringResource(R.string.compose_ai_language_detected, lang),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(start = 16.dp, top = 6.dp)
@@ -559,13 +573,17 @@ fun ComposeScreen(
                                     selected = true,
                                     onClick = { fwdAttachments.remove(att) },
                                     label = {
-                                        val sizeKb = if (att.size > 0) " (${att.size / 1024} KB)" else ""
+                                        val sizeKb = if (att.size > 0) {
+                                            stringResource(
+                                                R.string.compose_attachment_size_kb, att.size / 1024
+                                            )
+                                        } else ""
                                         Text("${att.name}$sizeKb")
                                     },
                                     trailingIcon = {
                                         Icon(
                                             Icons.Filled.Close,
-                                            contentDescription = "Anhang entfernen",
+                                            contentDescription = stringResource(R.string.compose_attachment_remove),
                                             modifier = Modifier.width(AssistChipDefaults.IconSize)
                                         )
                                     },
@@ -577,13 +595,17 @@ fun ComposeScreen(
                                     selected = false,
                                     onClick = { pickedFiles.remove(f) },
                                     label = {
-                                        val sizeKb = if (f.size > 0) " (${f.size / 1024} KB)" else ""
+                                        val sizeKb = if (f.size > 0) {
+                                            stringResource(
+                                                R.string.compose_attachment_size_kb, f.size / 1024
+                                            )
+                                        } else ""
                                         Text("${f.name}$sizeKb")
                                     },
                                     trailingIcon = {
                                         Icon(
                                             Icons.Filled.Close,
-                                            contentDescription = "Anhang entfernen",
+                                            contentDescription = stringResource(R.string.compose_attachment_remove),
                                             modifier = Modifier.width(AssistChipDefaults.IconSize)
                                         )
                                     },
@@ -600,31 +622,33 @@ fun ComposeScreen(
                     ) {
                         IconButton(onClick = { filePicker.launch("*/*") }) {
                             Icon(
-                                Icons.Filled.AttachFile, contentDescription = "Anhang",
+                                Icons.Filled.AttachFile,
+                                contentDescription = stringResource(R.string.compose_attachment),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         FormatButton(
-                            Icons.Filled.FormatBold, "Fett",
+                            Icons.Filled.FormatBold, stringResource(R.string.compose_format_bold),
                             editorState.currentSpanStyle.fontWeight == FontWeight.Bold
                         ) { editorState.toggleSpanStyle(SpanStyle(fontWeight = FontWeight.Bold)) }
                         FormatButton(
-                            Icons.Filled.FormatItalic, "Kursiv",
+                            Icons.Filled.FormatItalic, stringResource(R.string.compose_format_italic),
                             editorState.currentSpanStyle.fontStyle == FontStyle.Italic
                         ) { editorState.toggleSpanStyle(SpanStyle(fontStyle = FontStyle.Italic)) }
                         FormatButton(
-                            Icons.Filled.FormatUnderlined, "Unterstrichen",
+                            Icons.Filled.FormatUnderlined, stringResource(R.string.compose_format_underline),
                             editorState.currentSpanStyle.textDecoration
                                 ?.contains(TextDecoration.Underline) == true
                         ) { editorState.toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.Underline)) }
                         FormatButton(
-                            Icons.Filled.FormatListBulleted, "Aufzählung",
+                            Icons.Filled.FormatListBulleted, stringResource(R.string.compose_format_list),
                             editorState.isUnorderedList
                         ) { editorState.toggleUnorderedList() }
                         Box {
                             IconButton(onClick = { templateMenuOpen = true }) {
                                 Icon(
-                                    Icons.Filled.Description, contentDescription = "Vorlagen",
+                                    Icons.Filled.Description,
+                                    contentDescription = stringResource(R.string.compose_templates),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -635,7 +659,7 @@ fun ComposeScreen(
                                 val templates = Prefs.mailTemplates()
                                 if (templates.isEmpty()) {
                                     DropdownMenuItem(
-                                        text = { Text("Keine Vorlagen – in den Einstellungen anlegen") },
+                                        text = { Text(stringResource(R.string.compose_templates_empty)) },
                                         enabled = false,
                                         onClick = {}
                                     )
@@ -665,7 +689,10 @@ fun ComposeScreen(
             if (aiAvailable) {
                 Box {
                     FloatingActionButton(onClick = { aiMenuOpen = true }) {
-                        Icon(Icons.Filled.AutoAwesome, contentDescription = "KI-Funktionen")
+                        Icon(
+                            Icons.Filled.AutoAwesome,
+                            contentDescription = stringResource(R.string.compose_ai_functions)
+                        )
                     }
                     DropdownMenu(
                         expanded = aiMenuOpen,
@@ -673,11 +700,14 @@ fun ComposeScreen(
                     ) {
                         if (original != null) {
                             DropdownMenuItem(
-                                text = { Text("Antwort entwerfen") },
+                                text = { Text(stringResource(R.string.compose_ai_draft_reply)) },
                                 leadingIcon = { Icon(Icons.Filled.AutoAwesome, null) },
                                 onClick = {
                                     aiMenuOpen = false
-                                    runAi("KI formuliert eine Antwort …", showLanguage = true) {
+                                    runAi(
+                                        context.getString(R.string.compose_ai_drafting_reply),
+                                        showLanguage = true
+                                    ) {
                                         // Die vorbefüllte Signatur ist KEINE Anweisung an
                                         // die KI — sonst entstehen Floskel-Antworten
                                         val instructionText = plainText
@@ -690,7 +720,7 @@ fun ComposeScreen(
                                         }
                                         if (origBody.isBlank()) {
                                             throw IllegalStateException(
-                                                "Inhalt der Mail konnte nicht geladen werden"
+                                                context.getString(R.string.compose_ai_mail_load_failed)
                                             )
                                         }
                                         if (hasClaudeKey) {
@@ -709,7 +739,7 @@ fun ComposeScreen(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("Mail formulieren …") },
+                            text = { Text(stringResource(R.string.compose_ai_compose_mail)) },
                             leadingIcon = { Icon(Icons.Filled.AutoAwesome, null) },
                             onClick = {
                                 aiMenuOpen = false
@@ -717,14 +747,18 @@ fun ComposeScreen(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Rechtschreibung prüfen") },
+                            text = { Text(stringResource(R.string.compose_ai_proofread)) },
                             leadingIcon = { Icon(Icons.Filled.Spellcheck, null) },
                             onClick = {
                                 aiMenuOpen = false
                                 if (plainText.isBlank()) {
-                                    scope.launch { snackbar.showSnackbar("Kein Text zum Prüfen vorhanden") }
+                                    scope.launch {
+                                        snackbar.showSnackbar(
+                                            context.getString(R.string.compose_ai_no_text)
+                                        )
+                                    }
                                 } else {
-                                    runAi("Rechtschreibung wird geprüft …") {
+                                    runAi(context.getString(R.string.compose_ai_proofreading)) {
                                         if (hasClaudeKey) {
                                             ClaudeClient.proofread(Prefs.claudeApiKey, editorState.toHtml())
                                         } else {
@@ -766,13 +800,15 @@ fun ComposeScreen(
                     .verticalScroll(rememberScrollState())
             ) {
                 RecipientRow(
-                    label = "AN:",
+                    label = stringResource(R.string.compose_to),
                     value = to,
                     onChange = { to = it },
                     onFocusChange = { toFocused = it },
                     trailing = {
                         if (!showCcBcc) {
-                            TextButton(onClick = { showCcBcc = true }) { Text("CC/BCC") }
+                            TextButton(onClick = { showCcBcc = true }) {
+                                Text(stringResource(R.string.compose_cc_bcc))
+                            }
                         }
                     }
                 )
@@ -780,13 +816,13 @@ fun ComposeScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 if (showCcBcc) {
                     RecipientRow(
-                        label = "CC:", value = cc, onChange = { cc = it },
+                        label = stringResource(R.string.compose_cc), value = cc, onChange = { cc = it },
                         onFocusChange = { ccFocused = it }
                     )
                     SuggestionList(ccFocused, cc, contacts) { cc = it }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     RecipientRow(
-                        label = "BCC:", value = bcc, onChange = { bcc = it },
+                        label = stringResource(R.string.compose_bcc), value = bcc, onChange = { bcc = it },
                         onFocusChange = { bccFocused = it }
                     )
                     SuggestionList(bccFocused, bcc, contacts) { bcc = it }
@@ -800,7 +836,7 @@ fun ComposeScreen(
                 ) {
                     if (subject.isEmpty()) {
                         Text(
-                            "Betreff",
+                            stringResource(R.string.compose_subject),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -828,7 +864,7 @@ fun ComposeScreen(
                 ) {
                     if (plainText.isEmpty()) {
                         Text(
-                            "Nachricht schreiben …",
+                            stringResource(R.string.compose_message_hint),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -858,7 +894,7 @@ fun ComposeScreen(
                     ) {
                         CircularProgressIndicator(modifier = Modifier.width(24.dp).height(24.dp))
                         Spacer(Modifier.width(16.dp))
-                        Text(if (sending) "Nachricht wird gesendet …" else busyLabel)
+                        Text(if (sending) stringResource(R.string.compose_sending) else busyLabel)
                     }
                 }
             }
@@ -868,12 +904,12 @@ fun ComposeScreen(
     if (showPromptDialog) {
         AlertDialog(
             onDismissRequest = { showPromptDialog = false },
-            title = { Text("Was soll die E-Mail sagen?") },
+            title = { Text(stringResource(R.string.compose_prompt_title)) },
             text = {
                 OutlinedTextField(
                     value = promptText,
                     onValueChange = { promptText = it },
-                    placeholder = { Text("z. B. Termin am Freitag um 14 Uhr absagen und neuen Vorschlag machen") },
+                    placeholder = { Text(stringResource(R.string.compose_prompt_placeholder)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 120.dp)
@@ -884,7 +920,7 @@ fun ComposeScreen(
                     enabled = promptText.isNotBlank(),
                     onClick = {
                         showPromptDialog = false
-                        runAi("KI formuliert die E-Mail …") {
+                        runAi(context.getString(R.string.compose_ai_composing)) {
                             if (hasClaudeKey) {
                                 ClaudeClient.composeMail(Prefs.claudeApiKey, promptText)
                             } else {
@@ -892,10 +928,12 @@ fun ComposeScreen(
                             }
                         }
                     }
-                ) { Text("Formulieren") }
+                ) { Text(stringResource(R.string.compose_prompt_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showPromptDialog = false }) { Text("Abbrechen") }
+                TextButton(onClick = { showPromptDialog = false }) {
+                    Text(stringResource(R.string.compose_cancel))
+                }
             }
         )
     }
