@@ -6,14 +6,14 @@ plugins {
 
 android {
     namespace = "com.jakober.klarmail"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.jakober.klarmail"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 142
-        versionName = "3.39"
+        targetSdk = 36
+        versionCode = 143
+        versionName = "3.40"
 
         // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
         manifestPlaceholders["appAuthRedirectScheme"] =
