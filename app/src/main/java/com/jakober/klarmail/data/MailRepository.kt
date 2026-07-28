@@ -613,6 +613,12 @@ object MailRepository {
         }
     }
 
+    /**
+     * Sammel-Posteingang: pro Konto bereits geladene Mail-Anzahl — Grundlage
+     * fürs Nachladen beim Endlos-Scrollen ("Alle Konten").
+     */
+    private val unifiedLoaded = mutableMapOf<String, Int>()
+
     /** Frischer Abruf des Sammel-Posteingangs: alle Konten nacheinander. */
     private suspend fun refreshUnified() = withContext(Dispatchers.IO) {
         refreshMutex.withLock {
@@ -621,6 +627,8 @@ object MailRepository {
             _error.value = null
             val all = mutableListOf<MailMessage>()
             var firstError: String? = null
+            var anyOlder = false
+            unifiedLoaded.clear()
             for (acc in Prefs.accounts()) {
                 try {
                     val store = openStoreFor(acc.email)
@@ -645,6 +653,8 @@ object MailRepository {
                                     null
                                 }
                             }.map { it.copy(account = acc.email.lowercase()) }
+                            unifiedLoaded[acc.email.lowercase()] = total - start + 1
+                            if (start > 1) anyOlder = true
                         }
                     } finally {
                         runCatching { store.close() }
@@ -662,7 +672,8 @@ object MailRepository {
             }
             if (_unified.value) {
                 _messages.value = sort(applyRules(merged))
-                _canLoadMore.value = false
+                // Nachladen ist möglich, sobald irgendein Konto ältere Mails hat
+                _canLoadMore.value = anyOlder
                 // Fehlende Vorschauen auch im Sammel-Posteingang nachladen
                 scheduleServerSnippets()
             }
@@ -672,12 +683,80 @@ object MailRepository {
     }
 
     /**
+     * Endlos-Scrollen im Sammel-Posteingang: Jedes Konto lädt sein nächstes
+     * Paket älterer Mails; danach wird die Gesamtliste neu gemischt.
+     */
+    private suspend fun loadMoreUnified() = withContext(Dispatchers.IO) {
+        if (_loadingMore.value || !_canLoadMore.value) return@withContext
+        refreshMutex.withLock {
+            if (_loadingMore.value || !_canLoadMore.value) return@withLock
+            _loadingMore.value = true
+            try {
+                val older = mutableListOf<MailMessage>()
+                var anyMore = false
+                for (acc in Prefs.accounts()) {
+                    val key = acc.email.lowercase()
+                    try {
+                        val store = openStoreFor(acc.email)
+                        try {
+                            val inbox = store.getFolder("INBOX") as IMAPFolder
+                            inbox.open(Folder.READ_ONLY)
+                            val total = inbox.messageCount
+                            val loaded = unifiedLoaded[key] ?: UNIFIED_PER_ACCOUNT
+                            val end = total - loaded
+                            if (end < 1) continue
+                            val start = max(1, end - UNIFIED_PER_ACCOUNT + 1)
+                            val msgs = inbox.getMessages(start, end)
+                            val fp = FetchProfile().apply {
+                                add(FetchProfile.Item.ENVELOPE)
+                                add(FetchProfile.Item.FLAGS)
+                                add(FetchProfile.Item.CONTENT_INFO)
+                                add(UIDFolder.FetchProfileItem.UID)
+                            }
+                            inbox.fetch(msgs, fp)
+                            older += msgs.mapNotNull { m ->
+                                try {
+                                    toMailMessage(inbox.getUID(m), m)
+                                } catch (e: Exception) {
+                                    null
+                                }
+                            }.map { it.copy(account = key) }
+                            unifiedLoaded[key] = total - start + 1
+                            if (start > 1) anyMore = true
+                        } finally {
+                            runCatching { store.close() }
+                        }
+                    } catch (_: Exception) {
+                        // Konto vorübergehend nicht erreichbar: Rest weiterladen
+                    }
+                }
+                if (_unified.value) {
+                    _messages.update { cur ->
+                        val known = cur.map { "${it.account}:${it.uid}" }.toSet()
+                        sort(applyRules(cur + older.filter {
+                            "${it.account}:${it.uid}" !in known
+                        }))
+                    }
+                    _canLoadMore.value = anyMore
+                    scheduleServerSnippets()
+                }
+            } finally {
+                _loadingMore.value = false
+            }
+        }
+    }
+
+    /**
      * Endlos-Scrollen: lädt das nächste Paket älterer Mails des aktuellen
      * Ordners nach und hängt sie an die Liste an.
      */
     suspend fun loadMore() = withContext(Dispatchers.IO) {
         if (!Prefs.isConfigured) return@withContext
-        if (_unified.value) return@withContext
+        if (_unified.value) {
+            // Sammel-Posteingang hat seinen eigenen Nachlade-Pfad
+            loadMoreUnified()
+            return@withContext
+        }
         if (_loadingMore.value || !_canLoadMore.value) return@withContext
         refreshMutex.withLock {
             if (_loadingMore.value || !_canLoadMore.value) return@withLock
