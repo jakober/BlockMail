@@ -893,6 +893,23 @@ fun InboxScreen(
                         }
                     },
                     actions = {
+                        // Schnellwechsler für die Ansicht: Das Icon zeigt die
+                        // NÄCHSTE Ansicht im Kreis Liste → 2er-Kacheln → 3er-Kacheln
+                        val nextLayout = when (inboxLayout) {
+                            "list" -> "blocks"
+                            "blocks" -> "blocks3"
+                            else -> "list"
+                        }
+                        IconButton(onClick = { Prefs.inboxLayout = nextLayout }) {
+                            Icon(
+                                when (nextLayout) {
+                                    "blocks" -> Icons.Filled.GridView
+                                    "blocks3" -> Icons.Filled.ViewModule
+                                    else -> Icons.AutoMirrored.Filled.ViewList
+                                },
+                                contentDescription = stringResource(R.string.inbox_view_quick_switch)
+                            )
+                        }
                         // Dreipunkt-Menü hält die Leiste schlank: Design,
                         // Ansicht und Einstellungen wandern hier hinein
                         var overflowOpen by remember { mutableStateOf(false) }

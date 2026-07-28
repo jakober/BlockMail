@@ -126,4 +126,5 @@
     <string name="inbox_no_content">Kein Inhalt</string>
     <string name="inbox_phishing_warning">Möglicher Phishing-Versuch</string>
     <string name="inbox_has_attachment">Anhang vorhanden</string>
+    <string name="inbox_view_quick_switch">Ansicht wechseln</string>
 </resources>
