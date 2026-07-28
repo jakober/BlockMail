@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- InboxScreen (Posteingang) -->
+
+    <!-- Allgemeine Aktionen -->
+    <string name="inbox_ok">OK</string>
+    <string name="inbox_cancel">Abbrechen</string>
+    <string name="inbox_close">Schließen</string>
+    <string name="inbox_undo">Rückgängig</string>
+    <string name="inbox_delete">Löschen</string>
+    <string name="inbox_delete_all">Alle löschen</string>
+    <string name="inbox_more">Mehr</string>
+    <string name="inbox_settings">Einstellungen</string>
+
+    <!-- Obere Leiste / Auswahlmodus -->
+    <string name="inbox_selection_close">Auswahl beenden</string>
+    <string name="inbox_selected_count">%1$d ausgewählt</string>
+    <string name="inbox_mark_read">Als gelesen markieren</string>
+    <string name="inbox_mark_unread">Als ungelesen markieren</string>
+
+    <!-- Suche -->
+    <string name="inbox_search">Suchen</string>
+    <string name="inbox_search_close">Suche schließen</string>
+    <string name="inbox_search_placeholder">Suchen … (Enter für Volltext)</string>
+    <string name="inbox_search_clear">Eingabe löschen</string>
+    <string name="inbox_search_failed">Suche fehlgeschlagen: %1$s</string>
+    <string name="inbox_filter_unread">Ungelesen</string>
+    <string name="inbox_filter_attachment">Mit Anhang</string>
+    <string name="inbox_filter_recent">Letzte 7 Tage</string>
+    <string name="inbox_search_results">Ergebnisse (%1$d)</string>
+    <string name="inbox_search_results_local">Ergebnisse in Betreff/Absender (%1$d) – Enter sucht auch im Text</string>
+    <string name="inbox_search_no_results">Keine Treffer.</string>
+
+    <!-- Ordner-Menü -->
+    <string name="inbox_all_accounts">Alle Konten</string>
+    <string name="inbox_folder_switch">Ordner wechseln</string>
+    <string name="inbox_newsletter">Newsletter</string>
+    <string name="inbox_attachments">Anhänge</string>
+    <string name="inbox_stats">Statistik</string>
+
+    <!-- Ansicht &amp; Design -->
+    <string name="inbox_focus_enable">Fokus-Blöcke einschalten</string>
+    <string name="inbox_focus_disable">Fokus-Blöcke ausschalten</string>
+    <string name="inbox_layout_to_blocks">Zur Kachel-Ansicht wechseln</string>
+    <string name="inbox_layout_to_blocks3">Zur kompakten Kachel-Ansicht wechseln</string>
+    <string name="inbox_layout_to_list">Zur Listen-Ansicht wechseln</string>
+    <string name="inbox_theme_light">Helles Design</string>
+    <string name="inbox_theme_dark">Dunkles Design</string>
+    <string name="inbox_layout_list">Liste</string>
+    <string name="inbox_layout_blocks">Kacheln (2er)</string>
+    <string name="inbox_layout_blocks3">Kompakt (3er)</string>
+
+    <!-- Einrichtung / Verfassen -->
+    <string name="inbox_welcome_title">Willkommen bei BlockMail</string>
+    <string name="inbox_welcome_text">Verbinde dein Gmail-Konto in den Einstellungen, um loszulegen.</string>
+    <string name="inbox_welcome_connect">Konto verbinden</string>
+    <string name="inbox_compose">Neue E-Mail</string>
+
+    <!-- Entwürfe -->
+    <string name="inbox_drafts_title">Entwürfe</string>
+    <string name="inbox_drafts_count">Entwürfe (%1$d)</string>
+    <string name="inbox_drafts_empty">Keine Entwürfe vorhanden.</string>
+    <string name="inbox_drafts_hint">Angefangene Mails werden beim Verlassen des Verfassen-Fensters automatisch hier abgelegt.</string>
+    <string name="inbox_drafts_no_subject">(Ohne Betreff)</string>
+    <string name="inbox_drafts_to">An: %1$s</string>
+    <string name="inbox_drafts_delete">Entwurf löschen</string>
+
+    <!-- Abschnitts-Überschriften -->
+    <string name="inbox_section_new">Neu (%1$d)</string>
+    <string name="inbox_section_label_count">%1$s (%2$d)</string>
+    <string name="inbox_time_today">Heute</string>
+    <string name="inbox_time_yesterday">Gestern</string>
+    <string name="inbox_time_this_week">Diese Woche</string>
+    <string name="inbox_time_older">Älter</string>
+    <string name="inbox_empty">Keine E-Mails geladen.\nZum Aktualisieren nach unten ziehen.</string>
+
+    <!-- Fokus-Blöcke -->
+    <string name="inbox_focus_needs_reply">❗ Braucht Antwort</string>
+    <string name="inbox_focus_important">⭐ Wichtig</string>
+    <string name="inbox_focus_can_wait">📥 Kann warten</string>
+    <string name="inbox_focus_promo">📣 Werbung &amp; Newsletter</string>
+    <string name="inbox_focus_grouped">Fokus: nach Wichtigkeit gruppiert</string>
+    <string name="inbox_focus_refine">Mit KI verfeinern</string>
+    <string name="inbox_focus_refine_again">Erneut mit KI sortieren</string>
+
+    <!-- KI-Funktionen -->
+    <string name="inbox_ai_functions">KI-Funktionen</string>
+    <string name="inbox_ai_summarize_day">Meinen Tag zusammenfassen</string>
+    <string name="inbox_ai_summarize_unread">Ungelesene zusammenfassen</string>
+    <string name="inbox_ai_day_title">Dein Tag im Überblick</string>
+    <string name="inbox_ai_unread_title">Ungelesene im Überblick</string>
+    <string name="inbox_ai_no_matching_mails">Dafür gibt es gerade keine passenden Mails.</string>
+    <string name="inbox_ai_no_result">KI-Sortierung lieferte kein verwertbares Ergebnis</string>
+    <string name="inbox_ai_error">KI-Fehler: %1$s</string>
+    <string name="inbox_ai_open_mail">Mail öffnen</string>
+    <string name="inbox_ai_tap_hint">Antippen öffnet die jeweilige Mail.</string>
+
+    <!-- Wisch-Aktionen &amp; Rückgängig -->
+    <string name="inbox_swipe_archive">Archivieren</string>
+    <string name="inbox_swipe_snooze">Morgen erinnern</string>
+    <string name="inbox_swipe_archive_all">Alle archivieren</string>
+    <string name="inbox_swipe_mark_read_all">Alle als gelesen markieren</string>
+    <string name="inbox_swipe_mark_unread_all">Alle als ungelesen markieren</string>
+    <string name="inbox_swipe_snooze_all">Alle morgen erinnern</string>
+    <string name="inbox_snackbar_deleted">Mail gelöscht</string>
+    <string name="inbox_snackbar_archived">Mail archiviert</string>
+    <string name="inbox_snackbar_snoozed">Erinnerung morgen um 8 Uhr</string>
+    <string name="inbox_snackbar_thread_archived">Konversation archiviert (%1$d Mails)</string>
+    <string name="inbox_snackbar_thread_snoozed">Erinnerung morgen um 8 Uhr (%1$d Mails)</string>
+
+    <!-- Konversationen -->
+    <string name="inbox_thread_delete_title">Konversation löschen?</string>
+    <string name="inbox_thread_delete_text">Diese Konversation enthält %1$d Mails. Sollen alle gelöscht werden?</string>
+    <string name="inbox_thread_part">Teil der Konversation</string>
+    <string name="inbox_thread_expand">Aufklappen</string>
+    <string name="inbox_thread_collapse">Zuklappen</string>
+
+    <!-- Mail-Zeile / Kachel -->
+    <string name="inbox_no_content">Kein Inhalt</string>
+    <string name="inbox_phishing_warning">Möglicher Phishing-Versuch</string>
+    <string name="inbox_has_attachment">Anhang vorhanden</string>
+</resources>
