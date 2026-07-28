@@ -11,6 +11,10 @@ object PhishingCheck {
         val suspicious: Boolean get() = score >= 3
     }
 
+    /** Nutzersichtbare Begründungen in der Gerätesprache (Deutsch/Englisch). */
+    private val de: Boolean get() = java.util.Locale.getDefault().language == "de"
+    private fun t(deText: String, enText: String) = if (de) deText else enText
+
     /** Bekannte Marken, deren Name oft für Phishing missbraucht wird. */
     private val brands = listOf(
         "paypal", "amazon", "sparkasse", "volksbank", "commerzbank", "postbank",
@@ -26,7 +30,12 @@ object PhishingCheck {
         "zahlung fehlgeschlagen", "zahlungsmethode aktualisieren",
         "sofort handeln", "innerhalb von 24 stunden", "letzte mahnung",
         "ihr zugang läuft ab", "passwort abgelaufen", "account suspended",
-        "verify your account", "unusual activity", "update your payment"
+        "verify your account", "unusual activity", "update your payment",
+        // Gängige englische Druck-Formulierungen
+        "act now", "confirm your identity", "suspicious activity",
+        "payment failed", "final notice", "immediate action required",
+        "your password has expired", "within 24 hours",
+        "your account has been locked"
     )
 
     private val shorteners = listOf(
@@ -69,9 +78,12 @@ object PhishingCheck {
                 !senderDomain.replace("-", "").contains(brandKey)
             ) {
                 score += 3
+                val brandName = brand.replaceFirstChar { it.uppercase() }
                 reasons.add(
-                    "Gibt sich als „${brand.replaceFirstChar { it.uppercase() }}“ aus, " +
-                        "kommt aber von „$senderDomain“"
+                    t(
+                        "Gibt sich als „$brandName“ aus, kommt aber von „$senderDomain“",
+                        "Claims to be “$brandName” but was actually sent from “$senderDomain”"
+                    )
                 )
             }
         }
@@ -103,17 +115,30 @@ object PhishingCheck {
                     ) {
                         textMismatch = true
                         reasons.add(
-                            "Ein Link zeigt „$visibleDomain“ an, führt aber zu „$hrefDomain“"
+                            t(
+                                "Ein Link zeigt „$visibleDomain“ an, führt aber zu „$hrefDomain“",
+                                "A link shows “$visibleDomain” but actually leads to “$hrefDomain”"
+                            )
                         )
                     }
                 }
                 if (!punycode && hrefDomain.contains("xn--")) {
                     punycode = true
-                    reasons.add("Link mit verschleierter Schrift-Domain (Punycode)")
+                    reasons.add(
+                        t(
+                            "Link mit verschleierter Schrift-Domain (Punycode)",
+                            "Link uses a disguised look-alike domain (punycode)"
+                        )
+                    )
                 }
                 if (!ipLink && Regex("^\\d{1,3}(\\.\\d{1,3}){3}$").matches(hrefDomain)) {
                     ipLink = true
-                    reasons.add("Link führt direkt zu einer IP-Adresse statt einer Domain")
+                    reasons.add(
+                        t(
+                            "Link führt direkt zu einer IP-Adresse statt einer Domain",
+                            "Link points directly to an IP address instead of a domain"
+                        )
+                    )
                 }
                 if (!shortener && shorteners.any { hrefDomain == it }) {
                     shortener = true
@@ -125,7 +150,12 @@ object PhishingCheck {
             if (ipLink) score += 2
             if (shortener && linkFlagged) {
                 score += 1
-                reasons.add("Verkürzte Links verbergen das eigentliche Ziel")
+                reasons.add(
+                    t(
+                        "Verkürzte Links verbergen das eigentliche Ziel",
+                        "Shortened links hide the real destination"
+                    )
+                )
             }
         }
 
@@ -133,10 +163,20 @@ object PhishingCheck {
         val urgencyHits = urgencyWords.count { haystack.contains(it) }
         if (urgencyHits >= 2) {
             score += 2
-            reasons.add("Drängt mit typischen Formulierungen zu sofortigem Handeln")
+            reasons.add(
+                t(
+                    "Drängt mit typischen Formulierungen zu sofortigem Handeln",
+                    "Pressures you to act immediately with typical scam wording"
+                )
+            )
         } else if (urgencyHits == 1 && score > 0) {
             score += 1
-            reasons.add("Enthält eine typische Druck-Formulierung")
+            reasons.add(
+                t(
+                    "Enthält eine typische Druck-Formulierung",
+                    "Contains a typical pressure phrase"
+                )
+            )
         }
 
         return Result(score, reasons)
