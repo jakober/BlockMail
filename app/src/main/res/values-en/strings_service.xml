@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- MailApp: notification channels -->
+    <string name="svc_channel_new_mail">New email</string>
+    <string name="svc_channel_new_mail_desc">Notifications for new email</string>
+    <string name="svc_channel_newsletter">Newsletter cleanup</string>
+    <string name="svc_channel_newsletter_desc">Report of the daily newsletter cleanup</string>
+    <string name="svc_channel_sync">Background sync</string>
+    <string name="svc_channel_sync_desc">Persistent connection for real-time push</string>
+
+    <!-- MailChecker: notifications -->
+    <string name="svc_snooze_reminder_prefix">"⏰ Reminder: "</string>
+    <string name="svc_scheduled_sent">Scheduled mail sent: %1$s</string>
+    <string name="svc_scheduled_failed">Scheduled send failed (%1$s) — retrying in 15 min</string>
+    <string name="svc_sender_fallback">Sender</string>
+    <string name="svc_me">Me</string>
+    <string name="svc_reply_hint">Reply …</string>
+    <string name="svc_action_reply">Reply</string>
+    <string name="svc_action_mark_read">Mark as read</string>
+    <string name="svc_action_archive">Archive</string>
+    <string name="svc_action_delete">Delete</string>
+    <string name="svc_reply_sent">Reply sent ✓</string>
+    <string name="svc_reply_failed">Reply failed: %1$s</string>
+    <string name="svc_error_generic">Error</string>
+    <string name="svc_radar_title">Reply radar</string>
+    <string name="svc_radar_needs_reply">❓ %1$s: “%2$s” — unanswered for %3$d days</string>
+    <string name="svc_radar_waiting">⏳ No reply from %1$s for %2$d days — follow up?</string>
+
+    <!-- MailSyncService: push status line and service notification -->
+    <string name="svc_push_not_started">Not started yet</string>
+    <string name="svc_push_net_change">Network change detected (%1$s) – reconnecting …</string>
+    <string name="svc_no_account">No account connected</string>
+    <string name="svc_push_disconnected_retry">Disconnected (%1$s) – reconnecting shortly …</string>
+    <string name="svc_push_disconnected_error">Disconnected (%1$s): %2$s – retrying in %3$ds</string>
+    <string name="svc_push_connecting">Connecting … (%1$s)</string>
+    <string name="svc_push_connected_waiting">Connected – waiting for mail (since %1$s)</string>
+    <string name="svc_push_connected_processed">Connected – last mail processed %1$s</string>
+    <string name="svc_push_stopped">Stopped</string>
+    <string name="svc_sync_notif_title">BlockMail active</string>
+    <string name="svc_sync_notif_text">Waiting for new email — swipe away to hide</string>
+    <string name="svc_check_no_new">No new mail</string>
+    <string name="svc_check_failed">Check failed — please check your connection</string>
+
+    <!-- Home screen widget -->
+    <string name="svc_widget_title">Inbox</string>
+    <string name="svc_widget_empty">No mail loaded</string>
+    <string name="svc_widget_unread">%1$d new</string>
+
+    <!-- NewsletterCleaner: status and notification texts of the cleanup run -->
+    <string name="svc_unknown_sender">Unknown</string>
+    <string name="svc_no_subject">(No subject)</string>
+    <string name="svc_nl_none_found">No mail found in the last 24 hours (empty search).</string>
+    <string name="svc_nl_none_within">%1$d mail(s) found, but none within the last 24 hours.</string>
+    <string name="svc_nl_all_known">%1$d mail(s) checked, all known as “not a newsletter”.</string>
+    <string name="svc_nl_method_no_ai">without AI (unsubscribe header only)</string>
+    <string name="svc_nl_none_detected">%1$d mail(s) from the last 24 h checked (%2$s), none detected as newsletters.</string>
+    <string name="svc_nl_folder_failed">Could not create the “Newsletter” folder.</string>
+    <string name="svc_nl_success">%1$d mail(s) checked (%2$s): %3$d newsletter(s) moved to the “Newsletter” folder.</string>
+    <string name="svc_nl_error_cleanup">Error during cleanup: %1$s</string>
+    <string name="svc_nl_error">Error: %1$s</string>
+    <string name="svc_nl_scan_done">Newsletter scan finished</string>
+    <string name="svc_nl_cleaned_title">%1$d newsletter(s) cleaned up</string>
+    <string name="svc_nl_cleaned_text">Tap for the log with unsubscribe links</string>
+</resources>
