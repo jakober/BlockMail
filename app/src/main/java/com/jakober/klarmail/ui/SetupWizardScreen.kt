@@ -38,10 +38,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.jakober.klarmail.R
 import com.jakober.klarmail.data.MailRepository
 import com.jakober.klarmail.data.Prefs
 import kotlinx.coroutines.launch
@@ -50,70 +53,58 @@ import kotlinx.coroutines.launch
 private data class SetupProvider(
     val id: String,
     val label: String,
-    val note: String,
+    val noteRes: Int,
     val helpUrl: String?,
-    val helpLabel: String?,
+    val helpLabelRes: Int?,
     val imap: String,
     val imapPort: Int,
     val smtp: String,
     val smtpPort: Int,
-    val passwordLabel: String
+    val passwordLabelRes: Int
 )
 
 private val setupProviders = listOf(
     SetupProvider(
         "gmail", "Gmail",
-        "Gmail braucht ein App-Passwort: In deinem Google-Konto muss die " +
-            "2-Faktor-Bestätigung aktiv sein. Erstelle über den Link unten ein " +
-            "App-Passwort und füge es hier ein — dein normales Passwort funktioniert nicht.",
-        "https://myaccount.google.com/apppasswords", "App-Passwort bei Google erstellen",
-        "imap.gmail.com", 993, "smtp.gmail.com", 465, "App-Passwort"
+        R.string.setup_note_gmail,
+        "https://myaccount.google.com/apppasswords", R.string.setup_help_gmail,
+        "imap.gmail.com", 993, "smtp.gmail.com", 465, R.string.setup_pw_app
     ),
     SetupProvider(
         "webde", "Web.de",
-        "Bei Web.de muss einmalig „POP3/IMAP“ eingeschaltet sein " +
-            "(Web.de-Postfach → Einstellungen → POP3/IMAP Abruf). Danach reicht dein " +
-            "normales Passwort; mit 2-Faktor-Schutz brauchst du ein App-Passwort.",
-        "https://hilfe.web.de/pop-imap/einschalten.html", "Anleitung öffnen",
-        "imap.web.de", 993, "smtp.web.de", 587, "Passwort"
+        R.string.setup_note_webde,
+        "https://hilfe.web.de/pop-imap/einschalten.html", R.string.setup_help_guide,
+        "imap.web.de", 993, "smtp.web.de", 587, R.string.setup_pw_normal
     ),
     SetupProvider(
         "gmx", "GMX",
-        "Bei GMX muss einmalig „POP3/IMAP“ eingeschaltet sein " +
-            "(GMX-Postfach → E-Mail → Einstellungen → POP3/IMAP Abruf). Danach reicht " +
-            "dein normales Passwort; mit 2-Faktor-Schutz brauchst du ein App-Passwort.",
-        "https://hilfe.gmx.net/pop-imap/einschalten.html", "Anleitung öffnen",
-        "imap.gmx.net", 993, "mail.gmx.net", 587, "Passwort"
+        R.string.setup_note_gmx,
+        "https://hilfe.gmx.net/pop-imap/einschalten.html", R.string.setup_help_guide,
+        "imap.gmx.net", 993, "mail.gmx.net", 587, R.string.setup_pw_normal
     ),
     SetupProvider(
         "outlook", "Outlook / Hotmail",
-        "Mit 2-Faktor-Schutz brauchst du ein App-Passwort (Link unten). Hinweis: " +
-            "Manche Firmen-Konten (Microsoft 365) erlauben keine Passwort-Anmeldung — " +
-            "dann schlägt die Verbindung fehl.",
-        "https://account.live.com/proofs/AppPassword", "App-Passwort bei Microsoft erstellen",
-        "outlook.office365.com", 993, "smtp.office365.com", 587, "Passwort / App-Passwort"
+        R.string.setup_note_outlook,
+        "https://account.live.com/proofs/AppPassword", R.string.setup_help_outlook,
+        "outlook.office365.com", 993, "smtp.office365.com", 587, R.string.setup_pw_outlook
     ),
     SetupProvider(
         "yahoo", "Yahoo Mail",
-        "Yahoo verlangt ein App-Passwort: Erstelle es über den Link unten " +
-            "(Konto-Sicherheit → App-Passwörter) und füge es hier ein.",
-        "https://login.yahoo.com/myaccount/security", "App-Passwort bei Yahoo erstellen",
-        "imap.mail.yahoo.com", 993, "smtp.mail.yahoo.com", 465, "App-Passwort"
+        R.string.setup_note_yahoo,
+        "https://login.yahoo.com/myaccount/security", R.string.setup_help_yahoo,
+        "imap.mail.yahoo.com", 993, "smtp.mail.yahoo.com", 465, R.string.setup_pw_app
     ),
     SetupProvider(
         "tonline", "T-Online",
-        "T-Online braucht ein eigenes „E-Mail-Passwort“ (nicht dein " +
-            "Kundencenter-Passwort). Du legst es im E-Mail-Center unter " +
-            "„Passwörter“ fest.",
-        "https://email.t-online.de", "E-Mail-Center öffnen",
-        "secureimap.t-online.de", 993, "securesmtp.t-online.de", 465, "E-Mail-Passwort"
+        R.string.setup_note_tonline,
+        "https://email.t-online.de", R.string.setup_help_tonline,
+        "secureimap.t-online.de", 993, "securesmtp.t-online.de", 465, R.string.setup_pw_tonline
     ),
     SetupProvider(
         "icloud", "iCloud Mail",
-        "Apple verlangt ein app-spezifisches Passwort: Erstelle es auf " +
-            "appleid.apple.com unter „Anmeldung und Sicherheit“.",
-        "https://appleid.apple.com", "Apple-ID-Einstellungen öffnen",
-        "imap.mail.me.com", 993, "smtp.mail.me.com", 587, "App-spezifisches Passwort"
+        R.string.setup_note_icloud,
+        "https://appleid.apple.com", R.string.setup_help_icloud,
+        "imap.mail.me.com", 993, "smtp.mail.me.com", 587, R.string.setup_pw_icloud
     )
 )
 
@@ -126,6 +117,7 @@ private val setupProviders = listOf(
 fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
 
     var provider by remember { mutableStateOf<SetupProvider?>(null) }
     var email by remember { mutableStateOf("") }
@@ -136,7 +128,7 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(provider?.label ?: "Konto einrichten") },
+                title = { Text(provider?.label ?: stringResource(R.string.setup_title)) },
                 navigationIcon = {
                     IconButton(onClick = {
                         if (provider != null) {
@@ -146,7 +138,10 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                             onBack()
                         }
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.setup_back)
+                        )
                     }
                 }
             )
@@ -162,14 +157,13 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
             val p = provider
             if (p == null) {
                 Text(
-                    "Wähle deinen E-Mail-Anbieter",
+                    stringResource(R.string.setup_choose_provider),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Server und Ports stellt BlockMail automatisch ein — du brauchst " +
-                        "nur E-Mail-Adresse und Passwort.",
+                    stringResource(R.string.setup_choose_provider_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -201,7 +195,7 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                     Spacer(Modifier.height(8.dp))
                 }
                 TextButton(onClick = onBack) {
-                    Text("Anderer Anbieter — Server manuell in den Einstellungen eintragen")
+                    Text(stringResource(R.string.setup_other_provider))
                 }
                 Spacer(Modifier.height(24.dp))
             } else {
@@ -211,10 +205,10 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
-                        Text(p.note, style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(p.noteRes), style = MaterialTheme.typography.bodyMedium)
                         p.helpUrl?.let { url ->
                             TextButton(onClick = { runCatching { uriHandler.openUri(url) } }) {
-                                Text(p.helpLabel ?: "Hilfe öffnen")
+                                Text(stringResource(p.helpLabelRes ?: R.string.setup_help_open))
                                 Spacer(Modifier.width(6.dp))
                                 Icon(
                                     Icons.AutoMirrored.Filled.OpenInNew,
@@ -229,7 +223,7 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("E-Mail-Adresse") },
+                    label = { Text(stringResource(R.string.setup_email_address)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -237,7 +231,7 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text(p.passwordLabel) },
+                    label = { Text(stringResource(p.passwordLabelRes)) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
@@ -284,7 +278,7 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                                 onDone()
                             } else {
                                 testing = false
-                                error = "Verbindung fehlgeschlagen: $err"
+                                error = context.getString(R.string.setup_connection_failed, err)
                             }
                         }
                     },
@@ -297,11 +291,11 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                         Spacer(Modifier.width(10.dp))
-                        Text("Verbindung wird geprüft …")
+                        Text(stringResource(R.string.setup_testing))
                     } else {
                         Icon(Icons.Filled.CheckCircle, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Verbinden")
+                        Text(stringResource(R.string.setup_connect))
                     }
                 }
                 Spacer(Modifier.height(24.dp))

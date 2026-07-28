@@ -82,10 +82,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.jakober.klarmail.R
 import com.jakober.klarmail.data.GoogleAuth
 import com.jakober.klarmail.data.MailRepository
 import com.jakober.klarmail.data.Prefs
@@ -102,7 +104,8 @@ private data class MailProvider(
     val imap: String,
     val imapPort: Int,
     val smtp: String,
-    val smtpPort: Int
+    val smtpPort: Int,
+    val labelRes: Int? = null
 )
 
 private val mailProviders = listOf(
@@ -110,12 +113,16 @@ private val mailProviders = listOf(
     MailProvider("webde", "Web.de", "imap.web.de", 993, "smtp.web.de", 587),
     MailProvider("gmx", "GMX", "imap.gmx.net", 993, "mail.gmx.net", 587),
     MailProvider("outlook", "Outlook / Office 365", "outlook.office365.com", 993, "smtp.office365.com", 587),
-    MailProvider("custom", "Eigenes (IMAP)", "", 0, "", 0)
+    MailProvider("custom", "", "", 0, "", 0, labelRes = R.string.settings_provider_custom)
 )
 
 private fun providerIdFor(imapHost: String): String =
     mailProviders.firstOrNull { it.imap.isNotBlank() && it.imap.equals(imapHost, ignoreCase = true) }
         ?.id ?: "custom"
+
+@Composable
+private fun MailProvider.displayLabel(): String =
+    labelRes?.let { stringResource(it) } ?: label
 
 /** Wählbare Konto-Farben (Balken vorne an den Mail-Karten). */
 private val accountPalette = listOf(
@@ -131,10 +138,10 @@ private val accountPalette = listOf(
 
 /** Wählbare Wisch-Aktionen für den Posteingang. */
 private val swipeActionLabels = listOf(
-    "delete" to "Löschen",
-    "archive" to "Archivieren",
-    "read" to "Gelesen/Ungelesen",
-    "snooze" to "Erinnern (morgen 8 Uhr)"
+    "delete" to R.string.settings_swipe_delete,
+    "archive" to R.string.settings_swipe_archive,
+    "read" to R.string.settings_swipe_read,
+    "snooze" to R.string.settings_swipe_snooze
 )
 
 /**
@@ -158,7 +165,7 @@ private fun ColorPickerDialog(
     val color = Color.hsv(hue.coerceIn(0f, 360f), sat.coerceIn(0f, 1f), bright.coerceIn(0f, 1f))
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Eigene Farbe wählen") },
+        title = { Text(stringResource(R.string.settings_color_picker_title)) },
         text = {
             Column {
                 Box(
@@ -169,19 +176,19 @@ private fun ColorPickerDialog(
                         .background(color)
                 )
                 Spacer(Modifier.height(16.dp))
-                Text("Farbton", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.settings_color_hue), style = MaterialTheme.typography.labelLarge)
                 androidx.compose.material3.Slider(
                     value = hue,
                     onValueChange = { hue = it },
                     valueRange = 0f..360f
                 )
-                Text("Sättigung", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.settings_color_saturation), style = MaterialTheme.typography.labelLarge)
                 androidx.compose.material3.Slider(
                     value = sat,
                     onValueChange = { sat = it },
                     valueRange = 0f..1f
                 )
-                Text("Helligkeit", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.settings_color_brightness), style = MaterialTheme.typography.labelLarge)
                 androidx.compose.material3.Slider(
                     value = bright,
                     onValueChange = { bright = it },
@@ -190,10 +197,10 @@ private fun ColorPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onPick(color.toArgb()) }) { Text("Übernehmen") }
+            TextButton(onClick = { onPick(color.toArgb()) }) { Text(stringResource(R.string.settings_color_apply)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_cancel)) }
         }
     )
 }
@@ -216,7 +223,10 @@ private fun SwipeActionPicker(title: String, value: String, onSelect: (String) -
                 modifier = Modifier.clickable { open = true }
             ) {
                 Text(
-                    swipeActionLabels.firstOrNull { it.first == value }?.second ?: "Löschen",
+                    stringResource(
+                        swipeActionLabels.firstOrNull { it.first == value }?.second
+                            ?: R.string.settings_swipe_delete
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold
@@ -230,7 +240,7 @@ private fun SwipeActionPicker(title: String, value: String, onSelect: (String) -
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                 swipeActionLabels.forEach { (id, label) ->
                     DropdownMenuItem(
-                        text = { Text(label) },
+                        text = { Text(stringResource(label)) },
                         onClick = {
                             open = false
                             onSelect(id)
@@ -284,13 +294,13 @@ fun SettingsScreen(
         var tplText by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showTemplateDialog = false },
-            title = { Text("Vorlage hinzufügen") },
+            title = { Text(stringResource(R.string.settings_template_add)) },
             text = {
                 Column {
                     OutlinedTextField(
                         value = tplTitle,
                         onValueChange = { tplTitle = it },
-                        label = { Text("Titel") },
+                        label = { Text(stringResource(R.string.settings_template_title)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -298,7 +308,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = tplText,
                         onValueChange = { tplText = it },
-                        label = { Text("Text") },
+                        label = { Text(stringResource(R.string.settings_template_text)) },
                         minLines = 3,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -312,10 +322,10 @@ fun SettingsScreen(
                         Prefs.saveMailTemplates(templates)
                         showTemplateDialog = false
                     }
-                ) { Text("Speichern") }
+                ) { Text(stringResource(R.string.settings_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showTemplateDialog = false }) { Text("Abbrechen") }
+                TextButton(onClick = { showTemplateDialog = false }) { Text(stringResource(R.string.settings_cancel)) }
             }
         )
     }
@@ -331,7 +341,9 @@ fun SettingsScreen(
         email = newEmail
         addingAccount = false
         scope.launch {
-            snackbar.showSnackbar("Mit Google verbunden: $newEmail")
+            snackbar.showSnackbar(
+                context.getString(R.string.settings_google_connected_snack, newEmail)
+            )
             // Vollständiger Kontowechsel: Caches leeren, Posteingang laden,
             // Push-Dienst auf das neue Konto verbinden
             MailRepository.switchAccount(
@@ -350,7 +362,14 @@ fun SettingsScreen(
         if (result.resultCode != Activity.RESULT_OK || data == null) {
             if (data != null) {
                 AuthorizationException.fromIntent(data)?.let { ex ->
-                    scope.launch { snackbar.showSnackbar("Anmeldung abgebrochen: ${ex.errorDescription ?: ex.error ?: ""}") }
+                    scope.launch {
+                        snackbar.showSnackbar(
+                            context.getString(
+                                R.string.settings_auth_cancelled,
+                                ex.errorDescription ?: ex.error ?: ""
+                            )
+                        )
+                    }
                 }
             }
             return@rememberLauncherForActivityResult
@@ -359,7 +378,13 @@ fun SettingsScreen(
         val ex = AuthorizationException.fromIntent(data)
         if (resp == null) {
             scope.launch {
-                snackbar.showSnackbar("Anmeldung fehlgeschlagen: ${ex?.errorDescription ?: ex?.error ?: "unbekannt"}")
+                snackbar.showSnackbar(
+                    context.getString(
+                        R.string.settings_auth_failed,
+                        ex?.errorDescription ?: ex?.error
+                            ?: context.getString(R.string.settings_unknown)
+                    )
+                )
             }
             return@rememberLauncherForActivityResult
         }
@@ -385,7 +410,11 @@ fun SettingsScreen(
             } else {
                 scope.launch {
                     snackbar.showSnackbar(
-                        "Token-Austausch fehlgeschlagen: ${tokenEx?.errorDescription ?: tokenEx?.error ?: "unbekannt"}"
+                        context.getString(
+                            R.string.settings_token_exchange_failed,
+                            tokenEx?.errorDescription ?: tokenEx?.error
+                                ?: context.getString(R.string.settings_unknown)
+                        )
                     )
                 }
             }
@@ -395,10 +424,13 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Einstellungen") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.settings_back)
+                        )
                     }
                 }
             )
@@ -413,15 +445,15 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp)
         ) {
             // Ganz oben: Erscheinungsbild (Hell/Dunkel + Farbwelt)
-            GroupHeader("Aussehen")
+            GroupHeader(stringResource(R.string.settings_group_appearance))
             SectionCard(
-                "Erscheinungsbild", Icons.Filled.Palette,
-                subtitle = "Hell/Dunkel und die Farben der App"
+                stringResource(R.string.settings_appearance_title), Icons.Filled.Palette,
+                subtitle = stringResource(R.string.settings_appearance_subtitle)
             ) {
             listOf(
-                "system" to "Wie das Gerät (automatisch)",
-                "light" to "Hell",
-                "dark" to "Dunkel"
+                "system" to stringResource(R.string.settings_darkmode_system),
+                "light" to stringResource(R.string.settings_darkmode_light),
+                "dark" to stringResource(R.string.settings_darkmode_dark)
             ).forEach { (id, label) ->
                 Row(
                     modifier = Modifier
@@ -440,7 +472,7 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(12.dp))
-            SectionTitle("Farbschema")
+            SectionTitle(stringResource(R.string.settings_color_scheme))
             colorSchemes.forEach { scheme ->
                 Row(
                     modifier = Modifier
@@ -487,11 +519,11 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    "Eigene Farbe",
+                    stringResource(R.string.settings_custom_color),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = { showColorPicker = true }) { Text("Ändern") }
+                TextButton(onClick = { showColorPicker = true }) { Text(stringResource(R.string.settings_change)) }
             }
             if (showColorPicker) {
                 ColorPickerDialog(
@@ -508,22 +540,26 @@ fun SettingsScreen(
             }
 
             SectionCard(
-                "Posteingang", Icons.Filled.Inbox,
-                subtitle = "Darstellung, Konversationen und Wischgesten"
+                stringResource(R.string.settings_inbox_title), Icons.Filled.Inbox,
+                subtitle = stringResource(R.string.settings_inbox_subtitle)
             ) {
-            SectionTitle("Darstellung")
+            SectionTitle(stringResource(R.string.settings_display))
             val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
             listOf(
-                Triple("list", "Liste (klassisch)", "Mails untereinander, wie gewohnt."),
                 Triple(
-                    "blocks", "Blöcke (BlockMail-Stil)",
-                    "Mails als gleich große Blöcke im 2-Spalten-Raster mit Vorschautext " +
-                        "— passend zum Logo."
+                    "list",
+                    stringResource(R.string.settings_layout_list_title),
+                    stringResource(R.string.settings_layout_list_desc)
                 ),
                 Triple(
-                    "blocks3", "Kompakte Blöcke (3 Spalten)",
-                    "Noch mehr Mails auf einen Blick: kleinere Blöcke ohne Vorschautext. " +
-                        "Alle Ansichten auch oben im Posteingang durchschaltbar."
+                    "blocks",
+                    stringResource(R.string.settings_layout_blocks_title),
+                    stringResource(R.string.settings_layout_blocks_desc)
+                ),
+                Triple(
+                    "blocks3",
+                    stringResource(R.string.settings_layout_blocks3_title),
+                    stringResource(R.string.settings_layout_blocks3_desc)
                 )
             ).forEach { (id, title, desc) ->
                 Row(
@@ -554,10 +590,12 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Konversations-Ansicht", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Mails mit gleichem Betreff werden als ein Gespräch gebündelt " +
-                            "(antippen zum Aufklappen) — in Liste und Kachel-Ansicht.",
+                        stringResource(R.string.settings_conversation_view),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        stringResource(R.string.settings_conversation_view_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -570,28 +608,28 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
-            SectionTitle("Wischgesten")
+            SectionTitle(stringResource(R.string.settings_swipe_gestures))
             Text(
-                "Lege fest, was beim Wischen einer Mail nach links oder rechts passiert.",
+                stringResource(R.string.settings_swipe_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(4.dp))
             val swipeLeftAction by Prefs.swipeLeftFlow.collectAsState()
             val swipeRightAction by Prefs.swipeRightFlow.collectAsState()
-            SwipeActionPicker("Nach links wischen", swipeLeftAction) {
+            SwipeActionPicker(stringResource(R.string.settings_swipe_left), swipeLeftAction) {
                 Prefs.swipeLeftAction = it
             }
-            SwipeActionPicker("Nach rechts wischen", swipeRightAction) {
+            SwipeActionPicker(stringResource(R.string.settings_swipe_right), swipeRightAction) {
                 Prefs.swipeRightAction = it
             }
 
             }
 
-            GroupHeader("Konten & Postfächer")
+            GroupHeader(stringResource(R.string.settings_group_accounts))
             SectionCard(
-                "Konto verbinden", Icons.Filled.AccountCircle,
-                subtitle = "Neues Postfach hinzufügen oder Zugangsdaten ändern"
+                stringResource(R.string.settings_connect_title), Icons.Filled.AccountCircle,
+                subtitle = stringResource(R.string.settings_connect_subtitle)
             ) {
 
             // Empfohlener Weg: Assistent mit fertigen Server-Vorlagen — nur
@@ -599,11 +637,10 @@ fun SettingsScreen(
             Button(onClick = onOpenSetup, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.AutoAwesome, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Einrichtungsassistent starten")
+                Text(stringResource(R.string.settings_setup_wizard_start))
             }
             Text(
-                "Empfohlen: Anbieter wählen, E-Mail und Passwort eingeben — fertig. " +
-                    "Server und Ports werden automatisch gesetzt.",
+                stringResource(R.string.settings_setup_wizard_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -630,7 +667,7 @@ fun SettingsScreen(
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Mit Google verbunden",
+                                stringResource(R.string.settings_google_connected),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -643,8 +680,12 @@ fun SettingsScreen(
                         TextButton(onClick = {
                             GoogleAuth.signOut()
                             googleConnected = false
-                            scope.launch { snackbar.showSnackbar("Google-Konto getrennt") }
-                        }) { Text("Trennen") }
+                            scope.launch {
+                                snackbar.showSnackbar(
+                                    context.getString(R.string.settings_google_disconnected_snack)
+                                )
+                            }
+                        }) { Text(stringResource(R.string.settings_disconnect)) }
                     }
                 }
                 // Weiteres Konto anlegen, OHNE das aktuelle zu trennen
@@ -657,12 +698,11 @@ fun SettingsScreen(
                     imapPortField = "993"
                     smtpHostField = "smtp.gmail.com"
                     smtpPortField = "465"
-                }) { Text("＋ Weiteres Konto hinzufügen") }
+                }) { Text(stringResource(R.string.settings_add_account)) }
             } else {
                 if (addingAccount) {
                     Text(
-                        "Weiteres Konto hinzufügen — „$connectedEmail“ bleibt dabei " +
-                            "verbunden und du kannst danach im Ordner-Menü wechseln.",
+                        stringResource(R.string.settings_add_account_hint, connectedEmail),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -675,7 +715,7 @@ fun SettingsScreen(
                         imapPortField = Prefs.imapPort.toString()
                         smtpHostField = Prefs.smtpHost
                         smtpPortField = Prefs.smtpPort.toString()
-                    }) { Text("Abbrechen — aktuelles Konto behalten") }
+                    }) { Text(stringResource(R.string.settings_add_account_cancel)) }
                     Spacer(Modifier.height(4.dp))
                 }
                 // Google-Anmeldung nur im Entwicklermodus (7-mal auf die
@@ -690,26 +730,32 @@ fun SettingsScreen(
                                     authService.getAuthorizationRequestIntent(GoogleAuth.buildAuthRequest())
                                 )
                             } catch (e: Exception) {
-                                scope.launch { snackbar.showSnackbar("Konnte Anmeldung nicht starten: ${e.message}") }
+                                scope.launch {
+                                    snackbar.showSnackbar(
+                                        context.getString(
+                                            R.string.settings_google_signin_failed, e.message
+                                        )
+                                    )
+                                }
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Filled.AccountCircle, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Mit Google anmelden")
+                        Text(stringResource(R.string.settings_google_signin))
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Es öffnet sich das Google-Fenster, in dem du dein Konto auswählst.",
+                        stringResource(R.string.settings_google_signin_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(16.dp))
                 }
                 Text(
-                    if (devMode) "Alternative: manuell mit Anbieter & App-Passwort"
-                    else "Manuell mit Anbieter & App-Passwort",
+                    if (devMode) stringResource(R.string.settings_manual_alt)
+                    else stringResource(R.string.settings_manual),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -717,10 +763,11 @@ fun SettingsScreen(
                 // Anbieter-Auswahl: setzt die IMAP-/SMTP-Server automatisch
                 Box {
                     OutlinedTextField(
-                        value = mailProviders.firstOrNull { it.id == providerId }?.label ?: "Eigenes (IMAP)",
+                        value = mailProviders.firstOrNull { it.id == providerId }?.displayLabel()
+                            ?: stringResource(R.string.settings_provider_custom),
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Anbieter") },
+                        label = { Text(stringResource(R.string.settings_provider)) },
                         trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null) },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -736,7 +783,7 @@ fun SettingsScreen(
                     ) {
                         mailProviders.forEach { p ->
                             DropdownMenuItem(
-                                text = { Text(p.label) },
+                                text = { Text(p.displayLabel()) },
                                 onClick = {
                                     providerMenuOpen = false
                                     providerId = p.id
@@ -755,7 +802,7 @@ fun SettingsScreen(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("E-Mail-Adresse") },
+                    label = { Text(stringResource(R.string.settings_email_address)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -763,7 +810,7 @@ fun SettingsScreen(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Passwort / App-Passwort") },
+                    label = { Text(stringResource(R.string.settings_password_label)) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
@@ -774,7 +821,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = imapHostField,
                             onValueChange = { imapHostField = it },
-                            label = { Text("IMAP-Server") },
+                            label = { Text(stringResource(R.string.settings_imap_server)) },
                             singleLine = true,
                             modifier = Modifier.weight(0.7f)
                         )
@@ -782,7 +829,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = imapPortField,
                             onValueChange = { imapPortField = it },
-                            label = { Text("Port") },
+                            label = { Text(stringResource(R.string.settings_port)) },
                             singleLine = true,
                             modifier = Modifier.weight(0.3f)
                         )
@@ -792,7 +839,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = smtpHostField,
                             onValueChange = { smtpHostField = it },
-                            label = { Text("SMTP-Server") },
+                            label = { Text(stringResource(R.string.settings_smtp_server)) },
                             singleLine = true,
                             modifier = Modifier.weight(0.7f)
                         )
@@ -800,20 +847,20 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = smtpPortField,
                             onValueChange = { smtpPortField = it },
-                            label = { Text("Port") },
+                            label = { Text(stringResource(R.string.settings_port)) },
                             singleLine = true,
                             modifier = Modifier.weight(0.3f)
                         )
                     }
                     Text(
-                        "SMTP-Port 465 = TLS, 587 = STARTTLS (wird automatisch passend verwendet).",
+                        stringResource(R.string.settings_smtp_port_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 if (providerId == "gmail") {
                     TextButton(onClick = { uriHandler.openUri("https://myaccount.google.com/apppasswords") }) {
-                        Text("App-Passwort bei Google erstellen")
+                        Text(stringResource(R.string.settings_gmail_app_password))
                         Spacer(Modifier.width(6.dp))
                         Icon(
                             Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null,
@@ -826,15 +873,11 @@ fun SettingsScreen(
             }
 
             SectionCard(
-                "Konten", Icons.Filled.People,
-                subtitle = "Deine Postfächer: Farbe und sichtbare Ordner je Konto"
+                stringResource(R.string.settings_accounts_title), Icons.Filled.People,
+                subtitle = stringResource(R.string.settings_accounts_subtitle)
             ) {
             Text(
-                "Zwischen den Konten wechselst du oben im Posteingang über das " +
-                    "Ordner-Menü. „Farbe wählen“ gibt dem Konto eine eigene Farbe — " +
-                    "sie erscheint als Balken vorne an jeder Mail dieses Kontos. " +
-                    "„Sichtbare Ordner“ legt fest, welche Ordner das Konto im " +
-                    "Ordner-Menü zeigt.",
+                stringResource(R.string.settings_accounts_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -844,7 +887,7 @@ fun SettingsScreen(
             colorPickerFor?.let { accEmail ->
                 AlertDialog(
                     onDismissRequest = { colorPickerFor = null },
-                    title = { Text("Farbe für dieses Konto") },
+                    title = { Text(stringResource(R.string.settings_account_color_title)) },
                     text = {
                         Column {
                             Text(
@@ -876,10 +919,10 @@ fun SettingsScreen(
                         TextButton(onClick = {
                             Prefs.setAccountColor(accEmail, null)
                             colorPickerFor = null
-                        }) { Text("Keine Farbe") }
+                        }) { Text(stringResource(R.string.settings_no_color)) }
                     },
                     dismissButton = {
-                        TextButton(onClick = { colorPickerFor = null }) { Text("Abbrechen") }
+                        TextButton(onClick = { colorPickerFor = null }) { Text(stringResource(R.string.settings_cancel)) }
                     }
                 )
             }
@@ -890,7 +933,7 @@ fun SettingsScreen(
                 val hidden = remember(hiddenVersion, accEmail) { Prefs.hiddenFolders(accEmail) }
                 AlertDialog(
                     onDismissRequest = { folderPickerFor = null },
-                    title = { Text("Sichtbare Ordner") },
+                    title = { Text(stringResource(R.string.settings_visible_folders)) },
                     text = {
                         Column {
                             Text(
@@ -900,8 +943,7 @@ fun SettingsScreen(
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Abgewählte Ordner erscheinen nicht im Ordner-Menü dieses " +
-                                    "Kontos. Der Posteingang ist immer sichtbar.",
+                                stringResource(R.string.settings_visible_folders_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -939,7 +981,7 @@ fun SettingsScreen(
                         }
                     },
                     confirmButton = {
-                        TextButton(onClick = { folderPickerFor = null }) { Text("Fertig") }
+                        TextButton(onClick = { folderPickerFor = null }) { Text(stringResource(R.string.settings_done)) }
                     }
                 )
             }
@@ -969,7 +1011,9 @@ fun SettingsScreen(
                         )
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            if (active) "${acc.email} (aktiv)" else acc.email,
+                            if (active) {
+                                stringResource(R.string.settings_account_active, acc.email)
+                            } else acc.email,
                             style = MaterialTheme.typography.bodyLarge,
                             color = if (active) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurface,
@@ -981,7 +1025,8 @@ fun SettingsScreen(
                                 accountList = Prefs.accounts()
                             }) {
                                 Icon(
-                                    Icons.Filled.Close, contentDescription = "Konto entfernen",
+                                    Icons.Filled.Close,
+                                    contentDescription = stringResource(R.string.settings_account_remove),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -994,7 +1039,7 @@ fun SettingsScreen(
                     ) {
                         AssistChip(
                             onClick = { colorPickerFor = acc.email },
-                            label = { Text("Farbe wählen") },
+                            label = { Text(stringResource(R.string.settings_choose_color)) },
                             leadingIcon = {
                                 Icon(
                                     Icons.Filled.Palette,
@@ -1005,7 +1050,7 @@ fun SettingsScreen(
                         )
                         AssistChip(
                             onClick = { folderPickerFor = acc.email },
-                            label = { Text("Sichtbare Ordner") },
+                            label = { Text(stringResource(R.string.settings_visible_folders)) },
                             leadingIcon = {
                                 Icon(
                                     Icons.Filled.Folder,
@@ -1023,11 +1068,9 @@ fun SettingsScreen(
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
-                SectionTitle("Standard-Absender")
+                SectionTitle(stringResource(R.string.settings_default_sender))
                 Text(
-                    "Neue Mails werden über dieses Konto geschrieben (im " +
-                        "Verfassen-Fenster jederzeit umschaltbar). Antworten gehen " +
-                        "immer über das Konto, in dem die Mail ankam.",
+                    stringResource(R.string.settings_default_sender_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1039,7 +1082,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Neue Mails senden über",
+                        stringResource(R.string.settings_send_new_via),
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.weight(1f)
                     )
@@ -1049,7 +1092,9 @@ fun SettingsScreen(
                             modifier = Modifier.clickable { senderMenuOpen = true }
                         ) {
                             Text(
-                                defaultSender.ifBlank { "Aktives Konto" },
+                                if (defaultSender.isBlank()) {
+                                    stringResource(R.string.settings_active_account)
+                                } else defaultSender,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold,
@@ -1066,7 +1111,7 @@ fun SettingsScreen(
                             onDismissRequest = { senderMenuOpen = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Aktives Konto") },
+                                text = { Text(stringResource(R.string.settings_active_account)) },
                                 onClick = {
                                     senderMenuOpen = false
                                     defaultSender = ""
@@ -1090,18 +1135,16 @@ fun SettingsScreen(
 
             }
 
-            GroupHeader("Benachrichtigungen")
+            GroupHeader(stringResource(R.string.settings_group_notifications))
             SectionCard(
-                "Echtzeit-Push", Icons.Filled.Sync,
-                subtitle = "Sofortige Benachrichtigungen bei neuen Mails"
+                stringResource(R.string.settings_push_title), Icons.Filled.Sync,
+                subtitle = stringResource(R.string.settings_push_subtitle)
             ) {
             val pushStatus by MailSyncService.pushStatus.collectAsState()
             // Leerer Initialwert (companion object hat keinen Context) →
             // hier durch den lokalisierten Text ersetzen
             val shownPushStatus = if (pushStatus.isBlank()) {
-                androidx.compose.ui.res.stringResource(
-                    com.jakober.klarmail.R.string.svc_push_not_started
-                )
+                stringResource(R.string.svc_push_not_started)
             } else pushStatus
             Text(
                 shownPushStatus,
@@ -1111,8 +1154,10 @@ fun SettingsScreen(
             Row {
                 TextButton(onClick = {
                     MailSyncService.restart(context)
-                    scope.launch { snackbar.showSnackbar("Push-Dienst neu gestartet") }
-                }) { Text("Dienst neu starten") }
+                    scope.launch {
+                        snackbar.showSnackbar(context.getString(R.string.settings_push_restarted))
+                    }
+                }) { Text(stringResource(R.string.settings_push_restart)) }
                 val pm = context.getSystemService(android.os.PowerManager::class.java)
                 if (pm?.isIgnoringBatteryOptimizations(context.packageName) != true) {
                     TextButton(onClick = {
@@ -1124,13 +1169,17 @@ fun SettingsScreen(
                                 )
                             )
                         } catch (e: Exception) {
-                            scope.launch { snackbar.showSnackbar("Bitte manuell in den Akku-Einstellungen freigeben") }
+                            scope.launch {
+                                snackbar.showSnackbar(
+                                    context.getString(R.string.settings_battery_manual)
+                                )
+                            }
                         }
-                    }) { Text("Akku-Ausnahme erteilen") }
+                    }) { Text(stringResource(R.string.settings_battery_exempt)) }
                 }
             }
             Text(
-                "Tipp: Die Akku-Ausnahme verhindert, dass Android die Push-Verbindung im Standby trennt.",
+                stringResource(R.string.settings_battery_tip),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1145,14 +1194,11 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Sparmodus — ohne Dauer-Benachrichtigung",
+                        stringResource(R.string.settings_eco_title),
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        "Statt der permanenten Verbindung prüft BlockMail alle " +
-                            "~15 Minuten auf neue Mails. Die stille Dienst-Meldung " +
-                            "entfällt; Benachrichtigungen können sich um bis zu " +
-                            "15 Minuten verzögern.",
+                        stringResource(R.string.settings_eco_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1166,12 +1212,16 @@ fun SettingsScreen(
                                 android.content.Intent(context, MailSyncService::class.java)
                             )
                             scope.launch {
-                                snackbar.showSnackbar("Sparmodus aktiv — Prüfung alle ~15 Minuten")
+                                snackbar.showSnackbar(
+                                    context.getString(R.string.settings_eco_on_snack)
+                                )
                             }
                         } else {
                             MailSyncService.start(context)
                             scope.launch {
-                                snackbar.showSnackbar("Echtzeit-Push wieder aktiv")
+                                snackbar.showSnackbar(
+                                    context.getString(R.string.settings_push_on_snack)
+                                )
                             }
                         }
                     }
@@ -1180,20 +1230,18 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
-            SectionTitle("Knöpfe in der Benachrichtigung")
+            SectionTitle(stringResource(R.string.settings_notif_buttons))
             Text(
-                "Welche Aktionen bei einer neuen Mail direkt in der " +
-                    "Benachrichtigung erscheinen. Android zeigt höchstens 3 an. " +
-                    "Die Reihenfolge änderst du per Ziehen am Griff rechts.",
+                stringResource(R.string.settings_notif_buttons_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             val notifActions by Prefs.notifActionsFlow.collectAsState()
             val actionLabels = mapOf(
-                "reply" to "Antworten (mit Direkteingabe)",
-                "read" to "Als gelesen markieren",
-                "archive" to "Archivieren",
-                "delete" to "Löschen"
+                "reply" to stringResource(R.string.settings_notif_reply),
+                "read" to stringResource(R.string.settings_notif_read),
+                "archive" to stringResource(R.string.settings_swipe_archive),
+                "delete" to stringResource(R.string.settings_swipe_delete)
             )
             // Gewählte zuerst — in gespeicherter Reihenfolge (= Reihenfolge
             // in der Benachrichtigung), danach die abgewählten
@@ -1234,7 +1282,7 @@ fun SettingsScreen(
                             if (on && notifActions.size >= 3) {
                                 scope.launch {
                                     snackbar.showSnackbar(
-                                        "Maximal 3 Knöpfe möglich — bitte erst einen abwählen"
+                                        context.getString(R.string.settings_notif_max3)
                                     )
                                 }
                             } else {
@@ -1251,7 +1299,7 @@ fun SettingsScreen(
                     if (checked) {
                         Icon(
                             Icons.Filled.DragHandle,
-                            contentDescription = "Position per Ziehen ändern",
+                            contentDescription = stringResource(R.string.settings_notif_drag),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.pointerInput(key) {
                                 detectVerticalDragGestures(
@@ -1294,15 +1342,11 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Antwort-Radar",
+                        stringResource(R.string.settings_radar_title),
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        "Erinnert einmal täglich an Mails mit offener Frage, die du " +
-                            "noch nicht beantwortet hast — und meldet, wenn du selbst " +
-                            "seit Tagen auf eine Antwort wartest. Gilt nur für echte " +
-                            "Menschen: Absender aus deinen Kontakten oder VIPs, nie " +
-                            "für Standard- und Systemmails.",
+                        stringResource(R.string.settings_radar_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1315,10 +1359,10 @@ fun SettingsScreen(
 
             }
 
-            GroupHeader("Künstliche Intelligenz")
+            GroupHeader(stringResource(R.string.settings_group_ai))
             SectionCard(
-                "KI-Status", Icons.Filled.AutoAwesome,
-                subtitle = "Welche KI gerade aktiv ist und was sie übernimmt"
+                stringResource(R.string.settings_ai_status_title), Icons.Filled.AutoAwesome,
+                subtitle = stringResource(R.string.settings_ai_status_subtitle)
             ) {
             var deviceAiStatus by remember { mutableStateOf<String?>(null) }
             var aiTestRunning by remember { mutableStateOf(false) }
@@ -1326,29 +1370,31 @@ fun SettingsScreen(
             LaunchedEffect(Unit) {
                 deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
             }
-            val deviceAiUsable = deviceAiStatus?.startsWith("Nicht verfügbar") == false
+            val deviceAiUsable = deviceAiStatus?.let {
+                !it.startsWith("Nicht verfügbar") && !it.startsWith("Not available")
+            } == true
             val activeAi = when {
                 aiEngine == "gemini" ->
-                    if (deviceAiUsable) "Geräte-KI (Gemini Nano) — kostenlos, läuft lokal"
-                    else "Keine — Geräte-KI auf diesem Gerät nicht verfügbar"
+                    if (deviceAiUsable) stringResource(R.string.settings_ai_gemini_active)
+                    else stringResource(R.string.settings_ai_none_gemini)
                 aiEngine == "claude" ->
-                    if (claudeKey.isNotBlank()) "Claude (eigener API-Schlüssel)"
-                    else "Keine — API-Schlüssel fehlt"
-                claudeKey.isNotBlank() -> "Claude (eigener API-Schlüssel)"
-                deviceAiUsable -> "Geräte-KI (Gemini Nano) — kostenlos, läuft lokal"
-                else -> "Keine — KI-Funktionen sind ausgeblendet"
+                    if (claudeKey.isNotBlank()) stringResource(R.string.settings_ai_claude_active)
+                    else stringResource(R.string.settings_ai_none_key)
+                claudeKey.isNotBlank() -> stringResource(R.string.settings_ai_claude_active)
+                deviceAiUsable -> stringResource(R.string.settings_ai_gemini_active)
+                else -> stringResource(R.string.settings_ai_none_hidden)
             }
             Text(
-                "Aktive KI: $activeAi",
+                stringResource(R.string.settings_ai_active, activeAi),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.height(4.dp))
             listOf(
-                "auto" to "Automatisch (Claude, wenn Schlüssel vorhanden — sonst Geräte-KI)",
-                "claude" to "Immer Claude (braucht API-Schlüssel)",
-                "gemini" to "Immer Geräte-KI (Gemini Nano)"
+                "auto" to stringResource(R.string.settings_ai_mode_auto),
+                "claude" to stringResource(R.string.settings_ai_mode_claude),
+                "gemini" to stringResource(R.string.settings_ai_mode_gemini)
             ).forEach { (id, label) ->
                 Row(
                     modifier = Modifier
@@ -1366,16 +1412,15 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                "Geräte-KI (Gemini Nano): ${deviceAiStatus ?: "wird geprüft …"}",
+                stringResource(
+                    R.string.settings_ai_device_status,
+                    deviceAiStatus ?: stringResource(R.string.settings_ai_checking)
+                ),
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Mit Claude laufen alle KI-Funktionen inklusive der täglichen " +
-                    "Newsletter-Erkennung. Die Geräte-KI übernimmt Zusammenfassen, " +
-                    "Antwort entwerfen, Mail formulieren und Rechtschreibprüfung — " +
-                    "komplett auf dem Gerät; die Newsletter-Erkennung nutzt dann die " +
-                    "Abmelde-Header-Regel.",
+                stringResource(R.string.settings_ai_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1388,34 +1433,40 @@ fun SettingsScreen(
                             val result = try {
                                 com.jakober.klarmail.ai.GeminiNano.selfTest()
                             } catch (e: Exception) {
-                                "Test fehlgeschlagen: ${e.message?.take(80)}"
+                                context.getString(
+                                    R.string.settings_ai_test_failed, e.message?.take(80)
+                                )
                             }
                             aiTestRunning = false
                             deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
                             snackbar.showSnackbar(result)
                         }
                     }
-                ) { Text(if (aiTestRunning) "Geräte-KI wird getestet …" else "Geräte-KI jetzt testen") }
+                ) {
+                    Text(
+                        if (aiTestRunning) stringResource(R.string.settings_ai_testing)
+                        else stringResource(R.string.settings_ai_test_now)
+                    )
+                }
             }
 
             }
 
             SectionCard(
-                "Claude-API-Schlüssel", Icons.Filled.Key,
-                subtitle = "Optional: eigener Schlüssel für die Claude-KI"
+                stringResource(R.string.settings_claude_key_title), Icons.Filled.Key,
+                subtitle = stringResource(R.string.settings_claude_key_subtitle)
             ) {
             OutlinedTextField(
                 value = claudeKey,
                 onValueChange = { claudeKey = it },
-                label = { Text("Claude API-Schlüssel") },
+                label = { Text(stringResource(R.string.settings_claude_key_label)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                "Optional: Mit einem API-Schlüssel von console.anthropic.com kann Claude " +
-                    "E-Mails formulieren, Antworten entwerfen und die Rechtschreibung prüfen.",
+                stringResource(R.string.settings_claude_key_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1423,8 +1474,8 @@ fun SettingsScreen(
             }
 
             SectionCard(
-                "Newsletter-Aufräumen (KI)", Icons.Filled.Newspaper,
-                subtitle = "Werbung landet automatisch im Newsletter-Ordner"
+                stringResource(R.string.settings_newsletter_title), Icons.Filled.Newspaper,
+                subtitle = stringResource(R.string.settings_newsletter_subtitle)
             ) {
             val newsletterAuto by Prefs.newsletterAutoFlow.collectAsState()
             Row(
@@ -1433,14 +1484,11 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Täglicher Aufräum-Lauf",
+                        stringResource(R.string.settings_newsletter_daily),
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        "Täglich um 20 Uhr erkennt die KI Newsletter der letzten " +
-                            "24 Stunden und verschiebt sie in den Ordner „Newsletter“. " +
-                            "Im Protokoll findest du alle verschobenen Mails samt " +
-                            "Abmelde-Links.",
+                        stringResource(R.string.settings_newsletter_daily_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1451,15 +1499,15 @@ fun SettingsScreen(
                         Prefs.newsletterAutoEnabled = on
                         scope.launch {
                             snackbar.showSnackbar(
-                                if (on) "Tägliches Newsletter-Aufräumen aktiv (20 Uhr)"
-                                else "Tägliches Aufräumen aus — „Jetzt ausführen“ geht weiterhin"
+                                if (on) context.getString(R.string.settings_newsletter_on_snack)
+                                else context.getString(R.string.settings_newsletter_off_snack)
                             )
                         }
                     }
                 )
             }
             Row {
-                TextButton(onClick = onOpenNewsletterLog) { Text("Protokoll anzeigen") }
+                TextButton(onClick = onOpenNewsletterLog) { Text(stringResource(R.string.settings_newsletter_log)) }
                 TextButton(
                     enabled = !newsletterRunning,
                     onClick = {
@@ -1468,20 +1516,28 @@ fun SettingsScreen(
                             newsletterResult = try {
                                 com.jakober.klarmail.data.NewsletterCleaner.run(context)
                             } catch (e: Exception) {
-                                "Fehler: ${e.message ?: e.javaClass.simpleName}"
+                                context.getString(
+                                    R.string.settings_error_prefix,
+                                    e.message ?: e.javaClass.simpleName
+                                )
                             }
                             newsletterRunning = false
                         }
                     }
-                ) { Text(if (newsletterRunning) "Läuft …" else "Jetzt ausführen") }
+                ) {
+                    Text(
+                        if (newsletterRunning) stringResource(R.string.settings_newsletter_running)
+                        else stringResource(R.string.settings_newsletter_run_now)
+                    )
+                }
             }
 
             }
 
-            GroupHeader("Regeln & Kontakte")
+            GroupHeader(stringResource(R.string.settings_group_rules))
             SectionCard(
-                "Absender-Regeln", Icons.Filled.Block,
-                subtitle = "Stumm, blockiert und VIP — wer darf dich stören?"
+                stringResource(R.string.settings_sender_rules_title), Icons.Filled.Block,
+                subtitle = stringResource(R.string.settings_sender_rules_subtitle)
             ) {
             val muted by Prefs.mutedFlow.collectAsState()
             val blocked by Prefs.blockedFlow.collectAsState()
@@ -1494,8 +1550,8 @@ fun SettingsScreen(
                 set.toList()
             }
             SenderListSection(
-                title = "Stumm geschaltete Absender",
-                description = "Mails dieser Absender werden automatisch als gelesen markiert – ohne Benachrichtigung. Sie bleiben im Posteingang.",
+                title = stringResource(R.string.settings_muted_title),
+                description = stringResource(R.string.settings_muted_desc),
                 entries = muted,
                 suggestions = senderSuggestions,
                 onAdd = { Prefs.addMuted(it) },
@@ -1504,8 +1560,8 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(12.dp))
             SenderListSection(
-                title = "Blockierte Absender",
-                description = "Mails dieser Absender werden nach Ankunft sofort gelöscht – ohne Benachrichtigung.",
+                title = stringResource(R.string.settings_blocked_title),
+                description = stringResource(R.string.settings_blocked_desc),
                 entries = blocked,
                 suggestions = senderSuggestions,
                 onAdd = { Prefs.addBlocked(it) },
@@ -1516,10 +1572,8 @@ fun SettingsScreen(
             val vip by Prefs.vipFlow.collectAsState()
             val vipOnly by Prefs.vipOnlyFlow.collectAsState()
             SenderListSection(
-                title = "VIP-Absender",
-                description = "Deine wichtigsten Absender. Mit dem Schalter unten " +
-                    "benachrichtigt BlockMail nur noch bei Mails von ihnen — " +
-                    "alles andere kommt lautlos an.",
+                title = stringResource(R.string.settings_vip_title),
+                description = stringResource(R.string.settings_vip_desc),
                 entries = vip,
                 suggestions = senderSuggestions,
                 onAdd = { Prefs.addVip(it) },
@@ -1532,12 +1586,11 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Nur VIP-Absender benachrichtigen",
+                        stringResource(R.string.settings_vip_only),
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        "Neue Mails anderer Absender erscheinen weiter im Posteingang, " +
-                            "aber ohne Benachrichtigung.",
+                        stringResource(R.string.settings_vip_only_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1551,17 +1604,15 @@ fun SettingsScreen(
             }
 
             SectionCard(
-                "Kontakte", Icons.Filled.Contacts,
-                subtitle = "Häufige Empfänger — als Vorschläge beim Verfassen"
+                stringResource(R.string.settings_contacts_title), Icons.Filled.Contacts,
+                subtitle = stringResource(R.string.settings_contacts_subtitle)
             ) {
             var contactsVersion by remember { mutableStateOf(0) }
             val knownContacts = remember(contactsVersion) {
                 Prefs.knownRecipients().toList().sortedBy { it.first }
             }
             Text(
-                "BlockMail merkt sich automatisch, an wen du schreibst, und schlägt " +
-                    "diese Adressen beim Verfassen vor. Hier kannst du Kontakte " +
-                    "ergänzen oder entfernen.",
+                stringResource(R.string.settings_contacts_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1571,7 +1622,7 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = newContactAddr,
                 onValueChange = { newContactAddr = it },
-                label = { Text("E-Mail-Adresse") },
+                label = { Text(stringResource(R.string.settings_email_address)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -1580,7 +1631,7 @@ fun SettingsScreen(
                 OutlinedTextField(
                     value = newContactName,
                     onValueChange = { newContactName = it },
-                    label = { Text("Name (optional)") },
+                    label = { Text(stringResource(R.string.settings_contact_name)) },
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -1595,12 +1646,12 @@ fun SettingsScreen(
                         newContactName = ""
                         contactsVersion++
                     }
-                ) { Text("Hinzufügen") }
+                ) { Text(stringResource(R.string.settings_add)) }
             }
             Spacer(Modifier.height(8.dp))
             if (knownContacts.isEmpty()) {
                 Text(
-                    "Noch keine Kontakte — sie entstehen automatisch beim Senden.",
+                    stringResource(R.string.settings_contacts_empty),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1641,7 +1692,7 @@ fun SettingsScreen(
                         }) {
                             Icon(
                                 Icons.Filled.Close,
-                                contentDescription = "Kontakt entfernen",
+                                contentDescription = stringResource(R.string.settings_contact_remove),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -1650,14 +1701,14 @@ fun SettingsScreen(
             }
             }
 
-            GroupHeader("Schreiben")
+            GroupHeader(stringResource(R.string.settings_group_writing))
             SectionCard(
-                "Signatur & Vorlagen", Icons.Filled.Edit,
-                subtitle = "Bausteine fürs Schreiben"
+                stringResource(R.string.settings_signature_title), Icons.Filled.Edit,
+                subtitle = stringResource(R.string.settings_signature_subtitle)
             ) {
-            SectionTitle("Signatur")
+            SectionTitle(stringResource(R.string.settings_signature))
             Text(
-                "Wird beim Verfassen automatisch unter den Text gesetzt.",
+                stringResource(R.string.settings_signature_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1668,15 +1719,15 @@ fun SettingsScreen(
                     signatureText = it
                     Prefs.signature = it
                 },
-                label = { Text("Signatur (leer = keine)") },
+                label = { Text(stringResource(R.string.settings_signature_label)) },
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(Modifier.height(12.dp))
-            SectionTitle("Textvorlagen")
+            SectionTitle(stringResource(R.string.settings_templates))
             Text(
-                "Wiederverwendbare Texte fürs Verfassen-Fenster (dort über das Vorlagen-Symbol einfügbar).",
+                stringResource(R.string.settings_templates_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1696,7 +1747,8 @@ fun SettingsScreen(
                         Prefs.saveMailTemplates(templates)
                     }) {
                         Icon(
-                            Icons.Filled.Close, contentDescription = "Vorlage löschen",
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.settings_template_delete),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -1704,26 +1756,22 @@ fun SettingsScreen(
             }
             if (templates.isEmpty()) {
                 Text(
-                    "Noch keine Vorlagen.",
+                    stringResource(R.string.settings_templates_empty),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            TextButton(onClick = { showTemplateDialog = true }) { Text("Vorlage hinzufügen") }
+            TextButton(onClick = { showTemplateDialog = true }) { Text(stringResource(R.string.settings_template_add)) }
 
             }
 
-            GroupHeader("Daten & Feedback")
+            GroupHeader(stringResource(R.string.settings_group_data))
             SectionCard(
-                "Backup & Umzug", Icons.Filled.ImportExport,
-                subtitle = "Einstellungen als Datei sichern und auf einem neuen Gerät einspielen"
+                stringResource(R.string.settings_backup_title), Icons.Filled.ImportExport,
+                subtitle = stringResource(R.string.settings_backup_subtitle)
             ) {
             Text(
-                "Gesichert werden Farben, Darstellung, Wischgesten, Signatur, " +
-                    "Vorlagen, Regeln (stumm/blockiert/VIP), Kontakte und " +
-                    "Benachrichtigungs-Einstellungen. Zugangsdaten und Passwörter " +
-                    "sind aus Sicherheitsgründen NICHT enthalten — Konten müssen " +
-                    "auf dem neuen Gerät einmal neu verbunden werden.",
+                stringResource(R.string.settings_backup_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1736,10 +1784,14 @@ fun SettingsScreen(
                         context.contentResolver.openOutputStream(uri)?.use { out ->
                             out.write(Prefs.exportSettingsJson().toByteArray())
                         }
-                        scope.launch { snackbar.showSnackbar("Sicherung gespeichert") }
+                        scope.launch {
+                            snackbar.showSnackbar(context.getString(R.string.settings_backup_saved))
+                        }
                     } catch (e: Exception) {
                         scope.launch {
-                            snackbar.showSnackbar("Export fehlgeschlagen: ${e.message}")
+                            snackbar.showSnackbar(
+                                context.getString(R.string.settings_export_failed, e.message)
+                            )
                         }
                     }
                 }
@@ -1751,14 +1803,20 @@ fun SettingsScreen(
                     try {
                         val json = context.contentResolver.openInputStream(uri)
                             ?.use { it.readBytes().decodeToString() }
-                            ?: throw IllegalStateException("Datei nicht lesbar")
+                            ?: throw IllegalStateException(
+                                context.getString(R.string.settings_file_unreadable)
+                            )
                         val count = Prefs.importSettingsJson(json)
                         scope.launch {
-                            snackbar.showSnackbar("$count Einstellungen übernommen")
+                            snackbar.showSnackbar(
+                                context.getString(R.string.settings_import_count, count)
+                            )
                         }
                     } catch (e: Exception) {
                         scope.launch {
-                            snackbar.showSnackbar("Import fehlgeschlagen: ${e.message}")
+                            snackbar.showSnackbar(
+                                context.getString(R.string.settings_import_failed, e.message)
+                            )
                         }
                     }
                 }
@@ -1766,24 +1824,22 @@ fun SettingsScreen(
             Row {
                 TextButton(onClick = {
                     exportLauncher.launch("blockmail-einstellungen.json")
-                }) { Text("Sichern") }
+                }) { Text(stringResource(R.string.settings_backup_export)) }
                 TextButton(onClick = {
                     importLauncher.launch(arrayOf("application/json", "application/octet-stream"))
-                }) { Text("Sicherung einspielen") }
+                }) { Text(stringResource(R.string.settings_backup_import)) }
             }
             }
 
             SectionCard(
-                "Feedback an den Entwickler", Icons.Filled.Feedback,
-                subtitle = "Fehler melden oder Verbesserung vorschlagen"
+                stringResource(R.string.settings_feedback_title), Icons.Filled.Feedback,
+                subtitle = stringResource(R.string.settings_feedback_subtitle)
             ) {
             var showFeedbackDialog by remember { mutableStateOf(false) }
             var feedbackText by remember { mutableStateOf("") }
             var feedbackSending by remember { mutableStateOf(false) }
             Text(
-                "Etwas funktioniert nicht oder dir fehlt eine Funktion? " +
-                    "Schreib mir — die Nachricht geht über dein Mail-Konto " +
-                    "direkt an den Entwickler.",
+                stringResource(R.string.settings_feedback_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1792,20 +1848,20 @@ fun SettingsScreen(
                     showFeedbackDialog = true
                 } else {
                     scope.launch {
-                        snackbar.showSnackbar("Bitte zuerst ein Konto verbinden")
+                        snackbar.showSnackbar(
+                            context.getString(R.string.settings_feedback_connect_first)
+                        )
                     }
                 }
-            }) { Text("Feedback schreiben") }
+            }) { Text(stringResource(R.string.settings_feedback_write)) }
             if (showFeedbackDialog) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { if (!feedbackSending) showFeedbackDialog = false },
-                    title = { Text("Feedback an den Entwickler") },
+                    title = { Text(stringResource(R.string.settings_feedback_title)) },
                     text = {
                         Column {
                             Text(
-                                "Was funktioniert nicht — oder was wünschst du dir? " +
-                                    "Die Nachricht wird an mat.jakober@gmail.com gesendet; " +
-                                    "App- und Geräteinfos hänge ich automatisch an.",
+                                stringResource(R.string.settings_feedback_dialog_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1813,7 +1869,7 @@ fun SettingsScreen(
                             OutlinedTextField(
                                 value = feedbackText,
                                 onValueChange = { feedbackText = it },
-                                placeholder = { Text("Dein Feedback …") },
+                                placeholder = { Text(stringResource(R.string.settings_feedback_placeholder)) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(min = 140.dp)
@@ -1829,36 +1885,47 @@ fun SettingsScreen(
                                     try {
                                         MailRepository.send(
                                             to = "mat.jakober@gmail.com",
-                                            subject = "BlockMail-Feedback (v" +
-                                                com.jakober.klarmail.BuildConfig.VERSION_NAME + ")",
-                                            body = feedbackText.trim() +
-                                                "\n\n—\nBlockMail v" +
-                                                com.jakober.klarmail.BuildConfig.VERSION_NAME +
-                                                "\nAndroid " + android.os.Build.VERSION.RELEASE +
-                                                "\nGerät: " + android.os.Build.MANUFACTURER +
-                                                " " + android.os.Build.MODEL
+                                            subject = context.getString(
+                                                R.string.settings_feedback_subject,
+                                                com.jakober.klarmail.BuildConfig.VERSION_NAME
+                                            ),
+                                            body = feedbackText.trim() + "\n\n" +
+                                                context.getString(
+                                                    R.string.settings_feedback_device_info,
+                                                    com.jakober.klarmail.BuildConfig.VERSION_NAME,
+                                                    android.os.Build.VERSION.RELEASE,
+                                                    android.os.Build.MANUFACTURER,
+                                                    android.os.Build.MODEL
+                                                )
                                         )
                                         showFeedbackDialog = false
                                         feedbackText = ""
                                         snackbar.showSnackbar(
-                                            "Danke! Dein Feedback wurde gesendet."
+                                            context.getString(R.string.settings_feedback_sent)
                                         )
                                     } catch (e: Exception) {
                                         snackbar.showSnackbar(
-                                            "Senden fehlgeschlagen: ${e.message}"
+                                            context.getString(
+                                                R.string.settings_feedback_send_failed, e.message
+                                            )
                                         )
                                     } finally {
                                         feedbackSending = false
                                     }
                                 }
                             }
-                        ) { Text(if (feedbackSending) "Wird gesendet …" else "Senden") }
+                        ) {
+                            Text(
+                                if (feedbackSending) stringResource(R.string.settings_feedback_sending)
+                                else stringResource(R.string.settings_feedback_send)
+                            )
+                        }
                     },
                     dismissButton = {
                         TextButton(
                             enabled = !feedbackSending,
                             onClick = { showFeedbackDialog = false }
-                        ) { Text("Abbrechen") }
+                        ) { Text(stringResource(R.string.settings_cancel)) }
                     }
                 )
             }
@@ -1901,18 +1968,27 @@ fun SettingsScreen(
                         MailSyncService.start(context)
                         scope.launch { MailRepository.refresh() }
                     }
-                    scope.launch { snackbar.showSnackbar("Gespeichert") }
+                    scope.launch { snackbar.showSnackbar(context.getString(R.string.settings_saved)) }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Speichern")
+                Text(stringResource(R.string.settings_save))
             }
             Spacer(Modifier.height(16.dp))
             // 7-mal tippen schaltet den Entwicklermodus um (Google-Anmeldung)
             var versionTaps by remember { mutableStateOf(0) }
             Text(
-                "BlockMail Version ${com.jakober.klarmail.BuildConfig.VERSION_NAME}" +
-                    if (devMode) " · Entwicklermodus" else "",
+                if (devMode) {
+                    stringResource(
+                        R.string.settings_version_devmode,
+                        com.jakober.klarmail.BuildConfig.VERSION_NAME
+                    )
+                } else {
+                    stringResource(
+                        R.string.settings_version,
+                        com.jakober.klarmail.BuildConfig.VERSION_NAME
+                    )
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -1926,9 +2002,9 @@ fun SettingsScreen(
                             scope.launch {
                                 snackbar.showSnackbar(
                                     if (newState) {
-                                        "Entwicklermodus aktiviert — Google-Anmeldung sichtbar"
+                                        context.getString(R.string.settings_devmode_on)
                                     } else {
-                                        "Entwicklermodus deaktiviert"
+                                        context.getString(R.string.settings_devmode_off)
                                     }
                                 )
                             }
@@ -1943,16 +2019,16 @@ fun SettingsScreen(
     newsletterResult?.let { result ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { newsletterResult = null },
-            title = { Text("Newsletter-Aufräumen") },
+            title = { Text(stringResource(R.string.settings_newsletter_dialog_title)) },
             text = { Text(result) },
             confirmButton = {
                 TextButton(onClick = {
                     newsletterResult = null
                     onOpenNewsletterLog()
-                }) { Text("Protokoll öffnen") }
+                }) { Text(stringResource(R.string.settings_newsletter_open_log)) }
             },
             dismissButton = {
-                TextButton(onClick = { newsletterResult = null }) { Text("OK") }
+                TextButton(onClick = { newsletterResult = null }) { Text(stringResource(R.string.settings_ok)) }
             }
         )
     }
@@ -1988,7 +2064,7 @@ private fun SenderListSection(
             IconButton(onClick = { onRemove(addr) }) {
                 Icon(
                     Icons.Filled.Close,
-                    contentDescription = "Entfernen",
+                    contentDescription = stringResource(R.string.settings_remove),
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -1996,7 +2072,7 @@ private fun SenderListSection(
     }
     if (entries.isEmpty()) {
         Text(
-            "Noch keine Einträge.",
+            stringResource(R.string.settings_no_entries),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -2009,17 +2085,17 @@ private fun SenderListSection(
         OutlinedTextField(
             value = input,
             onValueChange = { input = it },
-            label = { Text("E-Mail-Adresse") },
+            label = { Text(stringResource(R.string.settings_email_address)) },
             singleLine = true,
             modifier = Modifier.weight(1f)
         )
         TextButton(
             enabled = input.contains("@"),
             onClick = { onAdd(input); input = "" }
-        ) { Text("Hinzufügen") }
+        ) { Text(stringResource(R.string.settings_add)) }
     }
     Box {
-        TextButton(onClick = { suggestOpen = true }) { Text("Aus bekannten Absendern wählen") }
+        TextButton(onClick = { suggestOpen = true }) { Text(stringResource(R.string.settings_pick_known)) }
         androidx.compose.material3.DropdownMenu(
             expanded = suggestOpen,
             onDismissRequest = { suggestOpen = false }
@@ -2027,7 +2103,7 @@ private fun SenderListSection(
             val available = suggestions.filter { it !in entries }
             if (available.isEmpty()) {
                 androidx.compose.material3.DropdownMenuItem(
-                    text = { Text("Keine Vorschläge") },
+                    text = { Text(stringResource(R.string.settings_no_suggestions)) },
                     onClick = { suggestOpen = false },
                     enabled = false
                 )
