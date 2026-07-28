@@ -79,10 +79,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.jakober.klarmail.R
 import com.jakober.klarmail.data.MailRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -102,6 +104,7 @@ private fun DropdownMenuItemColorsActive() = androidx.compose.material3.MenuDefa
 private fun DropdownMenuItemColorsDefault() = androidx.compose.material3.MenuDefaults.itemColors()
 
 /** Auswahlzeiten für „Später erinnern“ (Label + Zeitpunkt in Millis). */
+@Composable
 private fun snoozeChoices(): List<Pair<String, Long>> {
     val now = System.currentTimeMillis()
     fun at(daysFromToday: Int, hour: Int): Long = java.util.Calendar.getInstance().apply {
@@ -111,13 +114,15 @@ private fun snoozeChoices(): List<Pair<String, Long>> {
         set(java.util.Calendar.SECOND, 0)
         set(java.util.Calendar.MILLISECOND, 0)
     }.timeInMillis
-    val choices = mutableListOf("In 1 Stunde" to now + 60 * 60 * 1000L)
+    val choices = mutableListOf(
+        stringResource(R.string.detail_snooze_in_1_hour) to now + 60 * 60 * 1000L
+    )
     val eveningToday = at(0, 18)
     if (eveningToday > now + 15 * 60 * 1000L) {
-        choices.add("Heute Abend (18 Uhr)" to eveningToday)
+        choices.add(stringResource(R.string.detail_snooze_tonight) to eveningToday)
     }
-    choices.add("Morgen früh (8 Uhr)" to at(1, 8))
-    choices.add("In 3 Tagen (8 Uhr)" to at(3, 8))
+    choices.add(stringResource(R.string.detail_snooze_tomorrow_morning) to at(1, 8))
+    choices.add(stringResource(R.string.detail_snooze_in_3_days) to at(3, 8))
     val nextMonday = java.util.Calendar.getInstance().apply {
         add(java.util.Calendar.DAY_OF_YEAR, 1)
         while (get(java.util.Calendar.DAY_OF_WEEK) != java.util.Calendar.MONDAY) {
@@ -128,7 +133,7 @@ private fun snoozeChoices(): List<Pair<String, Long>> {
         set(java.util.Calendar.SECOND, 0)
         set(java.util.Calendar.MILLISECOND, 0)
     }.timeInMillis
-    choices.add("Nächste Woche (Mo 8 Uhr)" to nextMonday)
+    choices.add(stringResource(R.string.detail_snooze_next_week) to nextMonday)
     return choices
 }
 
@@ -139,7 +144,7 @@ private fun attachmentIcon(mime: String) = when {
 }
 
 private fun formatSize(bytes: Int): String = when {
-    bytes >= 1_000_000 -> String.format(Locale.GERMAN, "%.1f MB", bytes / 1_000_000.0)
+    bytes >= 1_000_000 -> String.format(Locale.getDefault(), "%.1f MB", bytes / 1_000_000.0)
     bytes >= 1_000 -> "${bytes / 1_000} KB"
     else -> "$bytes B"
 }
@@ -197,12 +202,11 @@ fun DetailScreen(
     if (showSnoozeDialog && mail != null) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showSnoozeDialog = false },
-            title = { Text("Später erinnern") },
+            title = { Text(stringResource(R.string.detail_snooze_title)) },
             text = {
                 Column {
                     Text(
-                        "Die Mail verschwindet aus dem Posteingang und kommt zur gewählten Zeit " +
-                            "mit einer Erinnerung zurück.",
+                        stringResource(R.string.detail_snooze_description),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -230,7 +234,7 @@ fun DetailScreen(
             confirmButton = {},
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { showSnoozeDialog = false }) {
-                    Text("Abbrechen")
+                    Text(stringResource(R.string.detail_cancel))
                 }
             }
         )
@@ -247,7 +251,10 @@ fun DetailScreen(
                 title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.detail_back)
+                        )
                     }
                 },
                 actions = {
@@ -255,7 +262,10 @@ fun DetailScreen(
                     if (folder == null && mail != null) {
                         Box {
                             IconButton(onClick = { menuOpen = true }) {
-                                Icon(Icons.Filled.MoreVert, contentDescription = "Menü")
+                                Icon(
+                                    Icons.Filled.MoreVert,
+                                    contentDescription = stringResource(R.string.detail_menu)
+                                )
                             }
                             DropdownMenu(
                                 expanded = menuOpen,
@@ -263,7 +273,7 @@ fun DetailScreen(
                             ) {
                                 if (onForward != null) {
                                     DropdownMenuItem(
-                                        text = { Text("Weiterleiten") },
+                                        text = { Text(stringResource(R.string.detail_menu_forward)) },
                                         leadingIcon = {
                                             Icon(Icons.AutoMirrored.Filled.Forward, null)
                                         },
@@ -274,7 +284,7 @@ fun DetailScreen(
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text("Diese Mail löschen") },
+                                    text = { Text(stringResource(R.string.detail_menu_delete)) },
                                     leadingIcon = { Icon(Icons.Filled.Delete, null) },
                                     onClick = {
                                         menuOpen = false
@@ -285,7 +295,7 @@ fun DetailScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Später erinnern") },
+                                    text = { Text(stringResource(R.string.detail_snooze_title)) },
                                     leadingIcon = { Icon(Icons.Filled.Schedule, null) },
                                     onClick = {
                                         menuOpen = false
@@ -296,8 +306,8 @@ fun DetailScreen(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            if (isMuted) "Benachrichtigungen wieder erlauben"
-                                            else "Keine Benachrichtigung von diesem Absender"
+                                            if (isMuted) stringResource(R.string.detail_menu_unmute)
+                                            else stringResource(R.string.detail_menu_mute)
                                         )
                                     },
                                     leadingIcon = {
@@ -312,12 +322,22 @@ fun DetailScreen(
                                         menuOpen = false
                                         if (isMuted) {
                                             com.jakober.klarmail.data.Prefs.removeMuted(mail.fromAddress)
-                                            scope.launch { snackbar.showSnackbar("Stummschaltung für „${mail.from}“ aufgehoben") }
+                                            scope.launch {
+                                                snackbar.showSnackbar(
+                                                    context.getString(
+                                                        R.string.detail_snackbar_unmuted, mail.from
+                                                    )
+                                                )
+                                            }
                                         } else {
                                             com.jakober.klarmail.data.Prefs.addMuted(mail.fromAddress)
                                             scope.launch {
                                                 MailRepository.setSeen(uid, true, mailAccount)
-                                                snackbar.showSnackbar("„${mail.from}“ stummgeschaltet – künftige Mails ohne Benachrichtigung")
+                                                snackbar.showSnackbar(
+                                                    context.getString(
+                                                        R.string.detail_snackbar_muted, mail.from
+                                                    )
+                                                )
                                             }
                                         }
                                     }
@@ -329,8 +349,8 @@ fun DetailScreen(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                if (isVip) "Aus VIP entfernen"
-                                                else "Als VIP-Absender markieren"
+                                                if (isVip) stringResource(R.string.detail_menu_vip_remove)
+                                                else stringResource(R.string.detail_menu_vip_add)
                                             )
                                         },
                                         leadingIcon = {
@@ -345,10 +365,24 @@ fun DetailScreen(
                                             menuOpen = false
                                             if (isVip) {
                                                 com.jakober.klarmail.data.Prefs.removeVip(mail.fromAddress)
-                                                scope.launch { snackbar.showSnackbar("„${mail.from}“ ist kein VIP mehr") }
+                                                scope.launch {
+                                                    snackbar.showSnackbar(
+                                                        context.getString(
+                                                            R.string.detail_snackbar_vip_removed,
+                                                            mail.from
+                                                        )
+                                                    )
+                                                }
                                             } else {
                                                 com.jakober.klarmail.data.Prefs.addVip(mail.fromAddress)
-                                                scope.launch { snackbar.showSnackbar("„${mail.from}“ als VIP markiert") }
+                                                scope.launch {
+                                                    snackbar.showSnackbar(
+                                                        context.getString(
+                                                            R.string.detail_snackbar_vip_added,
+                                                            mail.from
+                                                        )
+                                                    )
+                                                }
                                             }
                                         }
                                     )
@@ -356,7 +390,10 @@ fun DetailScreen(
                                 // Blockieren / entsperren (Toggle)
                                 DropdownMenuItem(
                                     text = {
-                                        Text(if (isBlocked) "Absender entsperren" else "Absender blockieren")
+                                        Text(
+                                            if (isBlocked) stringResource(R.string.detail_menu_unblock)
+                                            else stringResource(R.string.detail_menu_block)
+                                        )
                                     },
                                     leadingIcon = {
                                         Icon(if (isBlocked) Icons.Filled.LockOpen else Icons.Filled.Block, null)
@@ -366,7 +403,13 @@ fun DetailScreen(
                                         menuOpen = false
                                         if (isBlocked) {
                                             com.jakober.klarmail.data.Prefs.removeBlocked(mail.fromAddress)
-                                            scope.launch { snackbar.showSnackbar("„${mail.from}“ entsperrt") }
+                                            scope.launch {
+                                                snackbar.showSnackbar(
+                                                    context.getString(
+                                                        R.string.detail_snackbar_unblocked, mail.from
+                                                    )
+                                                )
+                                            }
                                         } else {
                                             com.jakober.klarmail.data.Prefs.addBlocked(mail.fromAddress)
                                             scope.launch {
@@ -426,7 +469,13 @@ fun DetailScreen(
                                     contentDescription = null
                                 )
                             },
-                            text = { Text("Allen antworten (${otherRecipients.size + 1})") },
+                            text = {
+                                Text(
+                                    stringResource(
+                                        R.string.detail_reply_all, otherRecipients.size + 1
+                                    )
+                                )
+                            },
                             containerColor = MaterialTheme.colorScheme.secondaryContainer
                         )
                         Spacer(Modifier.height(12.dp))
@@ -438,7 +487,7 @@ fun DetailScreen(
                         onReply()
                     },
                     icon = { Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = null) },
-                    text = { Text("Antworten") }
+                    text = { Text(stringResource(R.string.detail_reply)) }
                 )
             }
         }
@@ -449,7 +498,7 @@ fun DetailScreen(
                     .fillMaxSize()
                     .padding(padding), contentAlignment = Alignment.Center
             ) {
-                Text("Nachricht nicht gefunden")
+                Text(stringResource(R.string.detail_message_not_found))
             }
             return@Scaffold
         }
@@ -516,7 +565,9 @@ fun DetailScreen(
                 if (summarizing) return
                 scope.launch {
                     summarizing = true
-                    launch { snackbar.showSnackbar("Wird zusammengefasst …") }
+                    launch {
+                        snackbar.showSnackbar(context.getString(R.string.detail_summarizing))
+                    }
                     summary = try {
                         if (hasClaudeKey) {
                             com.jakober.klarmail.ai.ClaudeClient.summarize(
@@ -533,7 +584,7 @@ fun DetailScreen(
                             )
                         }
                     } catch (e: Exception) {
-                        "Zusammenfassung fehlgeschlagen: ${e.message}"
+                        context.getString(R.string.detail_summarize_failed, e.message)
                     }
                     summarizing = false
                 }
@@ -546,7 +597,11 @@ fun DetailScreen(
             fun attachmentAction(att: MailRepository.MailAttachment, action: String) {
                 scope.launch {
                     try {
-                        launch { snackbar.showSnackbar("„${att.name}“ wird geladen …") }
+                        launch {
+                            snackbar.showSnackbar(
+                                context.getString(R.string.detail_attachment_loading, att.name)
+                            )
+                        }
                         val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
                         when (action) {
                             "open" -> withContext(Dispatchers.IO) {
@@ -559,11 +614,17 @@ fun DetailScreen(
                                 val target = withContext(Dispatchers.IO) {
                                     MailRepository.saveAttachment(context, att.name, att.mime, bytes)
                                 }
-                                snackbar.showSnackbar("Gespeichert: $target")
+                                snackbar.showSnackbar(
+                                    context.getString(R.string.detail_attachment_saved, target)
+                                )
                             }
                         }
                     } catch (e: Exception) {
-                        snackbar.showSnackbar("Aktion fehlgeschlagen: ${e.message}")
+                        snackbar.showSnackbar(
+                            context.getString(
+                                R.string.detail_attachment_action_failed, e.message
+                            )
+                        )
                     }
                 }
             }
@@ -577,20 +638,20 @@ fun DetailScreen(
                             androidx.compose.material3.TextButton(onClick = {
                                 attachmentDialog = null
                                 attachmentAction(att, "open")
-                            }) { Text("Öffnen") }
+                            }) { Text(stringResource(R.string.detail_attachment_open)) }
                             androidx.compose.material3.TextButton(onClick = {
                                 attachmentDialog = null
                                 attachmentAction(att, "share")
-                            }) { Text("Teilen") }
+                            }) { Text(stringResource(R.string.detail_attachment_share)) }
                             androidx.compose.material3.TextButton(onClick = {
                                 attachmentDialog = null
                                 attachmentAction(att, "save")
-                            }) { Text("In Downloads speichern") }
+                            }) { Text(stringResource(R.string.detail_attachment_save)) }
                         }
                     },
                     dismissButton = {
                         androidx.compose.material3.TextButton(onClick = { attachmentDialog = null }) {
-                            Text("Abbrechen")
+                            Text(stringResource(R.string.detail_cancel))
                         }
                     }
                 )
@@ -601,7 +662,7 @@ fun DetailScreen(
                 summary?.let { sum ->
                     androidx.compose.material3.AlertDialog(
                         onDismissRequest = { summary = null },
-                        title = { Text("✨ Zusammenfassung") },
+                        title = { Text(stringResource(R.string.detail_summary_title)) },
                         text = {
                             Column(
                                 modifier = Modifier
@@ -611,7 +672,7 @@ fun DetailScreen(
                         },
                         confirmButton = {
                             androidx.compose.material3.TextButton(onClick = { summary = null }) {
-                                Text("OK")
+                                Text(stringResource(R.string.detail_ok))
                             }
                         }
                     )
@@ -620,7 +681,7 @@ fun DetailScreen(
 
             when {
                 loadError != null -> Text(
-                    "Inhalt konnte nicht geladen werden: $loadError",
+                    stringResource(R.string.detail_load_error, loadError ?: ""),
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(20.dp)
                 )
@@ -634,9 +695,17 @@ fun DetailScreen(
                     // Kopf (Betreff, Absender, Warnung, KI-Knopf, Anhänge) ist
                     // Teil der Seite und scrollt ganz normal mit dem Inhalt
                     val darkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                    val fullHtml = remember(currentBody, phishingResult, aiAvailable, darkTheme) {
+                    val pageTexts = MailPageTexts(
+                        summarize = stringResource(R.string.detail_summarize_ai),
+                        phishingWarning = stringResource(R.string.detail_phishing_warning),
+                        phishingAdvice = stringResource(R.string.detail_page_phishing_advice),
+                        notPhishingLink = stringResource(R.string.detail_page_not_phishing)
+                    )
+                    val fullHtml = remember(
+                        currentBody, phishingResult, aiAvailable, darkTheme, pageTexts
+                    ) {
                         buildMailPageHtml(
-                            mail, currentBody, phishingResult, aiAvailable, darkTheme
+                            mail, currentBody, phishingResult, aiAvailable, darkTheme, pageTexts
                         )
                     }
                     HtmlMailView(
@@ -654,7 +723,9 @@ fun DetailScreen(
                                     phishing = null
                                     scope.launch {
                                         snackbar.showSnackbar(
-                                            "Als „kein Phishing“ markiert — Warnung entfernt"
+                                            context.getString(
+                                                R.string.detail_snackbar_not_phishing
+                                            )
                                         )
                                     }
                                 }
@@ -703,7 +774,7 @@ fun DetailScreen(
                                     )
                                     Text(
                                         SimpleDateFormat(
-                                            "EEEE, d. MMMM yyyy, HH:mm", Locale.GERMAN
+                                            "EEEE, d. MMMM yyyy, HH:mm", Locale.getDefault()
                                         ).format(Date(mail.date)),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -730,7 +801,7 @@ fun DetailScreen(
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         Text(
-                                            "Vorsicht: mögliche Phishing-Mail",
+                                            stringResource(R.string.detail_phishing_warning),
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onErrorContainer
@@ -752,7 +823,9 @@ fun DetailScreen(
                                             phishing = null
                                             scope.launch {
                                                 snackbar.showSnackbar(
-                                                    "Als „kein Phishing“ markiert — Warnung entfernt"
+                                                    context.getString(
+                                                        R.string.detail_snackbar_not_phishing
+                                                    )
                                                 )
                                             }
                                         },
@@ -761,7 +834,7 @@ fun DetailScreen(
                                                 contentColor =
                                                     MaterialTheme.colorScheme.onErrorContainer
                                             )
-                                    ) { Text("Das ist kein Phishing") }
+                                    ) { Text(stringResource(R.string.detail_phishing_not_phishing)) }
                                 }
                             }
                         }
@@ -775,8 +848,11 @@ fun DetailScreen(
                                         onClick = { runSummarize() },
                                         label = {
                                             Text(
-                                                if (summarizing) "Wird zusammengefasst …"
-                                                else "Mit KI zusammenfassen"
+                                                if (summarizing) {
+                                                    stringResource(R.string.detail_summarizing)
+                                                } else {
+                                                    stringResource(R.string.detail_summarize_ai)
+                                                }
                                             )
                                         },
                                         leadingIcon = {
@@ -796,7 +872,7 @@ fun DetailScreen(
                                     ) {
                                         Column(modifier = Modifier.padding(12.dp)) {
                                             Text(
-                                                "✨ Zusammenfassung",
+                                                stringResource(R.string.detail_summary_title),
                                                 style = MaterialTheme.typography.labelLarge,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
@@ -925,12 +1001,25 @@ private val headerFreemailDomains = setOf(
     "posteo.de", "proton.me", "protonmail.com", "tutanota.com", "tuta.io"
 )
 
+/**
+ * Nutzersichtbare Texte für die WebView-Seite. buildMailPageHtml ist kein
+ * Composable und hat keinen Context — die Strings werden deshalb im
+ * aufrufenden Composable per stringResource aufgelöst und hier durchgereicht.
+ */
+private data class MailPageTexts(
+    val summarize: String,
+    val phishingWarning: String,
+    val phishingAdvice: String,
+    val notPhishingLink: String
+)
+
 private fun buildMailPageHtml(
     mail: com.jakober.klarmail.data.MailMessage,
     body: MailRepository.MailBody,
     phishing: com.jakober.klarmail.data.PhishingCheck.Result?,
     aiAvailable: Boolean,
-    dark: Boolean = false
+    dark: Boolean = false,
+    texts: MailPageTexts
 ): String {
     val orange = "#EE5F0F"
     // Dunkles App-Design → dunkler Kopfbereich (der Mail-Inhalt darunter
@@ -964,7 +1053,7 @@ private fun buildMailPageHtml(
             "background:$orange;color:#fff;font-size:19px;font-weight:600;" +
             "display:flex;align-items:center;justify-content:center;\">$initial</div>"
     }
-    val date = SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.GERMAN)
+    val date = SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.getDefault())
         .format(Date(mail.date))
     sb.append("<div style=\"display:flex;align-items:center;margin-bottom:12px;\">")
         .append(avatar)
@@ -979,14 +1068,14 @@ private fun buildMailPageHtml(
     if (phishing != null && phishing.suspicious) {
         sb.append("<div style=\"background:#b3261e;color:#fff;border-radius:14px;")
             .append("padding:12px 14px;margin:8px 0;font-size:13px;line-height:1.55;\">")
-            .append("<b>⚠️ Vorsicht: mögliche Phishing-Mail</b><br>")
+            .append("<b>⚠️ ").append(htmlEscape(texts.phishingWarning)).append("</b><br>")
         phishing.reasons.take(3).forEach {
             sb.append("• ").append(htmlEscape(it)).append("<br>")
         }
-        sb.append("Tippe keine Links an und gib keine Passwörter oder ")
-            .append("Zahlungsdaten ein.<br>")
+        sb.append(htmlEscape(texts.phishingAdvice)).append("<br>")
             .append("<a href=\"blockmail://notphishing\" style=\"color:#fff;")
-            .append("font-weight:600;\">Das ist kein Phishing – Warnung entfernen</a>")
+            .append("font-weight:600;\">").append(htmlEscape(texts.notPhishingLink))
+            .append("</a>")
             .append("</div>")
     }
     // KI-Knopf (oranges Pill) und Anhang-Chips in einer Zeile
@@ -997,7 +1086,7 @@ private fun buildMailPageHtml(
                 .append("background:$orange;color:#fff;border-radius:20px;")
                 .append("padding:8px 16px;text-decoration:none;font-size:13px;")
                 .append("font-weight:600;margin-right:8px;\">")
-                .append("✨ Mit KI zusammenfassen</a>")
+                .append("✨ ").append(htmlEscape(texts.summarize)).append("</a>")
         }
         body.attachments.forEachIndexed { i, att ->
             sb.append("<a href=\"blockmail://att/").append(i)

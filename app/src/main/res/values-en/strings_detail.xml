@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DetailScreen (mail detail view) -->
+
+    <!-- Remind me later (snooze) -->
+    <string name="detail_snooze_title">Remind me later</string>
+    <string name="detail_snooze_description">The email disappears from your inbox and comes back with a reminder at the chosen time.</string>
+    <string name="detail_snooze_in_1_hour">In 1 hour</string>
+    <string name="detail_snooze_tonight">This evening (6 pm)</string>
+    <string name="detail_snooze_tomorrow_morning">Tomorrow morning (8 am)</string>
+    <string name="detail_snooze_in_3_days">In 3 days (8 am)</string>
+    <string name="detail_snooze_next_week">Next week (Mon 8 am)</string>
+
+    <!-- Common actions -->
+    <string name="detail_cancel">Cancel</string>
+    <string name="detail_ok">OK</string>
+    <string name="detail_back">Back</string>
+    <string name="detail_menu">Menu</string>
+
+    <!-- Menu items -->
+    <string name="detail_menu_forward">Forward</string>
+    <string name="detail_menu_delete">Delete this email</string>
+    <string name="detail_menu_unmute">Allow notifications again</string>
+    <string name="detail_menu_mute">No notifications from this sender</string>
+    <string name="detail_menu_vip_remove">Remove from VIP</string>
+    <string name="detail_menu_vip_add">Mark as VIP sender</string>
+    <string name="detail_menu_unblock">Unblock sender</string>
+    <string name="detail_menu_block">Block sender</string>
+
+    <!-- Snackbar messages -->
+    <string name="detail_snackbar_unmuted">Unmuted “%1$s”</string>
+    <string name="detail_snackbar_muted">“%1$s” muted – no notifications for future emails</string>
+    <string name="detail_snackbar_vip_removed">“%1$s” is no longer a VIP</string>
+    <string name="detail_snackbar_vip_added">“%1$s” marked as VIP</string>
+    <string name="detail_snackbar_unblocked">“%1$s” unblocked</string>
+    <string name="detail_snackbar_not_phishing">Marked as “not phishing” — warning removed</string>
+
+    <!-- Reply -->
+    <string name="detail_reply">Reply</string>
+    <string name="detail_reply_all">Reply all (%1$d)</string>
+
+    <!-- Loading / error states -->
+    <string name="detail_message_not_found">Message not found</string>
+    <string name="detail_load_error">Couldn\'t load content: %1$s</string>
+
+    <!-- AI summary -->
+    <string name="detail_summarize_ai">Summarize with AI</string>
+    <string name="detail_summarizing">Summarizing …</string>
+    <string name="detail_summary_title">✨ Summary</string>
+    <string name="detail_summarize_failed">Summary failed: %1$s</string>
+
+    <!-- Attachments -->
+    <string name="detail_attachment_loading">Loading “%1$s” …</string>
+    <string name="detail_attachment_saved">Saved: %1$s</string>
+    <string name="detail_attachment_action_failed">Action failed: %1$s</string>
+    <string name="detail_attachment_open">Open</string>
+    <string name="detail_attachment_share">Share</string>
+    <string name="detail_attachment_save">Save to Downloads</string>
+
+    <!-- Phishing warning -->
+    <string name="detail_phishing_warning">Caution: possible phishing email</string>
+    <string name="detail_phishing_not_phishing">This is not phishing</string>
+    <string name="detail_page_phishing_advice">Don\'t tap any links or enter passwords or payment details.</string>
+    <string name="detail_page_not_phishing">This is not phishing – remove warning</string>
+</resources>
