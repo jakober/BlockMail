@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -57,14 +58,14 @@ fun WelcomeScreen(onSetup: () -> Unit, onSkip: () -> Unit) {
             )
             Spacer(Modifier.height(20.dp))
             Text(
-                "Willkommen bei BlockMail",
+                stringResource(R.string.welcome_title),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "Die klare, schnelle Mail-App.",
+                stringResource(R.string.welcome_subtitle),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -72,50 +73,46 @@ fun WelcomeScreen(onSetup: () -> Unit, onSkip: () -> Unit) {
             Spacer(Modifier.height(28.dp))
             WelcomeFeature(
                 Icons.Filled.AutoAwesomeMosaic,
-                "Fokus-Blöcke",
-                "Der Posteingang sortiert sich nach Wichtigkeit: Braucht Antwort, " +
-                    "Wichtig, Kann warten, Werbung — als übersichtliche Kacheln."
+                stringResource(R.string.welcome_feature_blocks_title),
+                stringResource(R.string.welcome_feature_blocks_text)
             )
             Spacer(Modifier.height(14.dp))
             WelcomeFeature(
                 Icons.Filled.Security,
-                "Phishing-Wächter",
-                "Erkennt Betrugs-Mails direkt auf dem Gerät und warnt mit rotem " +
-                    "Rahmen — keine Daten verlassen dein Handy."
+                stringResource(R.string.welcome_feature_phishing_title),
+                stringResource(R.string.welcome_feature_phishing_text)
             )
             Spacer(Modifier.height(14.dp))
             WelcomeFeature(
                 Icons.Filled.Radar,
-                "Antwort-Radar",
-                "Erinnert an offene Fragen in deinem Postfach — und wenn du selbst " +
-                    "zu lange auf Antwort wartest."
+                stringResource(R.string.welcome_feature_radar_title),
+                stringResource(R.string.welcome_feature_radar_text)
             )
             Spacer(Modifier.height(14.dp))
             WelcomeFeature(
                 Icons.Filled.NotificationsActive,
-                "Neue Mails sofort",
-                "Echtzeit-Push mit Schnellantwort direkt aus der Benachrichtigung."
+                stringResource(R.string.welcome_feature_push_title),
+                stringResource(R.string.welcome_feature_push_text)
             )
             Spacer(Modifier.height(14.dp))
             WelcomeFeature(
                 Icons.Filled.AllInbox,
-                "Alle Konten, ein Überblick",
-                "Mehrere Postfächer mit eigenen Farben — einzeln oder gemeinsam."
+                stringResource(R.string.welcome_feature_accounts_title),
+                stringResource(R.string.welcome_feature_accounts_text)
             )
             Spacer(Modifier.height(14.dp))
             WelcomeFeature(
                 Icons.Filled.AutoAwesome,
-                "KI, die auf dem Gerät bleibt",
-                "Zusammenfassen, Antworten entwerfen, Tages-Überblick und " +
-                    "Newsletter-Ordnung."
+                stringResource(R.string.welcome_feature_ai_title),
+                stringResource(R.string.welcome_feature_ai_text)
             )
             Spacer(Modifier.height(32.dp))
             Button(onClick = onSetup, modifier = Modifier.fillMaxWidth()) {
-                Text("Konto einrichten")
+                Text(stringResource(R.string.welcome_setup))
             }
             Spacer(Modifier.height(4.dp))
             TextButton(onClick = onSkip) {
-                Text("Später erkunden")
+                Text(stringResource(R.string.welcome_skip))
             }
         }
     }

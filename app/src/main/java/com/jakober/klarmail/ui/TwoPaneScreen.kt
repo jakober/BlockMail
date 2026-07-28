@@ -29,7 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.jakober.klarmail.R
 
 /**
  * Zweispaltige Ansicht für Tablets und Smartphones im Querformat:
@@ -121,7 +123,7 @@ fun TwoPaneScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "Wähle links eine E-Mail aus",
+                            stringResource(R.string.pane_select_mail),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

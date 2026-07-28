@@ -32,11 +32,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.jakober.klarmail.R
 import com.jakober.klarmail.data.MailRepository
+import java.text.DateFormatSymbols
 import java.util.Calendar
+import java.util.Locale
 
 /**
  * Statistik im BlockMail-Kachel-Stil: Kennzahlen, Wochentags-Verteilung und
@@ -88,10 +92,15 @@ fun StatsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Statistik", fontWeight = FontWeight.SemiBold) },
+                title = {
+                    Text(stringResource(R.string.stats_title), fontWeight = FontWeight.SemiBold)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.stats_back)
+                        )
                     }
                 }
             )
@@ -105,7 +114,7 @@ fun StatsScreen(onBack: () -> Unit) {
                 .padding(horizontal = 16.dp)
         ) {
             Text(
-                "Bezogen auf die ${total} aktuell geladenen Mails.",
+                stringResource(R.string.stats_based_on, total),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -113,47 +122,61 @@ fun StatsScreen(onBack: () -> Unit) {
 
             // Kennzahlen-Kacheln (2er-Raster wie in der Block-Ansicht)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile("Mails geladen", "$total", Modifier.weight(1f))
-                StatTile("Ungelesen", "$unread", Modifier.weight(1f))
+                StatTile(stringResource(R.string.stats_tile_loaded), "$total", Modifier.weight(1f))
+                StatTile(stringResource(R.string.stats_tile_unread), "$unread", Modifier.weight(1f))
             }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatTile(
-                    "Mit Anhang",
+                    stringResource(R.string.stats_tile_with_attachment),
                     if (total > 0) "${withAttachment * 100 / total} %" else "—",
                     Modifier.weight(1f)
                 )
                 StatTile(
-                    "Pro Tag (Ø 4 Wochen)",
+                    stringResource(R.string.stats_tile_per_day),
                     if (weekCounts.sum() > 0) {
-                        String.format(java.util.Locale.GERMAN, "%.1f", weekCounts.sum() / 28.0)
+                        String.format(Locale.getDefault(), "%.1f", weekCounts.sum() / 28.0)
                     } else "—",
                     Modifier.weight(1f)
                 )
             }
             Spacer(Modifier.height(14.dp))
 
-            StatsCard("Mails je Wochentag") {
+            StatsCard(stringResource(R.string.stats_card_weekdays)) {
+                // Kurze Wochentagsnamen der Systemsprache, in Reihenfolge Mo–So
+                val weekdayLabels = remember {
+                    val symbols = DateFormatSymbols(Locale.getDefault()).shortWeekdays
+                    listOf(
+                        Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
+                        Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY,
+                        Calendar.SUNDAY
+                    ).map { symbols[it].removeSuffix(".") }
+                }
                 BarRow(
                     values = weekdayCounts,
-                    labels = listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
+                    labels = weekdayLabels
                 )
             }
             Spacer(Modifier.height(14.dp))
 
-            StatsCard("Aufkommen der letzten 4 Wochen") {
+            StatsCard(stringResource(R.string.stats_card_weeks)) {
                 BarRow(
                     // Älteste Woche links, aktuelle rechts
                     values = weekCounts.reversed(),
-                    labels = listOf("vor 3 Wo.", "vor 2 Wo.", "letzte Wo.", "diese Wo.")
+                    labels = listOf(
+                        R.string.stats_week_3_ago,
+                        R.string.stats_week_2_ago,
+                        R.string.stats_week_last,
+                        R.string.stats_week_this
+                    ).map { stringResource(it) }
                 )
             }
             Spacer(Modifier.height(14.dp))
 
-            StatsCard("Top-Absender") {
+            StatsCard(stringResource(R.string.stats_card_top_senders)) {
                 if (topSenders.isEmpty()) {
                     Text(
-                        "Noch keine Daten.",
+                        stringResource(R.string.stats_no_data),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

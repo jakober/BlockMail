@@ -43,9 +43,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.jakober.klarmail.R
 import com.jakober.klarmail.data.MailRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -77,10 +79,15 @@ fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Anhänge", fontWeight = FontWeight.SemiBold) },
+                title = {
+                    Text(stringResource(R.string.att_title), fontWeight = FontWeight.SemiBold)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.att_back)
+                        )
                     }
                 }
             )
@@ -99,17 +106,17 @@ fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
                 FilterChip(
                     selected = filter == "all",
                     onClick = { filter = "all" },
-                    label = { Text("Alle") }
+                    label = { Text(stringResource(R.string.att_filter_all)) }
                 )
                 FilterChip(
                     selected = filter == "images",
                     onClick = { filter = "images" },
-                    label = { Text("Bilder") }
+                    label = { Text(stringResource(R.string.att_filter_images)) }
                 )
                 FilterChip(
                     selected = filter == "docs",
                     onClick = { filter = "docs" },
-                    label = { Text("Dokumente") }
+                    label = { Text(stringResource(R.string.att_filter_docs)) }
                 )
             }
             val all = entries
@@ -133,14 +140,12 @@ fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                "Noch keine Anhänge gefunden.",
+                                stringResource(R.string.att_empty_title),
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                "Anhänge erscheinen hier, sobald die zugehörige Mail " +
-                                    "einmal geladen wurde — das Vorladen läuft " +
-                                    "automatisch im Hintergrund.",
+                                stringResource(R.string.att_empty_text),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -158,7 +163,9 @@ fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
                                             try {
                                                 launch {
                                                     snackbar.showSnackbar(
-                                                        "„${e.att.name}“ wird geladen …"
+                                                        context.getString(
+                                                            R.string.att_loading, e.att.name
+                                                        )
                                                     )
                                                 }
                                                 val bytes = MailRepository.getAttachmentData(
@@ -171,7 +178,9 @@ fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
                                                 }
                                             } catch (ex: Exception) {
                                                 snackbar.showSnackbar(
-                                                    "Öffnen fehlgeschlagen: ${ex.message}"
+                                                    context.getString(
+                                                        R.string.att_open_failed, ex.message
+                                                    )
                                                 )
                                             }
                                         }
@@ -181,7 +190,9 @@ fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
                                             try {
                                                 launch {
                                                     snackbar.showSnackbar(
-                                                        "„${e.att.name}“ wird geladen …"
+                                                        context.getString(
+                                                            R.string.att_loading, e.att.name
+                                                        )
                                                     )
                                                 }
                                                 val bytes = MailRepository.getAttachmentData(
@@ -194,7 +205,9 @@ fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
                                                 }
                                             } catch (ex: Exception) {
                                                 snackbar.showSnackbar(
-                                                    "Teilen fehlgeschlagen: ${ex.message}"
+                                                    context.getString(
+                                                        R.string.att_share_failed, ex.message
+                                                    )
                                                 )
                                             }
                                         }
@@ -261,7 +274,7 @@ private fun AttachmentRow(
                 Text(
                     listOfNotNull(
                         mail.from.ifBlank { mail.fromAddress },
-                        SimpleDateFormat("d. MMM yyyy", Locale.GERMAN).format(Date(mail.date)),
+                        SimpleDateFormat("d. MMM yyyy", Locale.getDefault()).format(Date(mail.date)),
                         size
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
@@ -275,7 +288,7 @@ private fun AttachmentRow(
             IconButton(onClick = onShare) {
                 Icon(
                     Icons.Filled.Share,
-                    contentDescription = "Teilen",
+                    contentDescription = stringResource(R.string.att_share),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

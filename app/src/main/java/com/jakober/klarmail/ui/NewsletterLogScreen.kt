@@ -39,8 +39,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.jakober.klarmail.R
 import com.jakober.klarmail.data.NewsletterLog
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -70,7 +72,10 @@ fun NewsletterLogScreen(
         scope.launch {
             val n = com.jakober.klarmail.data.MailRepository.deleteNewsletterFrom(address)
             NewsletterLog.removeByAddress(context, address)
-            snackbar.showSnackbar(if (n > 0) "$n Newsletter gelöscht" else "Aus Protokoll entfernt")
+            snackbar.showSnackbar(
+                if (n > 0) context.getString(R.string.nlog_deleted, n)
+                else context.getString(R.string.nlog_removed_from_log)
+            )
         }
     }
 
@@ -80,7 +85,8 @@ fun NewsletterLogScreen(
             val n = com.jakober.klarmail.data.MailRepository.restoreNewsletterFrom(address)
             NewsletterLog.removeByAddress(context, address)
             snackbar.showSnackbar(
-                "Als „kein Newsletter“ gemerkt" + if (n > 0) " – $n zurück im Posteingang" else ""
+                if (n > 0) context.getString(R.string.nlog_marked_not_newsletter_restored, n)
+                else context.getString(R.string.nlog_marked_not_newsletter)
             )
         }
     }
@@ -88,10 +94,13 @@ fun NewsletterLogScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Newsletter-Protokoll") },
+                title = { Text(stringResource(R.string.nlog_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.nlog_back)
+                        )
                     }
                 }
             )
@@ -106,7 +115,7 @@ fun NewsletterLogScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "Noch keine Aufräumläufe.\nDer erste Lauf startet heute um 20 Uhr –\noder über „Jetzt ausführen“ in den Einstellungen.",
+                    stringResource(R.string.nlog_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -121,8 +130,12 @@ fun NewsletterLogScreen(
             runs.forEach { run ->
                 item(key = run.time) {
                     Text(
-                        SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.GERMAN)
-                            .format(Date(run.time)) + " – ${run.items.size} verschoben",
+                        stringResource(
+                            R.string.nlog_run_header,
+                            SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.getDefault())
+                                .format(Date(run.time)),
+                            run.items.size
+                        ),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary,
@@ -165,7 +178,7 @@ fun NewsletterLogScreen(
                                         runCatching { uriHandler.openUri(item.unsubscribe) }
                                         doDelete(item.address)
                                     }) {
-                                        Text("Abmelden")
+                                        Text(stringResource(R.string.nlog_unsubscribe))
                                         Spacer(Modifier.width(4.dp))
                                         Icon(
                                             Icons.AutoMirrored.Filled.OpenInNew,
@@ -180,7 +193,8 @@ fun NewsletterLogScreen(
                                     IconButton(onClick = { menuOpen = true }) {
                                         Icon(
                                             Icons.Filled.MoreVert,
-                                            contentDescription = "Aktionen"
+                                            contentDescription =
+                                                stringResource(R.string.nlog_actions)
                                         )
                                     }
                                     androidx.compose.material3.DropdownMenu(
@@ -188,7 +202,7 @@ fun NewsletterLogScreen(
                                         onDismissRequest = { menuOpen = false }
                                     ) {
                                         androidx.compose.material3.DropdownMenuItem(
-                                            text = { Text("Kein Newsletter") },
+                                            text = { Text(stringResource(R.string.nlog_not_newsletter)) },
                                             leadingIcon = { Icon(Icons.Filled.Inbox, null) },
                                             onClick = {
                                                 menuOpen = false
@@ -196,7 +210,7 @@ fun NewsletterLogScreen(
                                             }
                                         )
                                         androidx.compose.material3.DropdownMenuItem(
-                                            text = { Text("Löschen") },
+                                            text = { Text(stringResource(R.string.nlog_delete)) },
                                             leadingIcon = { Icon(Icons.Filled.Delete, null) },
                                             onClick = {
                                                 menuOpen = false
@@ -275,7 +289,7 @@ private fun SwipeableLogRow(
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            "Kein Newsletter",
+                            stringResource(R.string.nlog_not_newsletter),
                             color = if (reached) MaterialTheme.colorScheme.onPrimary
                             else MaterialTheme.colorScheme.onPrimaryContainer,
                             style = MaterialTheme.typography.labelLarge
@@ -295,7 +309,7 @@ private fun SwipeableLogRow(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "Löschen",
+                            stringResource(R.string.nlog_delete),
                             color = if (reached) MaterialTheme.colorScheme.onError
                             else MaterialTheme.colorScheme.onErrorContainer,
                             style = MaterialTheme.typography.labelLarge
