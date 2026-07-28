@@ -28,8 +28,9 @@
     <string name="inbox_filter_attachment">With attachment</string>
     <string name="inbox_filter_recent">Last 7 days</string>
     <string name="inbox_search_results">Results (%1$d)</string>
-    <string name="inbox_search_results_local">Results in subject/sender (%1$d) – press Enter to search the full text</string>
+    <string name="inbox_search_results_local">Results in subject/sender (%1$d)</string>
     <string name="inbox_search_no_results">No results.</string>
+    <string name="inbox_search_server">Full text (server)</string>
 
     <!-- Folder menu -->
     <string name="inbox_all_accounts">All accounts</string>
@@ -41,6 +42,8 @@
     <!-- View &amp; theme -->
     <string name="inbox_focus_enable">Turn on focus blocks</string>
     <string name="inbox_focus_disable">Turn off focus blocks</string>
+    <string name="inbox_focus_blocks">Focus blocks</string>
+    <string name="inbox_color_scheme_next">Switch color scheme</string>
     <string name="inbox_layout_to_blocks">Switch to tile view</string>
     <string name="inbox_layout_to_blocks3">Switch to compact tile view</string>
     <string name="inbox_layout_to_list">Switch to list view</string>
@@ -94,6 +97,10 @@
     <string name="inbox_ai_error">AI error: %1$s</string>
     <string name="inbox_ai_open_mail">Open email</string>
     <string name="inbox_ai_tap_hint">Tap a line to open its email.</string>
+    <string name="inbox_ai_ask_placeholder">Ask AI or search</string>
+    <string name="inbox_ai_ask_no_hits">No matching emails found.</string>
+    <string name="inbox_ai_answer_close">Close AI answer</string>
+    <string name="inbox_ai_hits_header">AI matches (%1$d)</string>
 
     <!-- Swipe actions &amp; undo -->
     <string name="inbox_swipe_archive">Archive</string>

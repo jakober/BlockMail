@@ -816,6 +816,41 @@ object MailRepository {
         }
     }
 
+    /**
+     * Kopfdaten-Index für die KI-Suche: holt per IMAP NUR die Kopfdaten
+     * (UID, Datum, Absender, Betreff, Flags — keine Inhalte) der letzten
+     * `limit` Posteingangs-Mails. Deckt so auch ältere Mails ab, die nicht
+     * (mehr) in der Übersicht geladen sind. CONTENT_INFO wird mitgeholt,
+     * damit hasAttachments keine Einzelabfragen pro Mail auslöst.
+     */
+    suspend fun headerIndex(limit: Int): List<MailMessage> = withContext(Dispatchers.IO) {
+        val store = openStore()
+        try {
+            val inbox = store.getFolder("INBOX") as IMAPFolder
+            inbox.open(Folder.READ_ONLY)
+            val total = inbox.messageCount
+            if (total <= 0) return@withContext emptyList()
+            val start = max(1, total - limit + 1)
+            val msgs = inbox.getMessages(start, total)
+            val fp = FetchProfile().apply {
+                add(FetchProfile.Item.ENVELOPE)
+                add(FetchProfile.Item.FLAGS)
+                add(FetchProfile.Item.CONTENT_INFO)
+                add(UIDFolder.FetchProfileItem.UID)
+            }
+            inbox.fetch(msgs, fp)
+            msgs.mapNotNull { m ->
+                try {
+                    toMailMessage(inbox.getUID(m), m)
+                } catch (e: Exception) {
+                    null
+                }
+            }.sortedByDescending { it.date }
+        } finally {
+            runCatching { store.close() }
+        }
+    }
+
     /** Anhang-Referenz: nur Metadaten; die Daten werden erst bei Bedarf geladen. */
     data class MailAttachment(
         val name: String,

@@ -217,6 +217,46 @@ object GeminiNano {
             mailList.take(8000)
     )
 
+    /**
+     * Beantwortet eine freie Frage zum Postfach — ausschließlich anhand der
+     * nummerierten Metadaten-Liste. WICHTIG: Die erste Antwortzeile
+     * "TREFFER: …" ist ein fester technischer Marker (in InboxScreen
+     * ausgewertet) und bleibt in JEDER Sprache exakt gleich — auch im
+     * englischen Prompt wird "TREFFER:" nicht übersetzt.
+     */
+    suspend fun askMailbox(question: String, indexedMails: String): String = generate(
+        if (!deviceIsGerman) {
+            "You answer a question about the user's email mailbox — " +
+                "EXCLUSIVELY based on the following numbered mail list " +
+                "(date | sender name | address | subject | preview if " +
+                "available). Invent nothing.\n" +
+                "STRICT answer format:\n" +
+                "First line: TREFFER: followed by the numbers of the relevant " +
+                "mails, separated by commas (e.g. TREFFER: 3,7,12). If no " +
+                "mails are relevant, the first line is: TREFFER: -\n" +
+                "Then 1 to 3 short sentences of answer in ${answerLanguage()}.\n" +
+                "The line \"TREFFER:\" is a fixed technical marker parsed by " +
+                "the app — use exactly this word, unchanged and untranslated. " +
+                "No bullet points, no introduction.\n\n" +
+                indexedMails.take(8000) +
+                "\n\nThe user's question: $question"
+        } else {
+            "Du beantwortest eine Frage zum E-Mail-Postfach des Nutzers — " +
+                "AUSSCHLIESSLICH anhand der folgenden nummerierten Mail-Liste " +
+                "(Datum | Absendername | Adresse | Betreff | ggf. Vorschau). " +
+                "Erfinde nichts.\n" +
+                "Antwortformat STRIKT:\n" +
+                "Erste Zeile: TREFFER: gefolgt von den Nummern der relevanten " +
+                "Mails, durch Kommas getrennt (z. B. TREFFER: 3,7,12). Gibt es " +
+                "keine relevanten Mails, lautet die erste Zeile: TREFFER: -\n" +
+                "Danach 1 bis 3 kurze Sätze Antwort auf Deutsch.\n" +
+                "Die Zeile \"TREFFER:\" ist ein technischer Marker und bleibt " +
+                "exakt so. Keine Aufzählungen, keine Einleitung.\n\n" +
+                indexedMails.take(8000) +
+                "\n\nFrage des Nutzers: $question"
+        }
+    )
+
     /** Fokus-Blöcke: ordnet nummerierte Mails den Kategorien A–D zu. */
     suspend fun classifyMails(mailList: String): String = generate(
         // Ausgabeformat „[Nr] Buchstabe“ ist sprachneutral und muss so bleiben.

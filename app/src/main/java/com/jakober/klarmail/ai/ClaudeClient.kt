@@ -207,6 +207,58 @@ object ClaudeClient {
         return complete(apiKey, system, user)
     }
 
+    /**
+     * Beantwortet eine freie Frage zum Postfach — ausschließlich anhand der
+     * mitgelieferten nummerierten Metadaten-Liste (kein Mail-Inhalt).
+     * WICHTIG: Die erste Antwortzeile "TREFFER: …" ist ein fester technischer
+     * Marker (in InboxScreen ausgewertet) und bleibt in JEDER Sprache exakt
+     * gleich; die Nummern verweisen auf die relevanten Mails der Liste.
+     */
+    suspend fun askMailbox(apiKey: String, question: String, indexedMails: String): String {
+        if (!deviceIsGerman) return askMailboxIntl(apiKey, question, indexedMails)
+        val system = "Du beantwortest Fragen zum E-Mail-Postfach des Nutzers — " +
+            "AUSSCHLIESSLICH anhand der mitgelieferten nummerierten Mail-Liste " +
+            "(Datum | Absendername | Adresse | Betreff | ggf. Vorschau). " +
+            "Erfinde nichts und nutze kein Wissen außerhalb der Liste.\n" +
+            "Antwortformat STRIKT:\n" +
+            "Erste Zeile: TREFFER: gefolgt von den Nummern der relevanten Mails, " +
+            "durch Kommas getrennt (z. B. TREFFER: 3,7,12). Gibt es keine " +
+            "relevanten Mails, lautet die erste Zeile: TREFFER: -\n" +
+            "Danach 1 bis 3 kurze Sätze Antwort auf Deutsch.\n" +
+            "Die Zeile \"TREFFER:\" ist ein technischer Marker und bleibt exakt " +
+            "so. Keine Aufzählungen, keine weitere Formatierung, keine Einleitung."
+        val user = "Nummerierte E-Mail-Liste:\n\n" + indexedMails.take(60000) +
+            "\n\nFrage des Nutzers: $question"
+        return complete(apiKey, system, user)
+    }
+
+    /**
+     * askMailbox für nicht-deutsche Gerätesprachen. Der Marker "TREFFER:" ist
+     * sprachneutral und wird auch hier NICHT übersetzt.
+     */
+    private suspend fun askMailboxIntl(
+        apiKey: String,
+        question: String,
+        indexedMails: String
+    ): String {
+        val system = "You answer questions about the user's email mailbox — " +
+            "EXCLUSIVELY based on the provided numbered mail list " +
+            "(date | sender name | address | subject | preview if available). " +
+            "Invent nothing and use no knowledge beyond the list.\n" +
+            "STRICT answer format:\n" +
+            "First line: TREFFER: followed by the numbers of the relevant mails, " +
+            "separated by commas (e.g. TREFFER: 3,7,12). If there are no " +
+            "relevant mails, the first line is: TREFFER: -\n" +
+            "Then 1 to 3 short sentences of answer, written in ${answerLanguage()}.\n" +
+            "The line \"TREFFER:\" is a fixed technical marker parsed by the " +
+            "app — use exactly this word, unchanged and untranslated, even " +
+            "though you answer in another language. No bullet points, no " +
+            "further formatting, no introduction."
+        val user = "Numbered email list:\n\n" + indexedMails.take(60000) +
+            "\n\nThe user's question: $question"
+        return complete(apiKey, system, user)
+    }
+
     /** Fokus-Blöcke: ordnet nummerierte Mails den Kategorien A–D zu. */
     suspend fun classifyMails(apiKey: String, mailList: String): String {
         if (!deviceIsGerman) return classifyMailsIntl(apiKey, mailList)

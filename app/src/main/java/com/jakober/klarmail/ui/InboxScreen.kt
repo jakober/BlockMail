@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -36,8 +37,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.SubdirectoryArrowRight
 import androidx.compose.material.icons.filled.AccountCircle
@@ -64,6 +65,7 @@ import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Schedule
@@ -71,6 +73,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -81,7 +85,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -92,8 +95,6 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -108,10 +109,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
@@ -366,18 +366,96 @@ fun InboxScreen(
         }
     }
 
-    var searchMode by remember { mutableStateOf(false) }
+    // Such-/KI-Leiste: Tippen filtert live über die geladenen Mails (die
+    // frühere Suchmodus-Logik), Enter stellt die Frage der KI
     var query by remember { mutableStateOf("") }
     var serverResults by remember { mutableStateOf<List<MailMessage>?>(null) }
     var showDraftsDialog by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
-    val searchFocus = remember { FocusRequester() }
+    var aiAskBusy by remember { mutableStateOf(false) }
+    var aiAnswer by remember { mutableStateOf<String?>(null) }
+    var aiHits by remember { mutableStateOf<List<MailMessage>>(emptyList()) }
 
     fun exitSearch() {
-        searchMode = false
         query = ""
         serverResults = null
         searching = false
+        aiAnswer = null
+        aiHits = emptyList()
+    }
+    androidx.activity.compose.BackHandler(
+        enabled = query.isNotEmpty() || aiAnswer != null || serverResults != null
+    ) { exitSearch() }
+
+    /**
+     * KI-Anfrage ans Postfach: baut eine nummerierte Metadaten-Liste (kein
+     * Mail-Inhalt) und fragt Claude bzw. Gemini Nano. Grundlage sind die per
+     * Kopfdaten-Index vom Server geholten letzten Mails (deckt auch ältere
+     * ab); schlägt der Abruf fehl (offline), dienen die geladenen und
+     * gecachten Mails als Rückfallebene. Die Antwort beginnt mit der
+     * Marker-Zeile "TREFFER: …", deren Nummern die Treffer-Mails benennen.
+     */
+    fun askAi(question: String) {
+        if (aiAskBusy || question.isBlank()) return
+        keyboard?.hide()
+        scope.launch {
+            aiAskBusy = true
+            try {
+                val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
+                // Gemini Nano hat ein kleines Kontextfenster — deutlich
+                // weniger Mails mitschicken als bei Claude
+                val limit = if (hasClaudeKey) 500 else 60
+                val fromServer = runCatching {
+                    MailRepository.headerIndex(limit)
+                }.getOrDefault(emptyList())
+                // Geladene Mails zuerst (sie haben Vorschau-Texte), dann der
+                // Server-Index und der Platten-Cache; Doppelte fliegen raus
+                val seenKeys = HashSet<String>()
+                val indexed = (messages + MailRepository.cachedInboxMails() + fromServer)
+                    .filter { seenKeys.add("${it.account}:${it.uid}") }
+                    .sortedByDescending { it.date }
+                    .take(limit)
+                if (indexed.isEmpty()) {
+                    snackbar.showSnackbar(
+                        context.getString(R.string.inbox_ai_no_matching_mails)
+                    )
+                    return@launch
+                }
+                val df = SimpleDateFormat("dd.MM. HH:mm", Locale.GERMAN)
+                val list = indexed.mapIndexed { i, m ->
+                    // Kopfdaten vom Server haben keine Vorschau — dann ohne
+                    val snip = m.snippet?.takeIf { it.isNotBlank() }
+                        ?.let { " | ${it.take(80)}" } ?: ""
+                    "[${i + 1}] ${df.format(Date(m.date))} | ${m.from} | " +
+                        "${m.fromAddress} | ${m.subject}$snip"
+                }.joinToString("\n")
+                val raw = if (hasClaudeKey) {
+                    com.jakober.klarmail.ai.ClaudeClient.askMailbox(
+                        Prefs.claudeApiKey, question, list
+                    )
+                } else {
+                    com.jakober.klarmail.ai.GeminiNano.askMailbox(question, list)
+                }
+                // Marker-Zeile "TREFFER: 3,7,12" bzw. "TREFFER: -" auswerten
+                val lines = raw.lines()
+                val hitIdx = lines.indexOfFirst {
+                    it.trim().uppercase().startsWith("TREFFER:")
+                }
+                val nums = if (hitIdx >= 0) {
+                    Regex("\\d+").findAll(lines[hitIdx].substringAfter(":"))
+                        .mapNotNull { it.value.toIntOrNull() }.toList()
+                } else emptyList()
+                aiHits = nums.mapNotNull { indexed.getOrNull(it - 1) }
+                    .distinctBy { "${it.account}:${it.uid}" }
+                aiAnswer = lines.filterIndexed { i, _ -> i != hitIdx }
+                    .joinToString("\n").trim()
+                    .ifBlank { context.getString(R.string.inbox_ai_ask_no_hits) }
+            } catch (e: Exception) {
+                snackbar.showSnackbar(context.getString(R.string.inbox_ai_error, e.message))
+            } finally {
+                aiAskBusy = false
+            }
+        }
     }
 
     // Entwürfe: Liste der automatisch gespeicherten Entwürfe mit Fortsetzen/Löschen
@@ -509,69 +587,6 @@ fun InboxScreen(
                                 Icons.Filled.Delete,
                                 contentDescription = stringResource(R.string.inbox_delete)
                             )
-                        }
-                    }
-                )
-            } else if (searchMode) {
-                TopAppBar(
-                    navigationIcon = {
-                        IconButton(onClick = { exitSearch() }) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.inbox_search_close)
-                            )
-                        }
-                    },
-                    title = {
-                        TextField(
-                            value = query,
-                            onValueChange = {
-                                query = it
-                                serverResults = null
-                            },
-                            placeholder = { Text(stringResource(R.string.inbox_search_placeholder)) },
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .focusRequester(searchFocus),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = {
-                                if (query.isNotBlank()) {
-                                    keyboard?.hide()
-                                    scope.launch {
-                                        searching = true
-                                        try {
-                                            serverResults = MailRepository.search(query)
-                                        } catch (e: Exception) {
-                                            snackbar.showSnackbar(
-                                                context.getString(
-                                                    R.string.inbox_search_failed,
-                                                    MailRepository.friendlyError(e)
-                                                )
-                                            )
-                                        } finally {
-                                            searching = false
-                                        }
-                                    }
-                                }
-                            })
-                        )
-                        LaunchedEffect(Unit) { searchFocus.requestFocus() }
-                    },
-                    actions = {
-                        if (query.isNotEmpty()) {
-                            IconButton(onClick = { query = ""; serverResults = null }) {
-                                Icon(
-                                    Icons.Filled.Close,
-                                    contentDescription = stringResource(R.string.inbox_search_clear)
-                                )
-                            }
                         }
                     }
                 )
@@ -824,53 +839,60 @@ fun InboxScreen(
                     navigationIcon = {
                         if (configured) {
                             Row {
-                                IconButton(onClick = { searchMode = true }) {
+                                // Hell/Dunkel direkt umschalten — exakt derselbe
+                                // Mechanismus wie früher der Eintrag im ⋮-Menü
+                                val darkModeSetting by Prefs.darkModeFlow.collectAsState()
+                                val systemDark =
+                                    androidx.compose.foundation.isSystemInDarkTheme()
+                                val isDarkNow = when (darkModeSetting) {
+                                    "dark" -> true
+                                    "light" -> false
+                                    else -> systemDark
+                                }
+                                IconButton(onClick = {
+                                    Prefs.darkMode = if (isDarkNow) "light" else "dark"
+                                }) {
                                     Icon(
-                                        Icons.Filled.Search,
-                                        contentDescription = stringResource(R.string.inbox_search)
+                                        if (isDarkNow) Icons.Filled.LightMode
+                                        else Icons.Filled.DarkMode,
+                                        contentDescription = if (isDarkNow) {
+                                            stringResource(R.string.inbox_theme_light)
+                                        } else {
+                                            stringResource(R.string.inbox_theme_dark)
+                                        }
                                     )
                                 }
-                                // Fokus-Blöcke ein/aus: nach Wichtigkeit statt Zeit
-                                IconButton(onClick = { Prefs.focusMode = !focusMode }) {
+                                // Farbwechsler: Symbol zeigt die AKTUELLE
+                                // Schemafarbe; Klick rotiert durch die Schemata
+                                // aus Theme.kt ("custom" wird übersprungen und
+                                // führt zurück zum ersten Listen-Schema)
+                                val schemeId by Prefs.colorSchemeFlow.collectAsState()
+                                val customColor by Prefs.customColorFlow.collectAsState()
+                                val accent = if (schemeId == "custom") {
+                                    Color(customColor)
+                                } else {
+                                    (colorSchemes.find { it.id == schemeId }
+                                        ?: colorSchemes.first()).preview
+                                }
+                                IconButton(onClick = {
+                                    val ids = colorSchemes.map { it.id }
+                                    // indexOf: bei "custom" (oder unbekannt) -1
+                                    // → (−1+1) % n = 0 = erstes Listen-Schema
+                                    val idx = ids.indexOf(schemeId)
+                                    Prefs.colorScheme = ids[(idx + 1) % ids.size]
+                                }) {
                                     Icon(
-                                        Icons.Filled.AutoAwesomeMosaic,
-                                        contentDescription = if (focusMode) {
-                                            stringResource(R.string.inbox_focus_disable)
-                                        } else {
-                                            stringResource(R.string.inbox_focus_enable)
-                                        },
-                                        tint = if (focusMode) MaterialTheme.colorScheme.primary
-                                        else LocalContentColor.current
+                                        Icons.Filled.Palette,
+                                        contentDescription = stringResource(
+                                            R.string.inbox_color_scheme_next
+                                        ),
+                                        tint = accent
                                     )
                                 }
                             }
                         }
                     },
                     actions = {
-                        // Durchschalter Liste → Kacheln (2er) → Kompakt (3er);
-                        // das Symbol zeigt jeweils die NÄCHSTE Ansicht
-                        if (configured) {
-                            IconButton(onClick = {
-                                Prefs.inboxLayout = when (inboxLayout) {
-                                    "list" -> "blocks"
-                                    "blocks" -> "blocks3"
-                                    else -> "list"
-                                }
-                            }) {
-                                Icon(
-                                    when (inboxLayout) {
-                                        "list" -> Icons.Filled.GridView
-                                        "blocks" -> Icons.Filled.ViewModule
-                                        else -> Icons.AutoMirrored.Filled.ViewList
-                                    },
-                                    contentDescription = when (inboxLayout) {
-                                        "list" -> stringResource(R.string.inbox_layout_to_blocks)
-                                        "blocks" -> stringResource(R.string.inbox_layout_to_blocks3)
-                                        else -> stringResource(R.string.inbox_layout_to_list)
-                                    }
-                                )
-                            }
-                        }
                         // Dreipunkt-Menü hält die Leiste schlank: Design,
                         // Ansicht und Einstellungen wandern hier hinein
                         var overflowOpen by remember { mutableStateOf(false) }
@@ -888,35 +910,35 @@ fun InboxScreen(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                             ) {
                                 if (configured) {
-                                    // Hell ↔ Dunkel
-                                    val darkModeSetting by Prefs.darkModeFlow.collectAsState()
-                                    val systemDark =
-                                        androidx.compose.foundation.isSystemInDarkTheme()
-                                    val isDarkNow = when (darkModeSetting) {
-                                        "dark" -> true
-                                        "light" -> false
-                                        else -> systemDark
-                                    }
+                                    // Fokus-Blöcke ein/aus (früher eigenes Icon
+                                    // in der Kopfzeile): gleiche Wirkung wie
+                                    // damals — Prefs.focusMode umschalten
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                if (isDarkNow) {
-                                                    stringResource(R.string.inbox_theme_light)
-                                                } else {
-                                                    stringResource(R.string.inbox_theme_dark)
-                                                }
+                                                stringResource(R.string.inbox_focus_blocks),
+                                                fontWeight = if (focusMode) FontWeight.SemiBold
+                                                else FontWeight.Normal
                                             )
                                         },
                                         leadingIcon = {
-                                            Icon(
-                                                if (isDarkNow) Icons.Filled.LightMode
-                                                else Icons.Filled.DarkMode,
-                                                null
+                                            Icon(Icons.Filled.AutoAwesomeMosaic, null)
+                                        },
+                                        trailingIcon = if (focusMode) {
+                                            { Icon(Icons.Filled.Check, null) }
+                                        } else null,
+                                        colors = if (focusMode) {
+                                            androidx.compose.material3.MenuDefaults.itemColors(
+                                                textColor = MaterialTheme.colorScheme.primary,
+                                                leadingIconColor = MaterialTheme.colorScheme.primary,
+                                                trailingIconColor = MaterialTheme.colorScheme.primary
                                             )
+                                        } else {
+                                            androidx.compose.material3.MenuDefaults.itemColors()
                                         },
                                         onClick = {
                                             overflowOpen = false
-                                            Prefs.darkMode = if (isDarkNow) "light" else "dark"
+                                            Prefs.focusMode = !focusMode
                                         }
                                     )
                                     HorizontalDivider(
@@ -991,7 +1013,9 @@ fun InboxScreen(
             }
         },
         floatingActionButton = {
-            if (configured && !searchMode && !selectionMode) {
+            if (configured && !selectionMode && query.isBlank() &&
+                aiAnswer == null && serverResults == null
+            ) {
                 FloatingActionButton(
                     onClick = onCompose,
                     // Kräftige Grundfarbe des Schemas — auch im Dunkelmodus
@@ -1032,120 +1056,6 @@ fun InboxScreen(
                 )
                 Spacer(Modifier.height(24.dp))
                 Button(onClick = onSettings) { Text(stringResource(R.string.inbox_welcome_connect)) }
-            }
-            return@Scaffold
-        }
-
-        if (searchMode) {
-            // Filter-Chips grenzen die Treffer weiter ein
-            var filterUnread by remember { mutableStateOf(false) }
-            var filterAttachment by remember { mutableStateOf(false) }
-            var filterRecent by remember { mutableStateOf(false) }
-            val unfiltered = serverResults ?: if (query.isBlank()) emptyList() else {
-                messages.filter {
-                    it.subject.contains(query, ignoreCase = true) ||
-                        it.from.contains(query, ignoreCase = true) ||
-                        it.fromAddress.contains(query, ignoreCase = true)
-                }
-            }
-            val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
-            val results = unfiltered
-                .filter { !filterUnread || !it.seen }
-                .filter { !filterAttachment || it.hasAttachments }
-                .filter { !filterRecent || it.date >= weekAgo }
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    androidx.compose.material3.FilterChip(
-                        selected = filterUnread,
-                        onClick = { filterUnread = !filterUnread },
-                        label = { Text(stringResource(R.string.inbox_filter_unread)) }
-                    )
-                    androidx.compose.material3.FilterChip(
-                        selected = filterAttachment,
-                        onClick = { filterAttachment = !filterAttachment },
-                        label = { Text(stringResource(R.string.inbox_filter_attachment)) }
-                    )
-                    androidx.compose.material3.FilterChip(
-                        selected = filterRecent,
-                        onClick = { filterRecent = !filterRecent },
-                        label = { Text(stringResource(R.string.inbox_filter_recent)) }
-                    )
-                }
-                if (searching) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    if (query.isNotBlank()) {
-                        item(key = "header_search") {
-                            SectionHeader(
-                                if (serverResults != null) {
-                                    stringResource(R.string.inbox_search_results, results.size)
-                                } else {
-                                    stringResource(R.string.inbox_search_results_local, results.size)
-                                }
-                            )
-                        }
-                    }
-                    items(results, key = { it.uid }) { mail ->
-                        SwipeableMailRow(
-                            mail = mail,
-                            onClick = { onOpenMail(mail.uid) },
-                            onLongClick = {},
-                            selected = false,
-                            selectionMode = false,
-                            rightSpec = SwipeSpec(
-                                if (mail.seen) R.string.inbox_mark_unread else R.string.inbox_mark_read,
-                                if (mail.seen) Icons.Filled.MarkEmailUnread else Icons.Filled.Drafts
-                            ) {
-                                val newSeen = !mail.seen
-                                scope.launch { MailRepository.setSeen(mail.uid, newSeen) }
-                                serverResults = serverResults?.map {
-                                    if (it.uid == mail.uid) it.copy(seen = newSeen) else it
-                                }
-                            },
-                            leftSpec = SwipeSpec(
-                                R.string.inbox_delete, Icons.Filled.Delete, destructive = true
-                            ) {
-                                val prevResults = serverResults
-                                serverResults = serverResults?.filter { it.uid != mail.uid }
-                                scope.launch {
-                                    MailRepository.hideLocally(mail.uid)
-                                    val result = snackbar.showSnackbar(
-                                        message = context.getString(R.string.inbox_snackbar_deleted),
-                                        actionLabel = context.getString(R.string.inbox_undo),
-                                        duration = SnackbarDuration.Short
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        MailRepository.restoreLocally(mail)
-                                        serverResults = prevResults
-                                    } else {
-                                        MailRepository.deleteMail(mail.uid)
-                                    }
-                                }
-                            },
-                            modifier = Modifier.animateItem()
-                        )
-                    }
-                    if (query.isNotBlank() && results.isEmpty() && !searching) {
-                        item {
-                            Text(
-                                stringResource(R.string.inbox_search_no_results),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(20.dp)
-                            )
-                        }
-                    }
-                }
             }
             return@Scaffold
         }
@@ -1337,13 +1247,341 @@ fun InboxScreen(
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
-        PullToRefreshBox(
-            isRefreshing = loading,
-            onRefresh = { scope.launch { MailRepository.refresh() } },
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+        ) {
+            // Breite Such-/KI-Leiste (WhatsApp-Stil): Tippen filtert live wie
+            // der frühere Suchmodus, Enter stellt die Frage der KI
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(Modifier.width(14.dp))
+                Icon(
+                    Icons.Filled.Search,
+                    contentDescription = stringResource(R.string.inbox_search),
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(10.dp))
+                BasicTextField(
+                    value = query,
+                    onValueChange = {
+                        query = it
+                        serverResults = null
+                        // Tippen verlässt die KI-Antwort-Ansicht
+                        aiAnswer = null
+                        aiHits = emptyList()
+                    },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { askAi(query) }),
+                    modifier = Modifier.weight(1f),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (query.isEmpty()) {
+                                Text(
+                                    stringResource(R.string.inbox_ai_ask_placeholder),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            inner()
+                        }
+                    }
+                )
+                if (aiAskBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(14.dp))
+                } else if (query.isNotEmpty()) {
+                    IconButton(onClick = { exitSearch() }) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.inbox_search_clear),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Spacer(Modifier.width(14.dp))
+                }
+            }
+
+            val answer = aiAnswer
+            if (answer != null) {
+                // KI-Antwort-Karte; darunter NUR die Treffer-Mails in der
+                // aktuellen Ansichtsart (Liste bzw. Kacheln)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(
+                            start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp
+                        ),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            Icons.Filled.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            answer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(top = 1.dp)
+                        )
+                        IconButton(
+                            onClick = { exitSearch() },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription =
+                                    stringResource(R.string.inbox_ai_answer_close),
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+                if (aiHits.isEmpty()) {
+                    Text(
+                        stringResource(R.string.inbox_ai_ask_no_hits),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(20.dp)
+                    )
+                    Spacer(Modifier.weight(1f))
+                } else if (inboxLayout.startsWith("blocks")) {
+                    val compact = inboxLayout == "blocks3"
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(
+                            minSize = if (compact) 108.dp else 164.dp
+                        ),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(
+                            start = 10.dp, end = 10.dp, bottom = 10.dp
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        item(key = "header_ai_hits", span = { GridItemSpan(maxLineSpan) }) {
+                            SectionHeader(
+                                stringResource(R.string.inbox_ai_hits_header, aiHits.size)
+                            )
+                        }
+                        gridItems(
+                            aiHits,
+                            key = { "${it.account}:${it.uid}" },
+                            contentType = { "mail" }
+                        ) { mail ->
+                            SwipeableMailBlock(
+                                mail = mail,
+                                onClick = { onOpenMail(mail.uid) },
+                                onLongClick = {},
+                                selected = false,
+                                selectionMode = false,
+                                rightSpec = specFor(swipeRight, mail),
+                                leftSpec = specFor(swipeLeft, mail),
+                                modifier = Modifier.animateItem(),
+                                compact = compact
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        item(key = "header_ai_hits") {
+                            SectionHeader(
+                                stringResource(R.string.inbox_ai_hits_header, aiHits.size)
+                            )
+                        }
+                        items(
+                            aiHits,
+                            key = { "${it.account}:${it.uid}" },
+                            contentType = { "mail" }
+                        ) { mail ->
+                            SwipeableMailRow(
+                                mail = mail,
+                                onClick = { onOpenMail(mail.uid) },
+                                onLongClick = {},
+                                selected = false,
+                                selectionMode = false,
+                                rightSpec = specFor(swipeRight, mail),
+                                leftSpec = specFor(swipeLeft, mail),
+                                modifier = Modifier.animateItem()
+                            )
+                        }
+                    }
+                }
+            } else if (query.isNotBlank() || serverResults != null) {
+                // Suchansicht: exakt die frühere Suchlogik — Live-Filter über
+                // die geladenen Mails, Filter-Chips, Server-Volltextsuche
+                var filterUnread by remember { mutableStateOf(false) }
+                var filterAttachment by remember { mutableStateOf(false) }
+                var filterRecent by remember { mutableStateOf(false) }
+                val unfiltered = serverResults ?: if (query.isBlank()) emptyList() else {
+                    messages.filter {
+                        it.subject.contains(query, ignoreCase = true) ||
+                            it.from.contains(query, ignoreCase = true) ||
+                            it.fromAddress.contains(query, ignoreCase = true)
+                    }
+                }
+                val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+                val results = unfiltered
+                    .filter { !filterUnread || !it.seen }
+                    .filter { !filterAttachment || it.hasAttachments }
+                    .filter { !filterRecent || it.date >= weekAgo }
+                fun runServerSearch() {
+                    if (query.isBlank() || searching) return
+                    keyboard?.hide()
+                    scope.launch {
+                        searching = true
+                        try {
+                            serverResults = MailRepository.search(query)
+                        } catch (e: Exception) {
+                            snackbar.showSnackbar(
+                                context.getString(
+                                    R.string.inbox_search_failed,
+                                    MailRepository.friendlyError(e)
+                                )
+                            )
+                        } finally {
+                            searching = false
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    androidx.compose.material3.FilterChip(
+                        selected = filterUnread,
+                        onClick = { filterUnread = !filterUnread },
+                        label = { Text(stringResource(R.string.inbox_filter_unread)) }
+                    )
+                    androidx.compose.material3.FilterChip(
+                        selected = filterAttachment,
+                        onClick = { filterAttachment = !filterAttachment },
+                        label = { Text(stringResource(R.string.inbox_filter_attachment)) }
+                    )
+                    androidx.compose.material3.FilterChip(
+                        selected = filterRecent,
+                        onClick = { filterRecent = !filterRecent },
+                        label = { Text(stringResource(R.string.inbox_filter_recent)) }
+                    )
+                    // Server-Volltextsuche (früher Enter im Suchmodus)
+                    androidx.compose.material3.AssistChip(
+                        onClick = { runServerSearch() },
+                        enabled = !searching && query.isNotBlank(),
+                        label = { Text(stringResource(R.string.inbox_search_server)) }
+                    )
+                }
+                if (searching) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    if (query.isNotBlank()) {
+                        item(key = "header_search") {
+                            SectionHeader(
+                                if (serverResults != null) {
+                                    stringResource(R.string.inbox_search_results, results.size)
+                                } else {
+                                    stringResource(R.string.inbox_search_results_local, results.size)
+                                }
+                            )
+                        }
+                    }
+                    items(results, key = { it.uid }) { mail ->
+                        SwipeableMailRow(
+                            mail = mail,
+                            onClick = { onOpenMail(mail.uid) },
+                            onLongClick = {},
+                            selected = false,
+                            selectionMode = false,
+                            rightSpec = SwipeSpec(
+                                if (mail.seen) R.string.inbox_mark_unread else R.string.inbox_mark_read,
+                                if (mail.seen) Icons.Filled.MarkEmailUnread else Icons.Filled.Drafts
+                            ) {
+                                val newSeen = !mail.seen
+                                scope.launch { MailRepository.setSeen(mail.uid, newSeen) }
+                                serverResults = serverResults?.map {
+                                    if (it.uid == mail.uid) it.copy(seen = newSeen) else it
+                                }
+                            },
+                            leftSpec = SwipeSpec(
+                                R.string.inbox_delete, Icons.Filled.Delete, destructive = true
+                            ) {
+                                val prevResults = serverResults
+                                serverResults = serverResults?.filter { it.uid != mail.uid }
+                                scope.launch {
+                                    MailRepository.hideLocally(mail.uid)
+                                    val result = snackbar.showSnackbar(
+                                        message = context.getString(R.string.inbox_snackbar_deleted),
+                                        actionLabel = context.getString(R.string.inbox_undo),
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        MailRepository.restoreLocally(mail)
+                                        serverResults = prevResults
+                                    } else {
+                                        MailRepository.deleteMail(mail.uid)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.animateItem()
+                        )
+                    }
+                    if (query.isNotBlank() && results.isEmpty() && !searching) {
+                        item {
+                            Text(
+                                stringResource(R.string.inbox_search_no_results),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(20.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+        PullToRefreshBox(
+            isRefreshing = loading,
+            onRefresh = { scope.launch { MailRepository.refresh() } },
+            modifier = Modifier.fillMaxSize()
         ) {
             val unread = messages.filter { !it.seen }
             val read = messages.filter { it.seen }
@@ -1766,7 +2004,6 @@ fun InboxScreen(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(padding)
                     .padding(16.dp)
             ) {
                 androidx.compose.material3.SmallFloatingActionButton(
@@ -1823,6 +2060,8 @@ fun InboxScreen(
                 }
             }
         }
+        }
+            }
         }
     }
 }

@@ -28,8 +28,9 @@
     <string name="inbox_filter_attachment">Mit Anhang</string>
     <string name="inbox_filter_recent">Letzte 7 Tage</string>
     <string name="inbox_search_results">Ergebnisse (%1$d)</string>
-    <string name="inbox_search_results_local">Ergebnisse in Betreff/Absender (%1$d) – Enter sucht auch im Text</string>
+    <string name="inbox_search_results_local">Ergebnisse in Betreff/Absender (%1$d)</string>
     <string name="inbox_search_no_results">Keine Treffer.</string>
+    <string name="inbox_search_server">Volltext (Server)</string>
 
     <!-- Ordner-Menü -->
     <string name="inbox_all_accounts">Alle Konten</string>
@@ -41,6 +42,8 @@
     <!-- Ansicht &amp; Design -->
     <string name="inbox_focus_enable">Fokus-Blöcke einschalten</string>
     <string name="inbox_focus_disable">Fokus-Blöcke ausschalten</string>
+    <string name="inbox_focus_blocks">Fokus-Blöcke</string>
+    <string name="inbox_color_scheme_next">Farbschema wechseln</string>
     <string name="inbox_layout_to_blocks">Zur Kachel-Ansicht wechseln</string>
     <string name="inbox_layout_to_blocks3">Zur kompakten Kachel-Ansicht wechseln</string>
     <string name="inbox_layout_to_list">Zur Listen-Ansicht wechseln</string>
@@ -94,6 +97,10 @@
     <string name="inbox_ai_error">KI-Fehler: %1$s</string>
     <string name="inbox_ai_open_mail">Mail öffnen</string>
     <string name="inbox_ai_tap_hint">Antippen öffnet die jeweilige Mail.</string>
+    <string name="inbox_ai_ask_placeholder">KI fragen oder suchen</string>
+    <string name="inbox_ai_ask_no_hits">Keine passenden Mails gefunden.</string>
+    <string name="inbox_ai_answer_close">KI-Antwort schließen</string>
+    <string name="inbox_ai_hits_header">KI-Treffer (%1$d)</string>
 
     <!-- Wisch-Aktionen &amp; Rückgängig -->
     <string name="inbox_swipe_archive">Archivieren</string>
