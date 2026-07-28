@@ -63,7 +63,7 @@ class MailSyncService : Service() {
                 // Beim Registrieren meldet Android sofort das aktuelle Netz —
                 // erst ein echter Wechsel danach löst den Neuaufbau aus
                 if (previous != null && previous != network && idleJob?.isActive == true) {
-                    pushStatus.value = "Netzwechsel erkannt (${now()}) – verbinde neu …"
+                    pushStatus.value = getString(R.string.svc_push_net_change, now())
                     restartIdleLoop()
                 }
             }
@@ -150,10 +150,10 @@ class MailSyncService : Service() {
             val newCount = MailChecker.checkOnce(applicationContext)
             when {
                 newCount == 0 -> MailChecker.statusNotification(
-                    applicationContext, "Keine neuen Mails", timeoutMs = 15_000
+                    applicationContext, getString(R.string.svc_check_no_new), timeoutMs = 15_000
                 )
                 newCount < 0 -> MailChecker.statusNotification(
-                    applicationContext, "Prüfung fehlgeschlagen — bitte Verbindung prüfen"
+                    applicationContext, getString(R.string.svc_check_failed)
                 )
             }
             if (stopAfter) stopSelfClean()
@@ -210,8 +210,8 @@ class MailSyncService : Service() {
         return NotificationCompat.Builder(this, MailApp.CHANNEL_SYNC)
             .setSmallIcon(R.drawable.ic_notif_mail)
             .setColor(0xFFEE5F0F.toInt())
-            .setContentTitle("BlockMail aktiv")
-            .setContentText("Wartet auf neue E-Mails — zum Ausblenden wegwischen")
+            .setContentTitle(getString(R.string.svc_sync_notif_title))
+            .setContentText(getString(R.string.svc_sync_notif_text))
             // Bewusst NICHT ongoing: So lässt sich die stille Meldung auf allen
             // Android-Versionen wegwischen; der Dienst läuft trotzdem weiter
             .setOngoing(false)
@@ -232,19 +232,23 @@ class MailSyncService : Service() {
             while (isActive) {
                 lastAliveMs = System.currentTimeMillis()
                 if (!Prefs.isConfigured) {
-                    pushStatus.value = "Kein Konto verbunden"
+                    pushStatus.value = getString(R.string.svc_no_account)
                     delay(30_000)
                     continue
                 }
                 try {
                     connectAndIdle(stillActive) { backoff = 5_000L }
                     if (!isActive) break
-                    pushStatus.value = "Getrennt (${now()}) – verbinde gleich neu …"
+                    pushStatus.value = getString(R.string.svc_push_disconnected_retry, now())
                     delay(3_000)
                 } catch (e: Exception) {
                     if (!isActive) break
-                    pushStatus.value =
-                        "Getrennt (${now()}): ${e.message?.take(80) ?: "Fehler"} – neuer Versuch in ${backoff / 1000}s"
+                    pushStatus.value = getString(
+                        R.string.svc_push_disconnected_error,
+                        now(),
+                        e.message?.take(80) ?: getString(R.string.svc_error_generic),
+                        backoff / 1000
+                    )
                     delay(backoff)
                     backoff = min(backoff * 2, 120_000L)
                 }
@@ -253,7 +257,7 @@ class MailSyncService : Service() {
     }
 
     private fun connectAndIdle(stillActive: () -> Boolean, onConnected: () -> Unit) {
-        pushStatus.value = "Verbinde … (${now()})"
+        pushStatus.value = getString(R.string.svc_push_connecting, now())
         val store = MailRepository.openStore(idleMode = true)
         activeStore = store
         try {
@@ -261,10 +265,10 @@ class MailSyncService : Service() {
             inbox.open(Folder.READ_ONLY)
             onConnected()
             lastAliveMs = System.currentTimeMillis()
-            pushStatus.value = "Verbunden – wartet auf Mails (seit ${now()})"
+            pushStatus.value = getString(R.string.svc_push_connected_waiting, now())
             // Nachholen, was während einer Verbindungslücke angekommen ist
             if (MailChecker.processNewMessages(this, inbox) > 0) {
-                pushStatus.value = "Verbunden – letzte Mail verarbeitet ${now()}"
+                pushStatus.value = getString(R.string.svc_push_connected_processed, now())
             }
             MailChecker.syncFlags(this, inbox)
             // WICHTIG: idle(true) statt idle() — die parameterlose Variante kehrt
@@ -277,7 +281,7 @@ class MailSyncService : Service() {
                 lastAliveMs = System.currentTimeMillis()
                 if (!stillActive()) break
                 if (MailChecker.processNewMessages(this, inbox) > 0) {
-                    pushStatus.value = "Verbunden – letzte Mail verarbeitet ${now()}"
+                    pushStatus.value = getString(R.string.svc_push_connected_processed, now())
                 }
                 MailChecker.syncFlags(this, inbox)
             }
@@ -294,7 +298,7 @@ class MailSyncService : Service() {
                     ?.unregisterNetworkCallback(cb)
             }
         }
-        pushStatus.value = "Gestoppt"
+        pushStatus.value = getString(R.string.svc_push_stopped)
         // Store schließen, um das blockierende idle() zu beenden
         val store = activeStore
         Thread { runCatching { store?.close() } }.start()
@@ -324,8 +328,13 @@ class MailSyncService : Service() {
             context.startForegroundService(intent)
         }
 
-        /** Sichtbarer Zustand des Push-Dienstes für die Einstellungen. */
-        val pushStatus = MutableStateFlow("Noch nicht gestartet")
+        /**
+         * Sichtbarer Zustand des Push-Dienstes für die Einstellungen.
+         * Initialwert bewusst leer (kein Context im companion object):
+         * Die Einstellungs-UI zeigt bei leerem Wert stattdessen den
+         * Ressourcen-Text R.string.svc_push_not_started an.
+         */
+        val pushStatus = MutableStateFlow("")
 
         fun start(context: Context) {
             // Sparmodus: keine Dauerverbindung — der Wächter-Worker prüft alle

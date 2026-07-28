@@ -20,7 +20,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Posteingang"
+            android:text="@string/svc_widget_title"
             android:textStyle="bold"
             android:textSize="15sp"
             android:textColor="@color/brand_orange" />
@@ -45,7 +45,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:gravity="center"
-        android:text="Keine Mails geladen"
+        android:text="@string/svc_widget_empty"
         android:textSize="13sp"
         android:textColor="@color/widget_text_secondary" />
 </LinearLayout>

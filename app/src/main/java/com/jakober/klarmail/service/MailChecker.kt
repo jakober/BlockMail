@@ -68,7 +68,8 @@ object MailChecker {
             Prefs.removeSnooze(s.uid)
             scope.launch { MailRepository.setInboxSeenByUid(s.uid, seen = false) }
             showNewMailNotification(
-                context, s.uid, s.from, s.address, "⏰ Erinnerung: ${s.subject}"
+                context, s.uid, s.from, s.address,
+                context.getString(R.string.svc_snooze_reminder_prefix) + s.subject
             )
         }
         scope.launch { runCatching { MailRepository.refresh() } }
@@ -92,14 +93,18 @@ object MailChecker {
                         account = m.account
                     )
                     Prefs.removeOutbox(m.id)
-                    statusNotification(context, "Geplante Mail gesendet: ${m.subject}", timeoutMs = 15_000)
+                    statusNotification(
+                        context,
+                        context.getString(R.string.svc_scheduled_sent, m.subject),
+                        timeoutMs = 15_000
+                    )
                 } catch (e: Exception) {
                     Prefs.saveOutbox(Prefs.outbox().map {
                         if (it.id == m.id) it.copy(sendAt = System.currentTimeMillis() + 15 * 60_000) else it
                     })
                     statusNotification(
                         context,
-                        "Geplantes Senden fehlgeschlagen (${m.subject}) — neuer Versuch in 15 min"
+                        context.getString(R.string.svc_scheduled_failed, m.subject)
                     )
                 }
             }
@@ -241,7 +246,9 @@ object MailChecker {
         // Konversations-Benachrichtigung (Android 11+): Der Absender-Avatar
         // erscheint damit groß LINKS, das App-Icon nur als kleines Abzeichen.
         // Voraussetzung ist ein langlebiger dynamischer Shortcut pro Absender.
-        val senderName = from.ifBlank { fromAddress.ifBlank { "Absender" } }
+        val senderName = from.ifBlank {
+            fromAddress.ifBlank { context.getString(R.string.svc_sender_fallback) }
+        }
         val personIcon = runCatching {
             NotificationUtil.senderAvatarIcon(senderName, fromAddress)
         }.getOrNull()
@@ -264,7 +271,7 @@ object MailChecker {
             androidx.core.content.pm.ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
         }
         val messagingStyle = NotificationCompat.MessagingStyle(
-            androidx.core.app.Person.Builder().setName("Ich").build()
+            androidx.core.app.Person.Builder().setName(context.getString(R.string.svc_me)).build()
         ).addMessage(subject, System.currentTimeMillis(), senderPerson)
 
         // Aktionen über den Mehrzweck-Receiver: Archivieren und Löschen direkt
@@ -295,7 +302,7 @@ object MailChecker {
         // Schnellantwort direkt aus der Benachrichtigung (RemoteInput);
         // der Versand läuft über den Sync-Dienst, der genug Zeit dafür hat
         val remoteInput = androidx.core.app.RemoteInput.Builder(MailSyncService.KEY_QUICK_REPLY)
-            .setLabel("Antworten …")
+            .setLabel(context.getString(R.string.svc_reply_hint))
             .build()
         val replyIntent = Intent(context, MailSyncService::class.java).apply {
             action = MailSyncService.ACTION_SEND_REPLY
@@ -308,7 +315,9 @@ object MailChecker {
             context, notifId, replyIntent,
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val replyAction = NotificationCompat.Action.Builder(0, "Antworten", replyPending)
+        val replyAction = NotificationCompat.Action.Builder(
+            0, context.getString(R.string.svc_action_reply), replyPending
+        )
             .addRemoteInput(remoteInput)
             .setAllowGeneratedReplies(true)
             .build()
@@ -329,9 +338,15 @@ object MailChecker {
         Prefs.notifActions.forEach { key ->
             when (key) {
                 "reply" -> builder.addAction(replyAction)
-                "read" -> builder.addAction(0, "Als gelesen markieren", readPending)
-                "archive" -> builder.addAction(0, "Archivieren", archivePending)
-                "delete" -> builder.addAction(0, "Löschen", deletePending)
+                "read" -> builder.addAction(
+                    0, context.getString(R.string.svc_action_mark_read), readPending
+                )
+                "archive" -> builder.addAction(
+                    0, context.getString(R.string.svc_action_archive), archivePending
+                )
+                "delete" -> builder.addAction(
+                    0, context.getString(R.string.svc_action_delete), deletePending
+                )
             }
         }
         val notification = builder.build()
@@ -353,20 +368,25 @@ object MailChecker {
     ) {
         scope.launch {
             val result = try {
-                val cleaned = rawSubject.removePrefix("⏰ Erinnerung: ")
+                val cleaned = rawSubject.removePrefix(
+                    context.getString(R.string.svc_snooze_reminder_prefix)
+                )
                 val subject = if (cleaned.startsWith("Re:", ignoreCase = true)) cleaned
                 else "Re: $cleaned"
                 MailRepository.send(to = address, subject = subject, body = text)
                 if (uid > 0) runCatching { MailRepository.markSeen(uid) }
-                "Antwort gesendet ✓"
+                context.getString(R.string.svc_reply_sent)
             } catch (e: Exception) {
-                "Antwort fehlgeschlagen: ${e.message?.take(60) ?: "Fehler"}"
+                context.getString(
+                    R.string.svc_reply_failed,
+                    e.message?.take(60) ?: context.getString(R.string.svc_error_generic)
+                )
             }
             // Die Mail-Benachrichtigung durch eine kurze Bestätigung ersetzen
             val confirm = NotificationCompat.Builder(context, MailApp.CHANNEL_NEW_MAIL)
                 .setSmallIcon(R.drawable.ic_notif_mail)
                 .setColor(0xFFE85510.toInt())
-                .setContentTitle("BlockMail")
+                .setContentTitle(context.getString(R.string.app_name))
                 .setContentText(result)
                 .setTimeoutAfter(8_000)
                 .setAutoCancel(true)
@@ -436,11 +456,16 @@ object MailChecker {
         val lines = mutableListOf<String>()
         needsReply.forEach { m ->
             val days = ((now - m.date) / day).coerceAtLeast(1)
-            lines.add("❓ ${m.from.ifBlank { m.fromAddress }}: „${m.subject.take(50)}“ — seit $days Tagen unbeantwortet")
+            lines.add(
+                context.getString(
+                    R.string.svc_radar_needs_reply,
+                    m.from.ifBlank { m.fromAddress }, m.subject.take(50), days
+                )
+            )
         }
         waiting.forEach { s ->
             val days = ((now - s.at) / day).coerceAtLeast(1)
-            lines.add("⏳ Keine Antwort von ${s.to} seit $days Tagen — nachhaken?")
+            lines.add(context.getString(R.string.svc_radar_waiting, s.to, days))
         }
 
         val openIntent = PendingIntent.getActivity(
@@ -457,7 +482,7 @@ object MailChecker {
             .setSmallIcon(R.drawable.ic_notif_mail)
             .setLargeIcon(NotificationUtil.logoBitmap(context))
             .setColor(0xFFE85510.toInt())
-            .setContentTitle("Antwort-Radar")
+            .setContentTitle(context.getString(R.string.svc_radar_title))
             .setContentText(lines.first())
             .setStyle(style)
             .setAutoCancel(true)
@@ -478,7 +503,7 @@ object MailChecker {
             .setSmallIcon(R.drawable.ic_notif_mail)
             .setLargeIcon(NotificationUtil.logoBitmap(context))
             .setColor(0xFFE85510.toInt())
-            .setContentTitle("BlockMail")
+            .setContentTitle(context.getString(R.string.app_name))
             .setContentText(text)
             .setAutoCancel(true)
             .setContentIntent(openIntent)

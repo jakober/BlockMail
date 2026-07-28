@@ -21,23 +21,26 @@ class MailApp : Application() {
         nm.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_NEW_MAIL,
-                "Neue E-Mails",
+                getString(R.string.svc_channel_new_mail),
                 NotificationManager.IMPORTANCE_HIGH
-            ).apply { description = "Benachrichtigungen bei neuen E-Mails" }
+            ).apply { description = getString(R.string.svc_channel_new_mail_desc) }
         )
         nm.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_NEWSLETTER,
-                "Newsletter-Aufräumen",
+                getString(R.string.svc_channel_newsletter),
                 NotificationManager.IMPORTANCE_DEFAULT
-            ).apply { description = "Bericht des täglichen Newsletter-Aufräumens" }
+            ).apply { description = getString(R.string.svc_channel_newsletter_desc) }
         )
         nm.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_SYNC,
-                "Hintergrund-Synchronisierung",
+                getString(R.string.svc_channel_sync),
                 NotificationManager.IMPORTANCE_MIN
-            ).apply { description = "Dauerhafte Verbindung für Echtzeit-Push"; setShowBadge(false) }
+            ).apply {
+                description = getString(R.string.svc_channel_sync_desc)
+                setShowBadge(false)
+            }
         )
     }
 

@@ -1096,8 +1096,15 @@ fun SettingsScreen(
                 subtitle = "Sofortige Benachrichtigungen bei neuen Mails"
             ) {
             val pushStatus by MailSyncService.pushStatus.collectAsState()
+            // Leerer Initialwert (companion object hat keinen Context) →
+            // hier durch den lokalisierten Text ersetzen
+            val shownPushStatus = if (pushStatus.isBlank()) {
+                androidx.compose.ui.res.stringResource(
+                    com.jakober.klarmail.R.string.svc_push_not_started
+                )
+            } else pushStatus
             Text(
-                pushStatus,
+                shownPushStatus,
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(8.dp))

@@ -54,7 +54,7 @@ class MailWidgetProvider : AppWidgetProvider() {
         val unread = if (f.exists()) {
             MailMessage.listFromJson(f.readText()).count { !it.seen }
         } else 0
-        if (unread > 0) "$unread neu" else ""
+        if (unread > 0) context.getString(R.string.svc_widget_unread, unread) else ""
     } catch (e: Exception) {
         ""
     }

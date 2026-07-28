@@ -30,8 +30,18 @@ object NewsletterCleaner {
 
     private const val NOTIF_ID = 4242
 
-    suspend fun run(context: Context): String = withContext(Dispatchers.IO) {
-        if (!Prefs.isConfigured) return@withContext "Kein Konto verbunden"
+    suspend fun run(context: Context): String = runInternal(context).first
+
+    /**
+     * Eigentlicher Aufräumlauf. Liefert die Statusmeldung plus die Angabe,
+     * ob Newsletter verschoben (und damit bereits benachrichtigt) wurden —
+     * sprachunabhängig, statt die Erfolgsmeldung per Regex zu erkennen.
+     */
+    private suspend fun runInternal(context: Context): Pair<String, Boolean> =
+        withContext(Dispatchers.IO) {
+        if (!Prefs.isConfigured) {
+            return@withContext context.getString(R.string.svc_no_account) to false
+        }
         val store = MailRepository.openStore()
         try {
             val inbox = store.getFolder("INBOX") as IMAPFolder
@@ -39,7 +49,9 @@ object NewsletterCleaner {
 
             val cutoff = Date(System.currentTimeMillis() - 24L * 60 * 60 * 1000)
             val found = inbox.search(ReceivedDateTerm(ComparisonTerm.GE, cutoff))
-            if (found.isEmpty()) return@withContext "Keine Mails in den letzten 24 Stunden gefunden (Suche leer)."
+            if (found.isEmpty()) {
+                return@withContext context.getString(R.string.svc_nl_none_found) to false
+            }
             val fp = FetchProfile().apply {
                 add(FetchProfile.Item.ENVELOPE)
                 add(IMAPFolder.FetchProfileItem.HEADERS)
@@ -50,7 +62,9 @@ object NewsletterCleaner {
                 (m.receivedDate ?: m.sentDate)?.after(cutoff) == true
             }
             if (candidates.isEmpty()) {
-                return@withContext "${found.size} Mail(s) gefunden, aber keine innerhalb der letzten 24 Stunden."
+                return@withContext context.getString(
+                    R.string.svc_nl_none_within, found.size
+                ) to false
             }
             // Vom Nutzer als "kein Newsletter" markierte Absender nie anfassen (KI-Lernen)
             val denyList = Prefs.notNewsletterSenders()
@@ -71,15 +85,18 @@ object NewsletterCleaner {
                 if (address.lowercase() in denyList) return@mapNotNull null
                 Candidate(
                     msg = m,
-                    from = addr?.personal?.takeIf { it.isNotBlank() } ?: address.ifBlank { "Unbekannt" },
+                    from = addr?.personal?.takeIf { it.isNotBlank() }
+                        ?: address.ifBlank { context.getString(R.string.svc_unknown_sender) },
                     address = address,
-                    subject = m.subject ?: "(Kein Betreff)",
+                    subject = m.subject ?: context.getString(R.string.svc_no_subject),
                     unsubscribe = extractUnsubscribeUrl(m),
                     date = (m.receivedDate ?: m.sentDate)?.time ?: System.currentTimeMillis()
                 )
             }
             if (infos.isEmpty()) {
-                return@withContext "${candidates.size} Mail(s) geprüft, alle als „kein Newsletter“ bekannt."
+                return@withContext context.getString(
+                    R.string.svc_nl_all_known, candidates.size
+                ) to false
             }
 
             // KI-Wahl respektieren: Bei "Immer Geräte-KI" keine Claude-Aufrufe
@@ -97,10 +114,12 @@ object NewsletterCleaner {
                 infos.mapIndexedNotNull { i, c -> if (c.unsubscribe != null) i + 1 else null }.toSet()
             }
 
-            val method = if (usedClaude) "Claude" else "ohne KI (nur Abmelde-Header)"
+            val method = if (usedClaude) "Claude"
+            else context.getString(R.string.svc_nl_method_no_ai)
             if (infos.filterIndexed { i, _ -> (i + 1) in selectedIndices }.isEmpty()) {
-                return@withContext "${candidates.size} Mail(s) der letzten 24 h geprüft ($method), " +
-                    "keine als Newsletter erkannt."
+                return@withContext context.getString(
+                    R.string.svc_nl_none_detected, candidates.size, method
+                ) to false
             }
             // Fehlt der Abmelde-Link aus dem Header, im Mail-Inhalt nachsehen
             // (Fußzeilen-Link); als letzte Möglichkeit die mailto-Adresse.
@@ -117,7 +136,7 @@ object NewsletterCleaner {
             if (!target.exists()) {
                 val created = target.create(Folder.HOLDS_MESSAGES)
                 if (!created && !target.exists()) {
-                    return@withContext "Ordner „Newsletter“ konnte nicht angelegt werden."
+                    return@withContext context.getString(R.string.svc_nl_folder_failed) to false
                 }
             }
             // Beim Kopieren die neuen UIDs im Newsletter-Ordner erfassen (zum Öffnen)
@@ -151,10 +170,13 @@ object NewsletterCleaner {
             )
             showNotification(context, selected.size)
             MailRepository.refresh()
-            "${candidates.size} Mail(s) geprüft ($method): ${selected.size} Newsletter " +
-                "in den Ordner „Newsletter“ verschoben."
+            context.getString(
+                R.string.svc_nl_success, candidates.size, method, selected.size
+            ) to true
         } catch (e: Exception) {
-            "Fehler beim Aufräumen: ${e.message ?: e.javaClass.simpleName}"
+            context.getString(
+                R.string.svc_nl_error_cleanup, e.message ?: e.javaClass.simpleName
+            ) to false
         } finally {
             runCatching { store.close() }
         }
@@ -244,14 +266,13 @@ object NewsletterCleaner {
      * für den Launcher-Shortcut, bei dem die App nicht geöffnet wird.
      */
     suspend fun runWithNotification(context: Context): String {
-        val result = try {
-            run(context)
+        // Bei verschobenen Newslettern hat der Lauf bereits selbst benachrichtigt;
+        // das meldet runInternal() sprachunabhängig über sein zweites Element.
+        val (result, movedSomething) = try {
+            runInternal(context)
         } catch (e: Exception) {
-            "Fehler: ${e.message ?: e.javaClass.simpleName}"
+            context.getString(R.string.svc_nl_error, e.message ?: e.javaClass.simpleName) to false
         }
-        // Bei verschobenen Newslettern hat run() bereits selbst benachrichtigt
-        // (Format der Erfolgsmeldung: "…: N Newsletter … verschoben.")
-        val movedSomething = Regex(": [1-9]\\d* Newsletter").containsMatchIn(result)
         if (!movedSomething) statusNotification(context, result)
         return result
     }
@@ -269,7 +290,7 @@ object NewsletterCleaner {
             .setSmallIcon(R.drawable.ic_notif_mail)
             .setLargeIcon(com.jakober.klarmail.service.NotificationUtil.logoBitmap(context))
             .setColor(0xFFE85510.toInt())
-            .setContentTitle("Newsletter-Scan abgeschlossen")
+            .setContentTitle(context.getString(R.string.svc_nl_scan_done))
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setAutoCancel(true)
@@ -295,8 +316,8 @@ object NewsletterCleaner {
             .setSmallIcon(R.drawable.ic_notif_mail)
             .setLargeIcon(com.jakober.klarmail.service.NotificationUtil.logoBitmap(context))
             .setColor(0xFFE85510.toInt())
-            .setContentTitle("$count Newsletter aufgeräumt")
-            .setContentText("Tippen für das Protokoll mit Abmelde-Links")
+            .setContentTitle(context.getString(R.string.svc_nl_cleaned_title, count))
+            .setContentText(context.getString(R.string.svc_nl_cleaned_text))
             .setAutoCancel(true)
             .setContentIntent(pending)
             .build()
