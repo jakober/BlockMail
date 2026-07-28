@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SettingsScreen (Einstellungen) &amp; SetupWizardScreen (Einrichtungsassistent) -->
+
+    <!-- Allgemein -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_back">Zurück</string>
+    <string name="settings_ok">OK</string>
+    <string name="settings_cancel">Abbrechen</string>
+    <string name="settings_save">Speichern</string>
+    <string name="settings_saved">Gespeichert</string>
+    <string name="settings_done">Fertig</string>
+    <string name="settings_change">Ändern</string>
+    <string name="settings_add">Hinzufügen</string>
+    <string name="settings_remove">Entfernen</string>
+    <string name="settings_unknown">unbekannt</string>
+    <string name="settings_email_address">E-Mail-Adresse</string>
+
+    <!-- Farbwähler -->
+    <string name="settings_color_picker_title">Eigene Farbe wählen</string>
+    <string name="settings_color_hue">Farbton</string>
+    <string name="settings_color_saturation">Sättigung</string>
+    <string name="settings_color_brightness">Helligkeit</string>
+    <string name="settings_color_apply">Übernehmen</string>
+
+    <!-- Wisch-Aktionen -->
+    <string name="settings_swipe_delete">Löschen</string>
+    <string name="settings_swipe_archive">Archivieren</string>
+    <string name="settings_swipe_read">Gelesen/Ungelesen</string>
+    <string name="settings_swipe_snooze">Erinnern (morgen 8 Uhr)</string>
+
+    <!-- Aussehen -->
+    <string name="settings_group_appearance">Aussehen</string>
+    <string name="settings_appearance_title">Erscheinungsbild</string>
+    <string name="settings_appearance_subtitle">Hell/Dunkel und die Farben der App</string>
+    <string name="settings_darkmode_system">Wie das Gerät (automatisch)</string>
+    <string name="settings_darkmode_light">Hell</string>
+    <string name="settings_darkmode_dark">Dunkel</string>
+    <string name="settings_color_scheme">Farbschema</string>
+    <string name="settings_custom_color">Eigene Farbe</string>
+
+    <!-- Posteingang -->
+    <string name="settings_inbox_title">Posteingang</string>
+    <string name="settings_inbox_subtitle">Darstellung, Konversationen und Wischgesten</string>
+    <string name="settings_display">Darstellung</string>
+    <string name="settings_layout_list_title">Liste (klassisch)</string>
+    <string name="settings_layout_list_desc">Mails untereinander, wie gewohnt.</string>
+    <string name="settings_layout_blocks_title">Blöcke (BlockMail-Stil)</string>
+    <string name="settings_layout_blocks_desc">Mails als gleich große Blöcke im 2-Spalten-Raster mit Vorschautext — passend zum Logo.</string>
+    <string name="settings_layout_blocks3_title">Kompakte Blöcke (3 Spalten)</string>
+    <string name="settings_layout_blocks3_desc">Noch mehr Mails auf einen Blick: kleinere Blöcke ohne Vorschautext. Alle Ansichten auch oben im Posteingang durchschaltbar.</string>
+    <string name="settings_conversation_view">Konversations-Ansicht</string>
+    <string name="settings_conversation_view_desc">Mails mit gleichem Betreff werden als ein Gespräch gebündelt (antippen zum Aufklappen) — in Liste und Kachel-Ansicht.</string>
+    <string name="settings_swipe_gestures">Wischgesten</string>
+    <string name="settings_swipe_desc">Lege fest, was beim Wischen einer Mail nach links oder rechts passiert.</string>
+    <string name="settings_swipe_left">Nach links wischen</string>
+    <string name="settings_swipe_right">Nach rechts wischen</string>
+
+    <!-- Konto verbinden -->
+    <string name="settings_group_accounts">Konten &amp; Postfächer</string>
+    <string name="settings_connect_title">Konto verbinden</string>
+    <string name="settings_connect_subtitle">Neues Postfach hinzufügen oder Zugangsdaten ändern</string>
+    <string name="settings_setup_wizard_start">Einrichtungsassistent starten</string>
+    <string name="settings_setup_wizard_hint">Empfohlen: Anbieter wählen, E-Mail und Passwort eingeben — fertig. Server und Ports werden automatisch gesetzt.</string>
+    <string name="settings_google_connected">Mit Google verbunden</string>
+    <string name="settings_google_connected_snack">Mit Google verbunden: %1$s</string>
+    <string name="settings_disconnect">Trennen</string>
+    <string name="settings_google_disconnected_snack">Google-Konto getrennt</string>
+    <string name="settings_add_account">＋ Weiteres Konto hinzufügen</string>
+    <string name="settings_add_account_hint">Weiteres Konto hinzufügen — „%1$s“ bleibt dabei verbunden und du kannst danach im Ordner-Menü wechseln.</string>
+    <string name="settings_add_account_cancel">Abbrechen — aktuelles Konto behalten</string>
+    <string name="settings_google_signin">Mit Google anmelden</string>
+    <string name="settings_google_signin_hint">Es öffnet sich das Google-Fenster, in dem du dein Konto auswählst.</string>
+    <string name="settings_google_signin_failed">Konnte Anmeldung nicht starten: %1$s</string>
+    <string name="settings_auth_cancelled">Anmeldung abgebrochen: %1$s</string>
+    <string name="settings_auth_failed">Anmeldung fehlgeschlagen: %1$s</string>
+    <string name="settings_token_exchange_failed">Token-Austausch fehlgeschlagen: %1$s</string>
+    <string name="settings_manual_alt">Alternative: manuell mit Anbieter &amp; App-Passwort</string>
+    <string name="settings_manual">Manuell mit Anbieter &amp; App-Passwort</string>
+    <string name="settings_provider">Anbieter</string>
+    <string name="settings_provider_custom">Eigenes (IMAP)</string>
+    <string name="settings_password_label">Passwort / App-Passwort</string>
+    <string name="settings_imap_server">IMAP-Server</string>
+    <string name="settings_smtp_server">SMTP-Server</string>
+    <string name="settings_port">Port</string>
+    <string name="settings_smtp_port_hint">SMTP-Port 465 = TLS, 587 = STARTTLS (wird automatisch passend verwendet).</string>
+    <string name="settings_gmail_app_password">App-Passwort bei Google erstellen</string>
+
+    <!-- Konten-Verwaltung -->
+    <string name="settings_accounts_title">Konten</string>
+    <string name="settings_accounts_subtitle">Deine Postfächer: Farbe und sichtbare Ordner je Konto</string>
+    <string name="settings_accounts_desc">Zwischen den Konten wechselst du oben im Posteingang über das Ordner-Menü. „Farbe wählen“ gibt dem Konto eine eigene Farbe — sie erscheint als Balken vorne an jeder Mail dieses Kontos. „Sichtbare Ordner“ legt fest, welche Ordner das Konto im Ordner-Menü zeigt.</string>
+    <string name="settings_account_color_title">Farbe für dieses Konto</string>
+    <string name="settings_no_color">Keine Farbe</string>
+    <string name="settings_visible_folders">Sichtbare Ordner</string>
+    <string name="settings_visible_folders_desc">Abgewählte Ordner erscheinen nicht im Ordner-Menü dieses Kontos. Der Posteingang ist immer sichtbar.</string>
+    <string name="settings_account_active">%1$s (aktiv)</string>
+    <string name="settings_account_remove">Konto entfernen</string>
+    <string name="settings_choose_color">Farbe wählen</string>
+    <string name="settings_default_sender">Standard-Absender</string>
+    <string name="settings_default_sender_desc">Neue Mails werden über dieses Konto geschrieben (im Verfassen-Fenster jederzeit umschaltbar). Antworten gehen immer über das Konto, in dem die Mail ankam.</string>
+    <string name="settings_send_new_via">Neue Mails senden über</string>
+    <string name="settings_active_account">Aktives Konto</string>
+
+    <!-- Echtzeit-Push -->
+    <string name="settings_group_notifications">Benachrichtigungen</string>
+    <string name="settings_push_title">Echtzeit-Push</string>
+    <string name="settings_push_subtitle">Sofortige Benachrichtigungen bei neuen Mails</string>
+    <string name="settings_push_restart">Dienst neu starten</string>
+    <string name="settings_push_restarted">Push-Dienst neu gestartet</string>
+    <string name="settings_battery_exempt">Akku-Ausnahme erteilen</string>
+    <string name="settings_battery_manual">Bitte manuell in den Akku-Einstellungen freigeben</string>
+    <string name="settings_battery_tip">Tipp: Die Akku-Ausnahme verhindert, dass Android die Push-Verbindung im Standby trennt.</string>
+    <string name="settings_eco_title">Sparmodus — ohne Dauer-Benachrichtigung</string>
+    <string name="settings_eco_desc">Statt der permanenten Verbindung prüft BlockMail alle ~15 Minuten auf neue Mails. Die stille Dienst-Meldung entfällt; Benachrichtigungen können sich um bis zu 15 Minuten verzögern.</string>
+    <string name="settings_eco_on_snack">Sparmodus aktiv — Prüfung alle ~15 Minuten</string>
+    <string name="settings_push_on_snack">Echtzeit-Push wieder aktiv</string>
+    <string name="settings_notif_buttons">Knöpfe in der Benachrichtigung</string>
+    <string name="settings_notif_buttons_desc">Welche Aktionen bei einer neuen Mail direkt in der Benachrichtigung erscheinen. Android zeigt höchstens 3 an. Die Reihenfolge änderst du per Ziehen am Griff rechts.</string>
+    <string name="settings_notif_reply">Antworten (mit Direkteingabe)</string>
+    <string name="settings_notif_read">Als gelesen markieren</string>
+    <string name="settings_notif_max3">Maximal 3 Knöpfe möglich — bitte erst einen abwählen</string>
+    <string name="settings_notif_drag">Position per Ziehen ändern</string>
+    <string name="settings_radar_title">Antwort-Radar</string>
+    <string name="settings_radar_desc">Erinnert einmal täglich an Mails mit offener Frage, die du noch nicht beantwortet hast — und meldet, wenn du selbst seit Tagen auf eine Antwort wartest. Gilt nur für echte Menschen: Absender aus deinen Kontakten oder VIPs, nie für Standard- und Systemmails.</string>
+
+    <!-- KI -->
+    <string name="settings_group_ai">Künstliche Intelligenz</string>
+    <string name="settings_ai_status_title">KI-Status</string>
+    <string name="settings_ai_status_subtitle">Welche KI gerade aktiv ist und was sie übernimmt</string>
+    <string name="settings_ai_gemini_active">Geräte-KI (Gemini Nano) — kostenlos, läuft lokal</string>
+    <string name="settings_ai_none_gemini">Keine — Geräte-KI auf diesem Gerät nicht verfügbar</string>
+    <string name="settings_ai_claude_active">Claude (eigener API-Schlüssel)</string>
+    <string name="settings_ai_none_key">Keine — API-Schlüssel fehlt</string>
+    <string name="settings_ai_none_hidden">Keine — KI-Funktionen sind ausgeblendet</string>
+    <string name="settings_ai_active">Aktive KI: %1$s</string>
+    <string name="settings_ai_mode_auto">Automatisch (Claude, wenn Schlüssel vorhanden — sonst Geräte-KI)</string>
+    <string name="settings_ai_mode_claude">Immer Claude (braucht API-Schlüssel)</string>
+    <string name="settings_ai_mode_gemini">Immer Geräte-KI (Gemini Nano)</string>
+    <string name="settings_ai_device_status">Geräte-KI (Gemini Nano): %1$s</string>
+    <string name="settings_ai_checking">wird geprüft …</string>
+    <string name="settings_ai_desc">Mit Claude laufen alle KI-Funktionen inklusive der täglichen Newsletter-Erkennung. Die Geräte-KI übernimmt Zusammenfassen, Antwort entwerfen, Mail formulieren und Rechtschreibprüfung — komplett auf dem Gerät; die Newsletter-Erkennung nutzt dann die Abmelde-Header-Regel.</string>
+    <string name="settings_ai_test_failed">Test fehlgeschlagen: %1$s</string>
+    <string name="settings_ai_testing">Geräte-KI wird getestet …</string>
+    <string name="settings_ai_test_now">Geräte-KI jetzt testen</string>
+    <string name="settings_claude_key_title">Claude-API-Schlüssel</string>
+    <string name="settings_claude_key_subtitle">Optional: eigener Schlüssel für die Claude-KI</string>
+    <string name="settings_claude_key_label">Claude API-Schlüssel</string>
+    <string name="settings_claude_key_desc">Optional: Mit einem API-Schlüssel von console.anthropic.com kann Claude E-Mails formulieren, Antworten entwerfen und die Rechtschreibung prüfen.</string>
+
+    <!-- Newsletter-Aufräumen -->
+    <string name="settings_newsletter_title">Newsletter-Aufräumen (KI)</string>
+    <string name="settings_newsletter_subtitle">Werbung landet automatisch im Newsletter-Ordner</string>
+    <string name="settings_newsletter_daily">Täglicher Aufräum-Lauf</string>
+    <string name="settings_newsletter_daily_desc">Täglich um 20 Uhr erkennt die KI Newsletter der letzten 24 Stunden und verschiebt sie in den Ordner „Newsletter“. Im Protokoll findest du alle verschobenen Mails samt Abmelde-Links.</string>
+    <string name="settings_newsletter_on_snack">Tägliches Newsletter-Aufräumen aktiv (20 Uhr)</string>
+    <string name="settings_newsletter_off_snack">Tägliches Aufräumen aus — „Jetzt ausführen“ geht weiterhin</string>
+    <string name="settings_newsletter_log">Protokoll anzeigen</string>
+    <string name="settings_newsletter_running">Läuft …</string>
+    <string name="settings_newsletter_run_now">Jetzt ausführen</string>
+    <string name="settings_newsletter_dialog_title">Newsletter-Aufräumen</string>
+    <string name="settings_newsletter_open_log">Protokoll öffnen</string>
+    <string name="settings_error_prefix">Fehler: %1$s</string>
+
+    <!-- Absender-Regeln -->
+    <string name="settings_group_rules">Regeln &amp; Kontakte</string>
+    <string name="settings_sender_rules_title">Absender-Regeln</string>
+    <string name="settings_sender_rules_subtitle">Stumm, blockiert und VIP — wer darf dich stören?</string>
+    <string name="settings_muted_title">Stumm geschaltete Absender</string>
+    <string name="settings_muted_desc">Mails dieser Absender werden automatisch als gelesen markiert – ohne Benachrichtigung. Sie bleiben im Posteingang.</string>
+    <string name="settings_blocked_title">Blockierte Absender</string>
+    <string name="settings_blocked_desc">Mails dieser Absender werden nach Ankunft sofort gelöscht – ohne Benachrichtigung.</string>
+    <string name="settings_vip_title">VIP-Absender</string>
+    <string name="settings_vip_desc">Deine wichtigsten Absender. Mit dem Schalter unten benachrichtigt BlockMail nur noch bei Mails von ihnen — alles andere kommt lautlos an.</string>
+    <string name="settings_vip_only">Nur VIP-Absender benachrichtigen</string>
+    <string name="settings_vip_only_desc">Neue Mails anderer Absender erscheinen weiter im Posteingang, aber ohne Benachrichtigung.</string>
+    <string name="settings_no_entries">Noch keine Einträge.</string>
+    <string name="settings_pick_known">Aus bekannten Absendern wählen</string>
+    <string name="settings_no_suggestions">Keine Vorschläge</string>
+
+    <!-- Kontakte -->
+    <string name="settings_contacts_title">Kontakte</string>
+    <string name="settings_contacts_subtitle">Häufige Empfänger — als Vorschläge beim Verfassen</string>
+    <string name="settings_contacts_desc">BlockMail merkt sich automatisch, an wen du schreibst, und schlägt diese Adressen beim Verfassen vor. Hier kannst du Kontakte ergänzen oder entfernen.</string>
+    <string name="settings_contact_name">Name (optional)</string>
+    <string name="settings_contacts_empty">Noch keine Kontakte — sie entstehen automatisch beim Senden.</string>
+    <string name="settings_contact_remove">Kontakt entfernen</string>
+
+    <!-- Signatur &amp; Vorlagen -->
+    <string name="settings_group_writing">Schreiben</string>
+    <string name="settings_signature_title">Signatur &amp; Vorlagen</string>
+    <string name="settings_signature_subtitle">Bausteine fürs Schreiben</string>
+    <string name="settings_signature">Signatur</string>
+    <string name="settings_signature_desc">Wird beim Verfassen automatisch unter den Text gesetzt.</string>
+    <string name="settings_signature_label">Signatur (leer = keine)</string>
+    <string name="settings_templates">Textvorlagen</string>
+    <string name="settings_templates_desc">Wiederverwendbare Texte fürs Verfassen-Fenster (dort über das Vorlagen-Symbol einfügbar).</string>
+    <string name="settings_template_add">Vorlage hinzufügen</string>
+    <string name="settings_template_title">Titel</string>
+    <string name="settings_template_text">Text</string>
+    <string name="settings_template_delete">Vorlage löschen</string>
+    <string name="settings_templates_empty">Noch keine Vorlagen.</string>
+
+    <!-- Backup &amp; Umzug -->
+    <string name="settings_group_data">Daten &amp; Feedback</string>
+    <string name="settings_backup_title">Backup &amp; Umzug</string>
+    <string name="settings_backup_subtitle">Einstellungen als Datei sichern und auf einem neuen Gerät einspielen</string>
+    <string name="settings_backup_desc">Gesichert werden Farben, Darstellung, Wischgesten, Signatur, Vorlagen, Regeln (stumm/blockiert/VIP), Kontakte und Benachrichtigungs-Einstellungen. Zugangsdaten und Passwörter sind aus Sicherheitsgründen NICHT enthalten — Konten müssen auf dem neuen Gerät einmal neu verbunden werden.</string>
+    <string name="settings_backup_saved">Sicherung gespeichert</string>
+    <string name="settings_export_failed">Export fehlgeschlagen: %1$s</string>
+    <string name="settings_file_unreadable">Datei nicht lesbar</string>
+    <string name="settings_import_count">%1$d Einstellungen übernommen</string>
+    <string name="settings_import_failed">Import fehlgeschlagen: %1$s</string>
+    <string name="settings_backup_export">Sichern</string>
+    <string name="settings_backup_import">Sicherung einspielen</string>
+
+    <!-- Feedback -->
+    <string name="settings_feedback_title">Feedback an den Entwickler</string>
+    <string name="settings_feedback_subtitle">Fehler melden oder Verbesserung vorschlagen</string>
+    <string name="settings_feedback_desc">Etwas funktioniert nicht oder dir fehlt eine Funktion? Schreib mir — die Nachricht geht über dein Mail-Konto direkt an den Entwickler.</string>
+    <string name="settings_feedback_connect_first">Bitte zuerst ein Konto verbinden</string>
+    <string name="settings_feedback_write">Feedback schreiben</string>
+    <string name="settings_feedback_dialog_desc">Was funktioniert nicht — oder was wünschst du dir? Die Nachricht wird an mat.jakober@gmail.com gesendet; App- und Geräteinfos hänge ich automatisch an.</string>
+    <string name="settings_feedback_placeholder">Dein Feedback …</string>
+    <string name="settings_feedback_subject">BlockMail-Feedback (v%1$s)</string>
+    <string name="settings_feedback_device_info">—\nBlockMail v%1$s\nAndroid %2$s\nGerät: %3$s %4$s</string>
+    <string name="settings_feedback_sent">Danke! Dein Feedback wurde gesendet.</string>
+    <string name="settings_feedback_send_failed">Senden fehlgeschlagen: %1$s</string>
+    <string name="settings_feedback_sending">Wird gesendet …</string>
+    <string name="settings_feedback_send">Senden</string>
+
+    <!-- Version -->
+    <string name="settings_version">BlockMail Version %1$s</string>
+    <string name="settings_version_devmode">BlockMail Version %1$s · Entwicklermodus</string>
+    <string name="settings_devmode_on">Entwicklermodus aktiviert — Google-Anmeldung sichtbar</string>
+    <string name="settings_devmode_off">Entwicklermodus deaktiviert</string>
+
+    <!-- Einrichtungsassistent -->
+    <string name="setup_title">Konto einrichten</string>
+    <string name="setup_back">Zurück</string>
+    <string name="setup_choose_provider">Wähle deinen E-Mail-Anbieter</string>
+    <string name="setup_choose_provider_desc">Server und Ports stellt BlockMail automatisch ein — du brauchst nur E-Mail-Adresse und Passwort.</string>
+    <string name="setup_other_provider">Anderer Anbieter — Server manuell in den Einstellungen eintragen</string>
+    <string name="setup_help_open">Hilfe öffnen</string>
+    <string name="setup_email_address">E-Mail-Adresse</string>
+    <string name="setup_connect">Verbinden</string>
+    <string name="setup_testing">Verbindung wird geprüft …</string>
+    <string name="setup_connection_failed">Verbindung fehlgeschlagen: %1$s</string>
+    <string name="setup_note_gmail">Gmail braucht ein App-Passwort: In deinem Google-Konto muss die 2-Faktor-Bestätigung aktiv sein. Erstelle über den Link unten ein App-Passwort und füge es hier ein — dein normales Passwort funktioniert nicht.</string>
+    <string name="setup_note_webde">Bei Web.de muss einmalig „POP3/IMAP“ eingeschaltet sein (Web.de-Postfach → Einstellungen → POP3/IMAP Abruf). Danach reicht dein normales Passwort; mit 2-Faktor-Schutz brauchst du ein App-Passwort.</string>
+    <string name="setup_note_gmx">Bei GMX muss einmalig „POP3/IMAP“ eingeschaltet sein (GMX-Postfach → E-Mail → Einstellungen → POP3/IMAP Abruf). Danach reicht dein normales Passwort; mit 2-Faktor-Schutz brauchst du ein App-Passwort.</string>
+    <string name="setup_note_outlook">Mit 2-Faktor-Schutz brauchst du ein App-Passwort (Link unten). Hinweis: Manche Firmen-Konten (Microsoft 365) erlauben keine Passwort-Anmeldung — dann schlägt die Verbindung fehl.</string>
+    <string name="setup_note_yahoo">Yahoo verlangt ein App-Passwort: Erstelle es über den Link unten (Konto-Sicherheit → App-Passwörter) und füge es hier ein.</string>
+    <string name="setup_note_tonline">T-Online braucht ein eigenes „E-Mail-Passwort“ (nicht dein Kundencenter-Passwort). Du legst es im E-Mail-Center unter „Passwörter“ fest.</string>
+    <string name="setup_note_icloud">Apple verlangt ein app-spezifisches Passwort: Erstelle es auf appleid.apple.com unter „Anmeldung und Sicherheit“.</string>
+    <string name="setup_help_gmail">App-Passwort bei Google erstellen</string>
+    <string name="setup_help_guide">Anleitung öffnen</string>
+    <string name="setup_help_outlook">App-Passwort bei Microsoft erstellen</string>
+    <string name="setup_help_yahoo">App-Passwort bei Yahoo erstellen</string>
+    <string name="setup_help_tonline">E-Mail-Center öffnen</string>
+    <string name="setup_help_icloud">Apple-ID-Einstellungen öffnen</string>
+    <string name="setup_pw_app">App-Passwort</string>
+    <string name="setup_pw_normal">Passwort</string>
+    <string name="setup_pw_outlook">Passwort / App-Passwort</string>
+    <string name="setup_pw_tonline">E-Mail-Passwort</string>
+    <string name="setup_pw_icloud">App-spezifisches Passwort</string>
+</resources>
