@@ -130,6 +130,8 @@
     <string name="settings_pro_subtitle">All AI features in one package</string>
     <string name="settings_pro_features">• AI search (\"Ask your mailbox\")\n• Summarize emails with AI\n• Daily overview of your inbox\n• Draft replies and emails with AI\n• Proofreading\n• Newsletter scan with daily cleanup run</string>
     <string name="settings_pro_test_phase">Test phase: Pro is unlocked free of charge for all testers.</string>
+    <string name="settings_ai_pro_active">Pro AI active (via the BlockMail server)</string>
+    <string name="settings_ai_pro_inactive">AI features are part of BlockMail Pro.</string>
     <string name="settings_ai_status_title">AI status</string>
     <string name="settings_ai_status_subtitle">Which AI is currently active and what it handles</string>
     <string name="settings_ai_gemini_active">On-device AI (Gemini Nano) — free, runs locally</string>

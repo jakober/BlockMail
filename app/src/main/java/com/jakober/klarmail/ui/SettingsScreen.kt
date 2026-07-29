@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Inbox
-import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.ManageSearch
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Palette
@@ -278,7 +277,6 @@ fun SettingsScreen(
 
     var email by remember { mutableStateOf(Prefs.email) }
     var password by remember { mutableStateOf(Prefs.appPassword) }
-    var claudeKey by remember { mutableStateOf(Prefs.claudeApiKey) }
     var googleConnected by remember {
         mutableStateOf(Prefs.authMethod == "oauth" && Prefs.refreshToken.isNotBlank())
     }
@@ -1406,6 +1404,17 @@ fun SettingsScreen(
                 stringResource(R.string.settings_pro_features),
                 style = MaterialTheme.typography.bodyMedium
             )
+            // KI-Status: Es gibt nur noch EINEN KI-Weg — die Pro-KI über den
+            // BlockMail-Server. Der Status wird deshalb hier in der Pro-Karte
+            // angezeigt (die frühere KI-Status-Karte ist entfallen).
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (isPro) stringResource(R.string.settings_ai_pro_active)
+                else stringResource(R.string.settings_ai_pro_inactive),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
             if (com.jakober.klarmail.data.ProAccess.TEST_PHASE_UNLOCK) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -1415,119 +1424,6 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-
-            }
-
-            SectionCard(
-                stringResource(R.string.settings_ai_status_title), Icons.Filled.AutoAwesome,
-                subtitle = stringResource(R.string.settings_ai_status_subtitle)
-            ) {
-            var deviceAiStatus by remember { mutableStateOf<String?>(null) }
-            var aiTestRunning by remember { mutableStateOf(false) }
-            val aiEngine by Prefs.aiEngineFlow.collectAsState()
-            LaunchedEffect(Unit) {
-                deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
-            }
-            val deviceAiUsable = deviceAiStatus?.let {
-                !it.startsWith("Nicht verfügbar") && !it.startsWith("Not available")
-            } == true
-            val activeAi = when {
-                aiEngine == "gemini" ->
-                    if (deviceAiUsable) stringResource(R.string.settings_ai_gemini_active)
-                    else stringResource(R.string.settings_ai_none_gemini)
-                aiEngine == "claude" ->
-                    if (claudeKey.isNotBlank()) stringResource(R.string.settings_ai_claude_active)
-                    else stringResource(R.string.settings_ai_none_key)
-                claudeKey.isNotBlank() -> stringResource(R.string.settings_ai_claude_active)
-                deviceAiUsable -> stringResource(R.string.settings_ai_gemini_active)
-                else -> stringResource(R.string.settings_ai_none_hidden)
-            }
-            Text(
-                stringResource(R.string.settings_ai_active, activeAi),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(Modifier.height(4.dp))
-            listOf(
-                "auto" to stringResource(R.string.settings_ai_mode_auto),
-                "claude" to stringResource(R.string.settings_ai_mode_claude),
-                "gemini" to stringResource(R.string.settings_ai_mode_gemini)
-            ).forEach { (id, label) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { Prefs.aiEngine = id }
-                        .padding(vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = aiEngine == id,
-                        onClick = { Prefs.aiEngine = id }
-                    )
-                    Text(label, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                stringResource(
-                    R.string.settings_ai_device_status,
-                    deviceAiStatus ?: stringResource(R.string.settings_ai_checking)
-                ),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.settings_ai_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (deviceAiUsable) {
-                TextButton(
-                    enabled = !aiTestRunning,
-                    onClick = {
-                        scope.launch {
-                            aiTestRunning = true
-                            val result = try {
-                                com.jakober.klarmail.ai.GeminiNano.selfTest()
-                            } catch (e: Exception) {
-                                context.getString(
-                                    R.string.settings_ai_test_failed, e.message?.take(80)
-                                )
-                            }
-                            aiTestRunning = false
-                            deviceAiStatus = com.jakober.klarmail.ai.GeminiNano.statusText()
-                            snackbar.showSnackbar(result)
-                        }
-                    }
-                ) {
-                    Text(
-                        if (aiTestRunning) stringResource(R.string.settings_ai_testing)
-                        else stringResource(R.string.settings_ai_test_now)
-                    )
-                }
-            }
-
-            }
-
-            SectionCard(
-                stringResource(R.string.settings_claude_key_title), Icons.Filled.Key,
-                subtitle = stringResource(R.string.settings_claude_key_subtitle)
-            ) {
-            OutlinedTextField(
-                value = claudeKey,
-                onValueChange = { claudeKey = it },
-                label = { Text(stringResource(R.string.settings_claude_key_label)) },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                stringResource(R.string.settings_claude_key_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
 
             }
 
@@ -2166,7 +2062,6 @@ fun SettingsScreen(
                         addingAccount = false
                         accountList = Prefs.accounts()
                     }
-                    Prefs.claudeApiKey = claudeKey
                     if (manualSave) {
                         // Vollständiger Kontowechsel auf das neue Konto
                         scope.launch {

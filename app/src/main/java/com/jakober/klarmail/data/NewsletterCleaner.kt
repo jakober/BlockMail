@@ -108,18 +108,18 @@ object NewsletterCleaner {
                 ) to false
             }
 
-            // KI-Wahl respektieren: Bei "Immer Geräte-KI" keine Claude-Aufrufe
-            val usedClaude = Prefs.claudeApiKey.isNotBlank() && Prefs.aiEngine != "gemini"
+            // Einziger KI-Weg: Pro-KI über den BlockMail-Proxy. Ohne Pro
+            // bleibt die heuristische Erkennung über den Abmelde-Header.
+            val usedClaude = ProAccess.isPro
             val selectedIndices: Set<Int> = if (usedClaude) {
                 ClaudeClient.classifyNewsletters(
-                    Prefs.claudeApiKey,
                     infos.mapIndexed { i, c ->
                         "${i + 1}. Von: ${c.from} <${c.address}> | Betreff: ${c.subject} | " +
                             "Abmelde-Link vorhanden: ${if (c.unsubscribe != null) "ja" else "nein"}"
                     }
                 )
             } else {
-                // Ohne Claude-Schlüssel: Abmelde-Header als Erkennungsmerkmal
+                // Ohne Pro: Abmelde-Header als Erkennungsmerkmal
                 infos.mapIndexedNotNull { i, c -> if (c.unsubscribe != null) i + 1 else null }.toSet()
             }
 

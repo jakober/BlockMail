@@ -247,7 +247,6 @@ fun InboxScreen(
     val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
 
     // KI-Menü unten links: Tages-Überblick & Co.
-    val aiEngine by Prefs.aiEngineFlow.collectAsState()
     var aiMenuOpen by remember { mutableStateOf(false) }
     var aiBusy by remember { mutableStateOf(false) }
     var aiResultTitle by remember { mutableStateOf("") }
@@ -282,12 +281,8 @@ fun InboxScreen(
                     val snip = m.snippet?.takeIf { it.isNotBlank() }?.let { " | ${it.take(80)}" } ?: ""
                     "[${i + 1}] Von: ${m.from} <${m.fromAddress}> | Betreff: ${m.subject}$snip"
                 }.joinToString("\n")
-                val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
-                val raw = if (hasClaudeKey) {
-                    com.jakober.klarmail.ai.ClaudeClient.classifyMails(Prefs.claudeApiKey, list)
-                } else {
-                    com.jakober.klarmail.ai.GeminiNano.classifyMails(list)
-                }
+                // Einziger KI-Weg: Pro-KI über den BlockMail-Proxy
+                val raw = com.jakober.klarmail.ai.ClaudeClient.classifyMails(list)
                 var applied = 0
                 Regex("\\[(\\d+)\\]\\s*[:=\\-–]?\\s*([A-Da-d])\\b").findAll(raw).forEach { m ->
                     val idx = (m.groupValues[1].toIntOrNull() ?: return@forEach) - 1
@@ -337,12 +332,8 @@ fun InboxScreen(
                     "[${i + 1}] Von: ${m.from} | Betreff: ${m.subject}" +
                         (if (m.seen) "" else " (ungelesen)") + snip
                 }.joinToString("\n")
-                val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
-                val result = if (hasClaudeKey) {
-                    com.jakober.klarmail.ai.ClaudeClient.summarizeDay(Prefs.claudeApiKey, list)
-                } else {
-                    com.jakober.klarmail.ai.GeminiNano.summarizeDay(list)
-                }
+                // Einziger KI-Weg: Pro-KI über den BlockMail-Proxy
+                val result = com.jakober.klarmail.ai.ClaudeClient.summarizeDay(list)
                 aiResultTitle = title
                 aiResult = fixSummaryCategories(parseSummary(result, indexed))
             } catch (e: Exception) {
@@ -468,8 +459,6 @@ fun InboxScreen(
     var aiHits by remember {
         mutableStateOf<List<MailRepository.AiSearchHit>>(emptyList())
     }
-    // Lief die letzte KI-Frage über Gemini Nano? (ehrlicher Kein-Treffer-Hinweis)
-    var aiUsedNano by remember { mutableStateOf(false) }
 
     fun exitSearch() {
         query = ""
@@ -526,15 +515,13 @@ fun InboxScreen(
         scope.launch {
             aiAskBusy = true
             try {
-                val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
-                aiUsedNano = !hasClaudeKey
-                // Gemini Nano hat ein kleines Kontextfenster — deutlich
-                // weniger Mails mitschicken als bei Claude
-                val limit = if (hasClaudeKey) 500 else 60
-                // Kopfzeilen sind billig: bei Claude mehr Index holen, als in
-                // den Pool passt — Stichwort-Treffer verdrängen dann nur die
+                // Einziger KI-Weg: Pro-KI über den BlockMail-Proxy —
+                // die früheren Nano-Limits (60/4) entfallen
+                val limit = 500
+                // Kopfzeilen sind billig: mehr Index holen, als in den Pool
+                // passt — Stichwort-Treffer verdrängen dann nur die
                 // unwichtigsten (ältesten) Index-Mails
-                val headerLimit = if (hasClaudeKey) 800 else 60
+                val headerLimit = 800
                 val keywords = extractAiKeywords(question)
                 // Stufe B: ZUERST der lokale Volltext-Index — schnell, lokal,
                 // durchsucht komplette Mail-Texte (besser als die IMAP-
@@ -624,13 +611,7 @@ fun InboxScreen(
                     "[${i + 1}] ${df.format(Date(m.date))} | ${m.from} | " +
                         "${m.fromAddress} | ${m.subject}$snip"
                 }.joinToString("\n")
-                val raw = if (hasClaudeKey) {
-                    com.jakober.klarmail.ai.ClaudeClient.askMailbox(
-                        Prefs.claudeApiKey, question, list
-                    )
-                } else {
-                    com.jakober.klarmail.ai.GeminiNano.askMailbox(question, list)
-                }
+                val raw = com.jakober.klarmail.ai.ClaudeClient.askMailbox(question, list)
                 // Agent-Modus Stufe 2: Beginnt die Antwort mit der
                 // Marker-Zeile "LESEN: …", fordert die KI die Volltexte
                 // bestimmter Mails an. Diese laden (Newsletter-Ordner ist
@@ -641,9 +622,9 @@ fun InboxScreen(
                 val firstLine = raw.lineSequence()
                     .firstOrNull { it.isNotBlank() }?.trim().orEmpty()
                 if (firstLine.uppercase().startsWith("LESEN:")) {
-                    // Deckel: 15 Mails bei Claude, 4 bei Nano — überzählige
+                    // Deckel: höchstens 15 Volltexte — überzählige
                     // Nummern werden ignoriert
-                    val readLimit = if (hasClaudeKey) 15 else 4
+                    val readLimit = 15
                     val toRead = Regex("\\d+")
                         .findAll(firstLine.substringAfter(":"))
                         .mapNotNull { it.value.toIntOrNull() }
@@ -687,15 +668,9 @@ fun InboxScreen(
                             parts += "=== MAIL [$n] ===\n$text"
                         }
                         val contents = parts.joinToString("\n\n")
-                        answerRaw = if (hasClaudeKey) {
-                            com.jakober.klarmail.ai.ClaudeClient.answerWithContents(
-                                Prefs.claudeApiKey, question, list, contents
-                            )
-                        } else {
-                            com.jakober.klarmail.ai.GeminiNano.answerWithContents(
-                                question, list, contents
-                            )
-                        }
+                        answerRaw = com.jakober.klarmail.ai.ClaudeClient.answerWithContents(
+                            question, list, contents
+                        )
                         aiReadingCount = 0
                     }
                 }
@@ -1697,16 +1672,6 @@ fun InboxScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (aiUsedNano) {
-                            // Ehrlich bleiben: Nano sieht nur einen kleinen
-                            // Ausschnitt des Postfachs
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                stringResource(R.string.inbox_ai_ask_no_hits_nano_tip),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
                     Spacer(Modifier.weight(1f))
                 } else if (inboxLayout.startsWith("blocks")) {

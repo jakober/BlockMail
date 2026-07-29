@@ -1,6 +1,7 @@
 package com.jakober.klarmail.ai
 
 import com.jakober.klarmail.data.MailMessage
+import com.jakober.klarmail.data.Prefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -14,8 +15,24 @@ import java.util.concurrent.TimeUnit
 
 object ClaudeClient {
 
+    /**
+     * Wunsch-Modell des Clients — der Proxy erzwingt das Modell serverseitig
+     * (Allowlist) und ersetzt es gegebenenfalls; max_tokens wird dort auf
+     * 4096 gekappt.
+     */
     private const val MODEL = "claude-opus-4-8"
-    private const val API_URL = "https://api.anthropic.com/v1/messages"
+
+    /**
+     * KI-Proxy des App-Betreibers: Anthropic-kompatibler Passthrough.
+     * POST $PROXY_BASE_URL/v1/messages nimmt exakt das Anthropic-Messages-
+     * Format entgegen (Anfrage und Antwort identisch zur echten API).
+     * Auth: "Authorization: Bearer <Prefs.installToken>" plus
+     * "X-App-Package: com.jakober.klarmail". Fehler: 401/403
+     * {"error":"subscription_required"}, 429 {"error":"daily_limit_reached"},
+     * außerdem 413/504. Dies ist der EINZIGE KI-Weg der App.
+     */
+    private const val PROXY_BASE_URL = "https://blockwerk-orange.de/blockmail"
+    private const val API_URL = "$PROXY_BASE_URL/v1/messages"
 
     /**
      * Sprachbewusstsein: Bei deutscher Gerätesprache bleiben alle Prompts
@@ -50,7 +67,13 @@ object ClaudeClient {
         .readTimeout(180, TimeUnit.SECONDS)
         .build()
 
-    private suspend fun complete(apiKey: String, system: String, user: String): String =
+    /**
+     * Zentrale Anfrage-Stelle: schickt System- und Nutzer-Prompt IMMER an
+     * den KI-Proxy des App-Betreibers (siehe [PROXY_BASE_URL]). Auth läuft
+     * über das Installations-Token; die Pro-Berechtigung prüft der Server
+     * (401/403 → „Pro-Abo erforderlich“, 429 → Tageslimit).
+     */
+    private suspend fun complete(system: String, user: String): String =
         withContext(Dispatchers.IO) {
             val payload = JSONObject().apply {
                 put("model", MODEL)
@@ -62,18 +85,35 @@ object ClaudeClient {
             }
             val request = Request.Builder()
                 .url(API_URL)
-                .header("x-api-key", apiKey)
+                .header("Authorization", "Bearer ${Prefs.installToken}")
+                .header("X-App-Package", "com.jakober.klarmail")
                 .header("anthropic-version", "2023-06-01")
                 .post(payload.toString().toRequestBody("application/json".toMediaType()))
                 .build()
             http.newCall(request).execute().use { resp ->
                 val bodyText = resp.body?.string() ?: throw IOException("Leere Antwort von der API")
-                val json = JSONObject(bodyText)
                 if (!resp.isSuccessful) {
-                    val msg = json.optJSONObject("error")?.optString("message")
-                        ?.takeIf { it.isNotBlank() } ?: "HTTP ${resp.code}"
+                    // Proxy-Fehler zuerst: aussagekräftige Meldungen in der
+                    // Sprache des Geräts (Muster wie im Rest der Datei)
+                    when (resp.code) {
+                        401, 403 -> throw IOException(
+                            if (deviceIsGerman) "Pro-Abo erforderlich"
+                            else "Pro subscription required"
+                        )
+                        429 -> throw IOException(
+                            if (deviceIsGerman) "Tageslimit der Pro-KI erreicht"
+                            else "Daily Pro AI limit reached"
+                        )
+                    }
+                    // Sonst wie bisher: Fehlermeldung der Anthropic-Antwort;
+                    // defensiv geparst, weil z. B. ein 504 des Proxys auch
+                    // Nicht-JSON liefern kann
+                    val msg = runCatching {
+                        JSONObject(bodyText).optJSONObject("error")?.optString("message")
+                    }.getOrNull()?.takeIf { it.isNotBlank() } ?: "HTTP ${resp.code}"
                     throw IOException(msg)
                 }
+                val json = JSONObject(bodyText)
                 if (json.optString("stop_reason") == "refusal") {
                     throw IOException("Die Anfrage wurde aus Sicherheitsgründen abgelehnt.")
                 }
@@ -88,16 +128,14 @@ object ClaudeClient {
         }
 
     /** Fasst eine Mail in wenigen Sätzen zusammen (in der Gerätesprache). */
-    suspend fun summarize(apiKey: String, from: String, subject: String, body: String): String =
+    suspend fun summarize(from: String, subject: String, body: String): String =
         if (deviceIsGerman) complete(
-            apiKey,
             system = "Du fasst E-Mails kompakt zusammen. Antworte NUR mit der Zusammenfassung " +
                 "auf Deutsch: 2 bis 4 kurze Sätze mit den wichtigsten Fakten (wer, was, " +
                 "Termine, Beträge, geforderte Aktionen). Keine Einleitung, keine Anrede, " +
                 "keine Aufzählungszeichen.",
             user = "Von: $from\nBetreff: $subject\n\n${body.take(12000)}"
         ) else complete(
-            apiKey,
             system = "You summarize emails concisely. Reply ONLY with the summary, " +
                 "written in ${answerLanguage()}: 2 to 4 short sentences with the key facts " +
                 "(who, what, dates, amounts, requested actions). No introduction, " +
@@ -139,8 +177,8 @@ object ClaudeClient {
      * Das feste Format mit [Nr]-Verweisen macht die Zeilen in der App
      * antippbar (öffnet die jeweilige Mail).
      */
-    suspend fun summarizeDay(apiKey: String, mailList: String): String {
-        if (!deviceIsGerman) return summarizeDayIntl(apiKey, mailList)
+    suspend fun summarizeDay(mailList: String): String {
+        if (!deviceIsGerman) return summarizeDayIntl(mailList)
         val system = "Du fasst den E-Mail-Eingang des Nutzers zusammen. " +
             "Antworte auf Deutsch und AUSSCHLIESSLICH in genau diesem Format, " +
             "ohne Einleitung, Erklärung oder Schlussfloskel:\n" +
@@ -171,7 +209,7 @@ object ClaudeClient {
         val user = "Hier die nummerierten E-Mails (Absender, Betreff, ggf. Vorschau):\n\n" +
             mailList.take(12000) +
             "\n\nErstelle die Zusammenfassung im vorgegebenen Format."
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     /**
@@ -181,7 +219,7 @@ object ClaudeClient {
      * (InboxScreen.parseSummary/fixSummaryCategories) und müssen in jeder
      * Sprache unverändert ausgegeben werden.
      */
-    private suspend fun summarizeDayIntl(apiKey: String, mailList: String): String {
+    private suspend fun summarizeDayIntl(mailList: String): String {
         val system = "You summarize the user's email inbox. " +
             "Write the summary sentences in ${answerLanguage()}, but reply " +
             "EXCLUSIVELY in exactly this format, with no introduction, " +
@@ -216,7 +254,7 @@ object ClaudeClient {
         val user = "Here are the numbered emails (sender, subject, preview if available):\n\n" +
             mailList.take(12000) +
             "\n\nCreate the summary in the specified format."
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     /**
@@ -230,8 +268,8 @@ object ClaudeClient {
      * bestimmter Mails anfordern — InboxScreen lädt sie dann und ruft
      * answerWithContents auf (Stufe 2).
      */
-    suspend fun askMailbox(apiKey: String, question: String, indexedMails: String): String {
-        if (!deviceIsGerman) return askMailboxIntl(apiKey, question, indexedMails)
+    suspend fun askMailbox(question: String, indexedMails: String): String {
+        if (!deviceIsGerman) return askMailboxIntl(question, indexedMails)
         val system = "Du beantwortest Fragen zum E-Mail-Postfach des Nutzers — " +
             "AUSSCHLIESSLICH anhand der mitgelieferten nummerierten Mail-Liste " +
             "(Datum | Absendername | Adresse | Betreff | ggf. Vorschau). " +
@@ -255,7 +293,7 @@ object ClaudeClient {
             "keine Einleitung."
         val user = "Nummerierte E-Mail-Liste:\n\n" + indexedMails.take(60000) +
             "\n\nFrage des Nutzers: $question"
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     /**
@@ -263,7 +301,6 @@ object ClaudeClient {
      * und "LESEN:" sind sprachneutral und werden auch hier NICHT übersetzt.
      */
     private suspend fun askMailboxIntl(
-        apiKey: String,
         question: String,
         indexedMails: String
     ): String {
@@ -292,7 +329,7 @@ object ClaudeClient {
             "no further formatting, no introduction."
         val user = "Numbered email list:\n\n" + indexedMails.take(60000) +
             "\n\nThe user's question: $question"
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     /**
@@ -304,13 +341,12 @@ object ClaudeClient {
      * werden ausdrücklich als reine Daten deklariert und nie befolgt.
      */
     suspend fun answerWithContents(
-        apiKey: String,
         question: String,
         indexedMails: String,
         mailContents: String
     ): String {
         if (!deviceIsGerman) {
-            return answerWithContentsIntl(apiKey, question, indexedMails, mailContents)
+            return answerWithContentsIntl(question, indexedMails, mailContents)
         }
         val system = "Du beantwortest Fragen zum E-Mail-Postfach des Nutzers — " +
             "anhand der nummerierten Mail-Liste (Kopfdaten) und der zusätzlich " +
@@ -335,7 +371,7 @@ object ClaudeClient {
         val user = "Nummerierte E-Mail-Liste:\n\n" + indexedMails.take(60000) +
             "\n\nAngeforderte Mail-Volltexte:\n\n" + mailContents.take(60000) +
             "\n\nFrage des Nutzers: $question"
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     /**
@@ -343,7 +379,6 @@ object ClaudeClient {
      * "TREFFER:" bleibt auch hier unübersetzt.
      */
     private suspend fun answerWithContentsIntl(
-        apiKey: String,
         question: String,
         indexedMails: String,
         mailContents: String
@@ -373,12 +408,12 @@ object ClaudeClient {
         val user = "Numbered email list:\n\n" + indexedMails.take(60000) +
             "\n\nRequested mail full texts:\n\n" + mailContents.take(60000) +
             "\n\nThe user's question: $question"
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     /** Fokus-Blöcke: ordnet nummerierte Mails den Kategorien A–D zu. */
-    suspend fun classifyMails(apiKey: String, mailList: String): String {
-        if (!deviceIsGerman) return classifyMailsIntl(apiKey, mailList)
+    suspend fun classifyMails(mailList: String): String {
+        if (!deviceIsGerman) return classifyMailsIntl(mailList)
         val system = "Du sortierst E-Mails in genau vier Kategorien:\n" +
             "A = braucht eine Antwort des Nutzers (direkte Frage/Bitte an ihn)\n" +
             "B = wichtig für den Nutzer, aber keine Antwort nötig (Rechnung, " +
@@ -393,14 +428,14 @@ object ClaudeClient {
             "Keine Erklärungen, keine sonstigen Zeilen."
         val user = "Hier die nummerierten E-Mails (Absender, Betreff, ggf. Vorschau):\n\n" +
             mailList.take(12000) + "\n\nOrdne jede Mail genau einer Kategorie zu."
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     /**
      * classifyMails für nicht-deutsche Gerätesprachen. Das Ausgabeformat
      * „[Nr] Buchstabe“ (A–D) ist sprachneutral und muss exakt so bleiben.
      */
-    private suspend fun classifyMailsIntl(apiKey: String, mailList: String): String {
+    private suspend fun classifyMailsIntl(mailList: String): String {
         val system = "You sort emails into exactly four categories:\n" +
             "A = needs a reply from the user (direct question/request addressed to them)\n" +
             "B = important for the user, but no reply needed (invoice, " +
@@ -418,16 +453,15 @@ object ClaudeClient {
             "No explanations, no other lines."
         val user = "Here are the numbered emails (sender, subject, preview if available):\n\n" +
             mailList.take(12000) + "\n\nAssign each mail to exactly one category."
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     suspend fun draftReply(
-        apiKey: String,
         original: MailMessage,
         originalBody: String,
         instruction: String
     ): String {
-        if (!deviceIsGerman) return draftReplyIntl(apiKey, original, originalBody, instruction)
+        if (!deviceIsGerman) return draftReplyIntl(original, originalBody, instruction)
         val lang = detectLanguage("$originalBody ${original.subject}")
         lastReplyLanguage = lang
         val system = "ABSOLUT VERBINDLICH: Die gesamte Antwort muss auf $lang verfasst sein. " +
@@ -453,7 +487,7 @@ object ClaudeClient {
             }
             append("\n\nVerfasse die Antwort zwingend auf $lang — unabhängig von der Sprache dieser Anweisungen.")
         }
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     /**
@@ -461,7 +495,6 @@ object ClaudeClient {
      * sich wie bisher nach der Sprache der Original-Mail.
      */
     private suspend fun draftReplyIntl(
-        apiKey: String,
         original: MailMessage,
         originalBody: String,
         instruction: String
@@ -496,7 +529,7 @@ object ClaudeClient {
             }
             append("\n\nWrite the reply strictly in $lang — regardless of the language of these instructions.")
         }
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     /** Einheitliche Formatvorgabe: sauber strukturiertes, einfaches HTML. */
@@ -513,7 +546,7 @@ object ClaudeClient {
         "Only the tags <p>, <br>, <b>, <i>, <u>, <ul>, <ol>, <li> are allowed. " +
         "No Markdown, no <html> or <body> scaffolding, no CSS. "
 
-    suspend fun composeMail(apiKey: String, prompt: String): String {
+    suspend fun composeMail(prompt: String): String {
         val system = if (deviceIsGerman) {
             "Du bist ein Assistent, der E-Mails formuliert. " +
                 "Antworte ausschließlich mit der fertigen E-Mail (ohne Betreff, ohne Erklärungen). " +
@@ -526,14 +559,14 @@ object ClaudeClient {
                 "Write in ${answerLanguage()}, unless the user requests another language."
         }
         val user = if (deviceIsGerman) "Formuliere eine E-Mail: $prompt" else "Draft an email: $prompt"
-        return complete(apiKey, system, user)
+        return complete(system, user)
     }
 
     /**
      * Klassifiziert Mails (Absender/Betreff/Abmelde-Signal) als Newsletter.
      * Liefert die 1-basierten Nummern der als Newsletter erkannten Einträge.
      */
-    suspend fun classifyNewsletters(apiKey: String, items: List<String>): Set<Int> {
+    suspend fun classifyNewsletters(items: List<String>): Set<Int> {
         if (items.isEmpty()) return emptySet()
         val system = if (deviceIsGerman) {
             "Du klassifizierst E-Mails als Newsletter oder nicht. " +
@@ -557,11 +590,11 @@ object ClaudeClient {
         } else {
             "Which of these emails are newsletters?\n\n" + items.joinToString("\n")
         }
-        val response = complete(apiKey, system, user)
+        val response = complete(system, user)
         return Regex("\\d+").findAll(response).map { it.value.toInt() }.toSet()
     }
 
-    suspend fun proofread(apiKey: String, html: String): String {
+    suspend fun proofread(html: String): String {
         val system = if (deviceIsGerman) {
             "Du bist ein Korrekturleser. Korrigiere Rechtschreibung, Grammatik und " +
                 "Zeichensetzung des folgenden E-Mail-Textes (HTML). Verändere Inhalt, Stil und Ton nicht. " +
@@ -574,6 +607,6 @@ object ClaudeClient {
                 "Leave all HTML tags and thus the formatting exactly unchanged — correct only the text. " +
                 "Reply exclusively with the corrected HTML, no explanations."
         }
-        return complete(apiKey, system, html)
+        return complete(system, html)
     }
 }

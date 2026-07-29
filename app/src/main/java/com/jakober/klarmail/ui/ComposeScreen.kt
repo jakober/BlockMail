@@ -267,14 +267,9 @@ fun ComposeScreen(
         ProUpsellDialog(onDismiss = { showProUpsell = false })
     }
 
-    val aiEngine by Prefs.aiEngineFlow.collectAsState()
-    // Claude nutzen? Richtet sich nach der KI-Wahl in den Einstellungen
-    val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
-    // On-Device-KI (Gemini Nano), wenn Claude nicht genutzt wird
-    val geminiAvailable by androidx.compose.runtime.produceState(initialValue = false, hasClaudeKey) {
-        value = !hasClaudeKey && com.jakober.klarmail.ai.GeminiNano.available()
-    }
-    val aiAvailable = hasClaudeKey || geminiAvailable
+    // Einziger KI-Weg: Pro-KI über den BlockMail-Proxy —
+    // verfügbar genau dann, wenn Pro freigeschaltet ist
+    val aiAvailable = isPro
     val plainText = editorState.annotatedString.text
 
     val pickedFiles = remember { mutableStateListOf<PickedFile>() }
@@ -310,7 +305,7 @@ fun ComposeScreen(
                 val html = if (result.contains("<") && result.contains(">")) result
                 else plainToHtml(result)
                 editorState.setHtml(html)
-                if (showLanguage && hasClaudeKey) {
+                if (showLanguage) {
                     lastLanguage = ClaudeClient.lastReplyLanguage
                 }
             } catch (e: Exception) {
@@ -738,17 +733,10 @@ fun ComposeScreen(
                                                 context.getString(R.string.compose_ai_mail_load_failed)
                                             )
                                         }
-                                        if (hasClaudeKey) {
-                                            ClaudeClient.draftReply(
-                                                Prefs.claudeApiKey, original, origBody,
-                                                instruction = instructionText
-                                            )
-                                        } else {
-                                            com.jakober.klarmail.ai.GeminiNano.draftReply(
-                                                original.from, original.subject, origBody,
-                                                instructionText
-                                            )
-                                        }
+                                        ClaudeClient.draftReply(
+                                            original, origBody,
+                                            instruction = instructionText
+                                        )
                                     }
                                 }
                             )
@@ -774,11 +762,7 @@ fun ComposeScreen(
                                     }
                                 } else {
                                     runAi(context.getString(R.string.compose_ai_proofreading)) {
-                                        if (hasClaudeKey) {
-                                            ClaudeClient.proofread(Prefs.claudeApiKey, editorState.toHtml())
-                                        } else {
-                                            com.jakober.klarmail.ai.GeminiNano.proofread(plainText)
-                                        }
+                                        ClaudeClient.proofread(editorState.toHtml())
                                     }
                                 }
                             }
@@ -936,11 +920,7 @@ fun ComposeScreen(
                     onClick = {
                         showPromptDialog = false
                         runAi(context.getString(R.string.compose_ai_composing)) {
-                            if (hasClaudeKey) {
-                                ClaudeClient.composeMail(Prefs.claudeApiKey, promptText)
-                            } else {
-                                com.jakober.klarmail.ai.GeminiNano.composeMail(promptText)
-                            }
+                            ClaudeClient.composeMail(promptText)
                         }
                     }
                 ) { Text(stringResource(R.string.compose_prompt_confirm)) }

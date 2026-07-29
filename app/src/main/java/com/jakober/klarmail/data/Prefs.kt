@@ -294,9 +294,27 @@ object Prefs {
         get() = sp.getString("app_password", "") ?: ""
         set(v) = sp.edit().putString("app_password", v.replace(" ", "")).apply()
 
+    /** Eigener Claude-API-Schlüssel (Altbestand): wird derzeit nicht mehr
+     *  genutzt — die KI läuft ausschließlich über den BlockMail-Proxy.
+     *  Getter/Setter bleiben für Migration/Altdaten erhalten. */
     var claudeApiKey: String
         get() = sp.getString("claude_key", "") ?: ""
         set(v) = sp.edit().putString("claude_key", v.trim()).apply()
+
+    /**
+     * Installations-Token: wird beim ersten Zugriff als zufällige UUID
+     * erzeugt und dauerhaft gespeichert. Dient als Bearer-Token beim
+     * KI-Proxy des App-Betreibers (blockwerk-orange.de/blockmail) und wird
+     * später durch das Play-Abo-Token ersetzt.
+     */
+    val installToken: String
+        get() {
+            val existing = sp.getString("install_token", null)
+            if (!existing.isNullOrBlank()) return existing
+            val token = java.util.UUID.randomUUID().toString()
+            sp.edit().putString("install_token", token).apply()
+            return token
+        }
 
     /** "oauth" = Google-Anmeldung, "password" = App-Passwort */
     var authMethod: String

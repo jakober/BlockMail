@@ -5,8 +5,12 @@ import com.google.mlkit.genai.prompt.Generation
 
 /**
  * On-Device-KI über Gemini Nano (ML Kit Prompt API): kostenloser Fallback
- * für Geräte mit AICore (z. B. Pixel ab 8, Samsung ab S24), wenn kein
- * Claude-API-Schlüssel hinterlegt ist. Alles läuft lokal auf dem Gerät.
+ * für Geräte mit AICore (z. B. Pixel ab 8, Samsung ab S24). Alles läuft
+ * lokal auf dem Gerät.
+ *
+ * HINWEIS: Derzeit NICHT verdrahtet — alle KI-Funktionen der App laufen
+ * ausschließlich über den BlockMail-KI-Proxy (siehe [ClaudeClient]).
+ * Die Datei bleibt als möglicher künftiger Offline-Fallback erhalten.
  */
 object GeminiNano {
 

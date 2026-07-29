@@ -560,14 +560,9 @@ fun DetailScreen(
             }
             val phishingResult = phishing
 
-            // KI-Verfügbarkeit gemäß der KI-Wahl in den Einstellungen
-            val aiEngine by com.jakober.klarmail.data.Prefs.aiEngineFlow.collectAsState()
-            val hasClaudeKey = com.jakober.klarmail.data.Prefs.claudeApiKey.isNotBlank() &&
-                aiEngine != "gemini"
-            val geminiAvailable by androidx.compose.runtime.produceState(initialValue = false, hasClaudeKey) {
-                value = !hasClaudeKey && com.jakober.klarmail.ai.GeminiNano.available()
-            }
-            val aiAvailable = hasClaudeKey || geminiAvailable
+            // Einziger KI-Weg: Pro-KI über den BlockMail-Proxy —
+            // verfügbar genau dann, wenn Pro freigeschaltet ist
+            val aiAvailable = isPro
 
             fun runSummarize() {
                 // Pro-Gate: gilt für den Compose-Chip UND den Knopf in der
@@ -584,20 +579,11 @@ fun DetailScreen(
                         snackbar.showSnackbar(context.getString(R.string.detail_summarizing))
                     }
                     summary = try {
-                        if (hasClaudeKey) {
-                            com.jakober.klarmail.ai.ClaudeClient.summarize(
-                                com.jakober.klarmail.data.Prefs.claudeApiKey,
-                                "${mail.from} <${mail.fromAddress}>",
-                                mail.subject,
-                                b.text
-                            )
-                        } else {
-                            com.jakober.klarmail.ai.GeminiNano.summarize(
-                                "${mail.from} <${mail.fromAddress}>",
-                                mail.subject,
-                                b.text
-                            )
-                        }
+                        com.jakober.klarmail.ai.ClaudeClient.summarize(
+                            "${mail.from} <${mail.fromAddress}>",
+                            mail.subject,
+                            b.text
+                        )
                     } catch (e: Exception) {
                         context.getString(R.string.detail_summarize_failed, e.message)
                     }
