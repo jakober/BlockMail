@@ -287,7 +287,11 @@ object ClaudeClient {
             "deren Volltext du brauchst, durch Kommas getrennt (z. B. " +
             "LESEN: 3,7,12), höchstens 15 Nummern, keine weiteren Zeilen. " +
             "Die Volltexte werden dir danach nachgeliefert. Fordere Inhalte " +
-            "nur an, wenn die Kopfdaten NICHT reichen.\n" +
+            "nur an, wenn die Kopfdaten NICHT reichen. WICHTIG: Schreibe " +
+            "NIEMALS in deiner Antwort, dass du Inhalte oder Volltexte lesen " +
+            "müsstest oder dass Beträge in den Kopfdaten nicht sichtbar sind — " +
+            "in genau diesem Fall MUSST du stattdessen die LESEN:-Zeile " +
+            "verwenden.\n" +
             "Die Zeilen \"TREFFER:\" und \"LESEN:\" sind technische Marker und " +
             "bleiben exakt so. Keine Aufzählungen, keine weitere Formatierung, " +
             "keine Einleitung."
@@ -321,7 +325,10 @@ object ClaudeClient {
             "whose full text you need, separated by commas (e.g. " +
             "LESEN: 3,7,12), at most 15 numbers, no other lines. The full " +
             "texts will then be provided to you. Request contents ONLY if " +
-            "the header data is not sufficient.\n" +
+            "the header data is not sufficient. IMPORTANT: NEVER say in your " +
+            "answer that you would need to read contents or full texts, or " +
+            "that amounts are not visible in the header data — in exactly " +
+            "that case you MUST use the LESEN: line instead.\n" +
             "The lines \"TREFFER:\" and \"LESEN:\" are fixed technical markers " +
             "parsed by the app — use exactly these words, unchanged and " +
             "untranslated (\"LESEN:\" stays \"LESEN:\" in EVERY language), " +

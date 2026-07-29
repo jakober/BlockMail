@@ -1,3 +1,113 @@
+                var answerRaw = raw
+                // Volltexte einer Auswahl laden: lokaler Index zuerst (kennt
+                // auch den Newsletter-Ordner), sonst IMAP mit Zeitgrenze
+                suspend fun buildContents(
+                    toRead: List<Pair<Int, MailRepository.AiSearchHit>>
+                ): String {
+                    val unavailable = if (Locale.getDefault().language == "de") {
+                        "[Inhalt nicht verfügbar]"
+                    } else "[Content not available]"
+                    val parts = mutableListOf<String>()
+                    for ((n, h) in toRead) {
+                        val fromIndex = runCatching {
+                            MailIndex.bodyOf(
+                                h.mail.account.ifBlank { Prefs.email },
+                                h.folder.name,
+                                h.mail.uid
+                            )
+                        }.getOrNull()?.takeIf { it.isNotBlank() }
+                        val text = when {
+                            fromIndex != null -> fromIndex.take(3000)
+                            h.folder != MailRepository.MailFolder.INBOX -> unavailable
+                            else -> runCatching {
+                                // Zeitgrenze je Mail: eine zähe Mail darf
+                                // nicht die ganze Antwort blockieren
+                                withTimeoutOrNull(12_000) {
+                                    MailRepository.loadVisibleText(
+                                        h.mail.uid,
+                                        h.mail.account,
+                                        MailRepository.MailFolder.INBOX
+                                    )
+                                }
+                            }.getOrNull()?.take(3000) ?: unavailable
+                        }
+                        parts += "=== MAIL [$n] ===\n$text"
+                    }
+                    return parts.joinToString("\n\n")
+                }
+                // Agent-Modus Stufe 2: Beginnt die Antwort mit der
+                // Marker-Zeile "LESEN: …", fordert die KI die Volltexte
+                // bestimmter Mails an. Maximal EINE Lese-Runde.
+                val firstLine = raw.lineSequence()
+                    .firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+                if (firstLine.uppercase().startsWith("LESEN:")) {
+                    // Deckel: höchstens 15 Volltexte — überzählige
+                    // Nummern werden ignoriert
+                    val toRead = Regex("\\d+")
+                        .findAll(firstLine.substringAfter(":"))
+                        .mapNotNull { it.value.toIntOrNull() }
+                        .distinct()
+                        .mapNotNull { n -> indexed.getOrNull(n - 1)?.let { n to it } }
+                        .take(15)
+                        .toList()
+                    if (toRead.isNotEmpty()) {
+                        aiReadingCount = toRead.size
+                        val contents = buildContents(toRead)
+                        aiReadingCount = 0
+                        aiPhase = 2
+                        answerRaw = com.jakober.klarmail.ai.ClaudeClient.answerWithContents(
+                            question, list, contents
+                        )
+                    }
+                }
+                // Marker-Zeile "TREFFER: 3,7,12" bzw. "TREFFER: -" auswerten.
+                // Defensiv: erneute "LESEN:"-Zeilen fliegen raus.
+                fun applyAnswer(answer: String) {
+                    val lines = answer.lines().filterNot {
+                        it.trim().uppercase().startsWith("LESEN:")
+                    }
+                    val hitIdx = lines.indexOfFirst {
+                        it.trim().uppercase().startsWith("TREFFER:")
+                    }
+                    val nums = if (hitIdx >= 0) {
+                        Regex("\\d+").findAll(lines[hitIdx].substringAfter(":"))
+                            .mapNotNull { it.value.toIntOrNull() }.toList()
+                    } else emptyList()
+                    aiHits = nums.mapNotNull { indexed.getOrNull(it - 1) }
+                        .distinctBy { "${it.folder.name}:${it.mail.account}:${it.mail.uid}" }
+                    aiAnswer = lines.filterIndexed { i, _ -> i != hitIdx }
+                        .joinToString("\n").trim()
+                        .ifBlank { context.getString(R.string.inbox_ai_ask_no_hits) }
+                }
+                applyAnswer(answerRaw)
+                // Nachbrenner: Behauptet die KI im Antworttext, sie müsste
+                // erst die Mail-Inhalte lesen (statt die LESEN:-Zeile zu
+                // nutzen), lesen wir die Treffer-Mails selbst und fragen
+                // einmal automatisch mit Volltexten nach — nur, wenn noch
+                // keine Lese-Runde gelaufen ist
+                val claimsNeedContents = Regex(
+                    "volltext|m.sste ich|kann ich nicht|nicht sichtbar|" +
+                        "nicht ersichtlich|nicht erkennbar|" +
+                        "full text|would need|cannot|not visible|not shown",
+                    RegexOption.IGNORE_CASE
+                ).containsMatchIn(aiAnswer.orEmpty())
+                if (answerRaw === raw && claimsNeedContents && aiHits.isNotEmpty()) {
+                    val toRead = aiHits.take(15).mapNotNull { h ->
+                        val n = indexed.indexOf(h) + 1
+                        if (n > 0) n to h else null
+                    }
+                    if (toRead.isNotEmpty()) {
+                        aiReadingCount = toRead.size
+                        val contents = buildContents(toRead)
+                        aiReadingCount = 0
+                        aiPhase = 2
+                        applyAnswer(
+                            com.jakober.klarmail.ai.ClaudeClient.answerWithContents(
+                                question, list, contents
+                            )
+                        )
+                    }
+                }
 package com.jakober.klarmail.ui
 
 import androidx.compose.animation.core.animateFloatAsState
