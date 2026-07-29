@@ -702,11 +702,30 @@ fun DetailScreen(
                         phishingAdvice = stringResource(R.string.detail_page_phishing_advice),
                         notPhishingLink = stringResource(R.string.detail_page_not_phishing)
                     )
+                    // Absender-Icon vorab in Kotlin auflösen (mit Prüfung,
+                    // ob die Quelle wirklich ein Bild liefert) — die WebView
+                    // kann ohne JavaScript keine Fallback-Kette abarbeiten
+                    val senderDomain = remember(mail.fromAddress) {
+                        mail.fromAddress.substringAfterLast("@", "").lowercase().trim()
+                    }
+                    var senderIconUrl by remember(mail.fromAddress) {
+                        mutableStateOf<String?>(null)
+                    }
+                    LaunchedEffect(mail.fromAddress) {
+                        if (senderDomain.isNotBlank() &&
+                            senderDomain !in headerFreemailDomains
+                        ) {
+                            senderIconUrl =
+                                com.jakober.klarmail.data.SenderIcon.resolve(senderDomain)
+                        }
+                    }
                     val fullHtml = remember(
-                        currentBody, phishingResult, aiAvailable, darkTheme, pageTexts
+                        currentBody, phishingResult, aiAvailable, darkTheme, pageTexts,
+                        senderIconUrl
                     ) {
                         buildMailPageHtml(
-                            mail, currentBody, phishingResult, aiAvailable, darkTheme, pageTexts
+                            mail, currentBody, phishingResult, aiAvailable, darkTheme,
+                            pageTexts, senderIconUrl
                         )
                     }
                     HtmlMailView(
@@ -1020,7 +1039,8 @@ private fun buildMailPageHtml(
     phishing: com.jakober.klarmail.data.PhishingCheck.Result?,
     aiAvailable: Boolean,
     dark: Boolean = false,
-    texts: MailPageTexts
+    texts: MailPageTexts,
+    senderIconUrl: String? = null
 ): String {
     val orange = "#EE5F0F"
     // Fester Kopf-Hintergrund je App-Design: Mails bringen oft eigene
@@ -1041,10 +1061,10 @@ private fun buildMailPageHtml(
         .append("line-height:1.3;margin:2px 0 12px 0;\">")
         .append(htmlEscape(mail.subject))
         .append("</div>")
-    // Absenderzeile mit Avatar (Marken-Logo oder Initialen-Kreis in Orange)
-    val domain = mail.fromAddress.substringAfterLast("@", "").lowercase().trim()
-    val avatar = if (domain.isNotBlank() && domain !in headerFreemailDomains) {
-        "<img src=\"https://www.google.com/s2/favicons?domain=$domain&amp;sz=128\" " +
+    // Absenderzeile mit Avatar: vorab geprüfte Logo-/Favicon-URL —
+    // gibt es keine, den Initialen-Kreis (besser als eine Pixel-Weltkugel)
+    val avatar = if (senderIconUrl != null) {
+        "<img src=\"${htmlEscape(senderIconUrl)}\" " +
             "style=\"width:42px;height:42px;min-width:42px;border-radius:21px;" +
             "background:${if (dark) "#2A2A2E" else "#f2f2f2"};object-fit:contain;\">"
     } else {

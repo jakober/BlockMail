@@ -42,10 +42,10 @@ fun SenderAvatar(name: String, address: String, size: Dp) {
     val domain = address.substringAfterLast("@", "").lowercase().trim()
     val candidates = remember(domain) {
         if (domain.isNotBlank() && domain !in freemailDomains) {
-            listOf(
-                "https://logo.clearbit.com/$domain?size=256",
-                "https://www.google.com/s2/favicons?domain=$domain&sz=256"
-            )
+            // Gemeinsame Quellenliste mit der Mail-Detailansicht (der
+            // Google-Favicon-Dienst ist raus — er liefert für unbekannte
+            // Domains eine unscharfe Weltkugel statt eines Fehlers)
+            com.jakober.klarmail.data.SenderIcon.candidatesFor(domain)
         } else {
             emptyList()
         }
