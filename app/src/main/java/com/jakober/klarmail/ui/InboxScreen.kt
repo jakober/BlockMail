@@ -231,6 +231,15 @@ fun InboxScreen(
     val context = LocalContext.current
     val configured = Prefs.isConfigured
 
+    // BlockMail Pro: Alle KI-Funktionen hängen an diesem Schalter. In der
+    // Testphase (ProAccess.TEST_PHASE_UNLOCK = true) ist isPro immer true —
+    // die Gates greifen dann nie und das Verhalten bleibt exakt wie bisher.
+    val isPro by com.jakober.klarmail.data.ProAccess.isProFlow.collectAsState()
+    var showProUpsell by remember { mutableStateOf(false) }
+    if (showProUpsell) {
+        ProUpsellDialog(onDismiss = { showProUpsell = false })
+    }
+
     val selected = remember { androidx.compose.runtime.mutableStateListOf<Long>() }
     val selectionMode = selected.isNotEmpty()
     val conversationView by Prefs.conversationViewFlow.collectAsState()
@@ -472,6 +481,31 @@ fun InboxScreen(
     androidx.activity.compose.BackHandler(
         enabled = query.isNotEmpty() || aiAnswer != null || serverResults != null
     ) { exitSearch() }
+
+    /**
+     * Server-Volltextsuche — derselbe Pfad wie der Chip „Volltext (Server)“
+     * in der Suchansicht. Hierher gehoben (unverändert), damit ohne Pro auch
+     * Enter in der Suchleiste diese reine Textsuche auslösen kann.
+     */
+    fun runServerSearch() {
+        if (query.isBlank() || searching) return
+        keyboard?.hide()
+        scope.launch {
+            searching = true
+            try {
+                serverResults = MailRepository.search(query)
+            } catch (e: Exception) {
+                snackbar.showSnackbar(
+                    context.getString(
+                        R.string.inbox_search_failed,
+                        MailRepository.friendlyError(e)
+                    )
+                )
+            } finally {
+                searching = false
+            }
+        }
+    }
 
     /**
      * KI-Anfrage ans Postfach: baut eine nummerierte Metadaten-Liste (kein
@@ -1541,13 +1575,23 @@ fun InboxScreen(
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { askAi(query) }),
+                    // Pro-Gate: Mit Pro stellt Enter die Frage der KI, ohne
+                    // Pro bleibt die Leiste eine reine Textsuche und Enter
+                    // löst die bestehende Server-Volltextsuche aus (derselbe
+                    // Pfad wie der Chip „Volltext (Server)“)
+                    keyboardActions = KeyboardActions(onSearch = {
+                        if (isPro) askAi(query) else runServerSearch()
+                    }),
                     modifier = Modifier.weight(1f),
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (query.isEmpty()) {
                                 Text(
-                                    stringResource(R.string.inbox_ai_ask_placeholder),
+                                    // KI-Anmutung des Platzhalters nur mit Pro
+                                    stringResource(
+                                        if (isPro) R.string.inbox_ai_ask_placeholder
+                                        else R.string.inbox_search
+                                    ),
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -1800,25 +1844,9 @@ fun InboxScreen(
                     h.folder != MailRepository.MailFolder.INBOX ||
                         "${h.mail.account}:${h.mail.uid}" !in shownKeys
                 }
-                fun runServerSearch() {
-                    if (query.isBlank() || searching) return
-                    keyboard?.hide()
-                    scope.launch {
-                        searching = true
-                        try {
-                            serverResults = MailRepository.search(query)
-                        } catch (e: Exception) {
-                            snackbar.showSnackbar(
-                                context.getString(
-                                    R.string.inbox_search_failed,
-                                    MailRepository.friendlyError(e)
-                                )
-                            )
-                        } finally {
-                            searching = false
-                        }
-                    }
-                }
+                // runServerSearch() ist nach oben gewandert (siehe Definition
+                // bei exitSearch), damit auch die Suchleiste selbst — ohne
+                // Pro — dieselbe Server-Volltextsuche auslösen kann.
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2401,7 +2429,12 @@ fun InboxScreen(
                     .padding(16.dp)
             ) {
                 androidx.compose.material3.SmallFloatingActionButton(
-                    onClick = { if (!aiBusy) aiMenuOpen = true },
+                    // Pro-Gate: Tages-Überblick & Co. (KI-Zusammenfassungen)
+                    // nur mit Pro — sonst der Hinweis-Dialog
+                    onClick = {
+                        if (!isPro) showProUpsell = true
+                        else if (!aiBusy) aiMenuOpen = true
+                    },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 ) {

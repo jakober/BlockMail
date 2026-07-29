@@ -257,6 +257,16 @@ fun ComposeScreen(
     var lastLanguage by remember { mutableStateOf<String?>(null) }
     var aiMenuOpen by remember { mutableStateOf(false) }
 
+    // BlockMail Pro: Das komplette KI-Menü (Antwort entwerfen, Mail
+    // formulieren, Rechtschreibung prüfen) ist eine Pro-Funktion. In der
+    // Testphase (ProAccess.TEST_PHASE_UNLOCK = true) ist isPro immer true —
+    // das Gate greift dann nie und das Verhalten bleibt exakt wie bisher.
+    val isPro by com.jakober.klarmail.data.ProAccess.isProFlow.collectAsState()
+    var showProUpsell by remember { mutableStateOf(false) }
+    if (showProUpsell) {
+        ProUpsellDialog(onDismiss = { showProUpsell = false })
+    }
+
     val aiEngine by Prefs.aiEngineFlow.collectAsState()
     // Claude nutzen? Richtet sich nach der KI-Wahl in den Einstellungen
     val hasClaudeKey = Prefs.claudeApiKey.isNotBlank() && aiEngine != "gemini"
@@ -688,7 +698,12 @@ fun ComposeScreen(
         floatingActionButton = {
             if (aiAvailable) {
                 Box {
-                    FloatingActionButton(onClick = { aiMenuOpen = true }) {
+                    // Pro-Gate: Ohne Pro öffnet der KI-FAB statt des Menüs
+                    // den Hinweis-Dialog — das Menü (und damit alle
+                    // KI-Aktionen) bleibt Pro vorbehalten
+                    FloatingActionButton(onClick = {
+                        if (isPro) aiMenuOpen = true else showProUpsell = true
+                    }) {
                         Icon(
                             Icons.Filled.AutoAwesome,
                             contentDescription = stringResource(R.string.compose_ai_functions)

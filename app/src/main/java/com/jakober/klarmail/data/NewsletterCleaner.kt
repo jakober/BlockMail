@@ -39,6 +39,15 @@ object NewsletterCleaner {
      */
     private suspend fun runInternal(context: Context): Pair<String, Boolean> =
         withContext(Dispatchers.IO) {
+        // BlockMail Pro: Der Newsletter-Scan ist eine Pro-Funktion. Letzte
+        // Verteidigungslinie für alle Aufruf-Pfade (UI, Scheduler, Worker,
+        // Shortcut) — ohne Pro bricht der Lauf still ab; das zweite Element
+        // "true" unterdrückt dabei auch die Status-Benachrichtigung von
+        // runWithNotification. In der Testphase (TEST_PHASE_UNLOCK) ist
+        // isPro immer true und dieser Wächter greift nie.
+        if (!ProAccess.isPro) {
+            return@withContext "" to true
+        }
         if (!Prefs.isConfigured) {
             return@withContext context.getString(R.string.svc_no_account) to false
         }

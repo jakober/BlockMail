@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -264,6 +265,16 @@ fun SettingsScreen(
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
+
+    // BlockMail Pro: Der Newsletter-Scan (manuell und täglich) ist eine
+    // Pro-Funktion. In der Testphase (ProAccess.TEST_PHASE_UNLOCK = true)
+    // ist isPro immer true — die Gates greifen dann nie und das Verhalten
+    // bleibt exakt wie bisher.
+    val isPro by com.jakober.klarmail.data.ProAccess.isProFlow.collectAsState()
+    var showProUpsell by remember { mutableStateOf(false) }
+    if (showProUpsell) {
+        ProUpsellDialog(onDismiss = { showProUpsell = false })
+    }
 
     var email by remember { mutableStateOf(Prefs.email) }
     var password by remember { mutableStateOf(Prefs.appPassword) }
@@ -1384,6 +1395,29 @@ fun SettingsScreen(
             }
 
             GroupHeader(stringResource(R.string.settings_group_ai))
+            // BlockMail Pro: Übersichtskarte — was Pro umfasst und der
+            // aktuelle Status. Bewusst ohne Kauf-Knopf (kommt später mit
+            // Play Billing).
+            SectionCard(
+                stringResource(R.string.settings_pro_title), Icons.Filled.WorkspacePremium,
+                subtitle = stringResource(R.string.settings_pro_subtitle)
+            ) {
+            Text(
+                stringResource(R.string.settings_pro_features),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            if (com.jakober.klarmail.data.ProAccess.TEST_PHASE_UNLOCK) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.settings_pro_test_phase),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            }
+
             SectionCard(
                 stringResource(R.string.settings_ai_status_title), Icons.Filled.AutoAwesome,
                 subtitle = stringResource(R.string.settings_ai_status_subtitle)
@@ -1520,12 +1554,17 @@ fun SettingsScreen(
                 androidx.compose.material3.Switch(
                     checked = newsletterAuto,
                     onCheckedChange = { on ->
-                        Prefs.newsletterAutoEnabled = on
-                        scope.launch {
-                            snackbar.showSnackbar(
-                                if (on) context.getString(R.string.settings_newsletter_on_snack)
-                                else context.getString(R.string.settings_newsletter_off_snack)
-                            )
+                        // Pro-Gate: Der tägliche Aufräum-Lauf ist Pro
+                        if (!isPro) {
+                            showProUpsell = true
+                        } else {
+                            Prefs.newsletterAutoEnabled = on
+                            scope.launch {
+                                snackbar.showSnackbar(
+                                    if (on) context.getString(R.string.settings_newsletter_on_snack)
+                                    else context.getString(R.string.settings_newsletter_off_snack)
+                                )
+                            }
                         }
                     }
                 )
@@ -1535,17 +1574,22 @@ fun SettingsScreen(
                 TextButton(
                     enabled = !newsletterRunning,
                     onClick = {
-                        scope.launch {
-                            newsletterRunning = true
-                            newsletterResult = try {
-                                com.jakober.klarmail.data.NewsletterCleaner.run(context)
-                            } catch (e: Exception) {
-                                context.getString(
-                                    R.string.settings_error_prefix,
-                                    e.message ?: e.javaClass.simpleName
-                                )
+                        // Pro-Gate: Der manuelle Aufräum-Lauf ist Pro
+                        if (!isPro) {
+                            showProUpsell = true
+                        } else {
+                            scope.launch {
+                                newsletterRunning = true
+                                newsletterResult = try {
+                                    com.jakober.klarmail.data.NewsletterCleaner.run(context)
+                                } catch (e: Exception) {
+                                    context.getString(
+                                        R.string.settings_error_prefix,
+                                        e.message ?: e.javaClass.simpleName
+                                    )
+                                }
+                                newsletterRunning = false
                             }
-                            newsletterRunning = false
                         }
                     }
                 ) {

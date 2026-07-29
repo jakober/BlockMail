@@ -98,9 +98,15 @@ class MailSyncService : Service() {
             ACTION_NEWSLETTER -> {
                 maybeStartIdle()
                 scope.launch {
-                    runCatching {
-                        com.jakober.klarmail.data.NewsletterCleaner
-                            .runWithNotification(applicationContext)
+                    // BlockMail Pro: Der Newsletter-Scan ist eine Pro-Funktion.
+                    // Ohne Pro tut der Launcher-Shortcut einfach nichts (kein
+                    // Dialog auf der Service-Seite). In der Testphase
+                    // (TEST_PHASE_UNLOCK) ist isPro immer true.
+                    if (com.jakober.klarmail.data.ProAccess.isPro) {
+                        runCatching {
+                            com.jakober.klarmail.data.NewsletterCleaner
+                                .runWithNotification(applicationContext)
+                        }
                     }
                     if (eco) stopSelfClean()
                 }
@@ -180,7 +186,11 @@ class MailSyncService : Service() {
         cleanerJob = scope.launch {
             while (isActive) {
                 try {
-                    if (Prefs.isConfigured && Prefs.newsletterAutoEnabled) {
+                    // BlockMail Pro: Der automatische Newsletter-Lauf ist eine
+                    // Pro-Funktion — ohne Pro läuft der Planer einfach leer
+                    if (Prefs.isConfigured && Prefs.newsletterAutoEnabled &&
+                        com.jakober.klarmail.data.ProAccess.isPro
+                    ) {
                         val cal = java.util.Calendar.getInstance()
                         val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
                         if (cal.get(java.util.Calendar.HOUR_OF_DAY) >= 20 &&

@@ -66,4 +66,9 @@
     <string name="nlog_delete">Delete</string>
     <string name="welcome_feature_ask_title">Ask your mailbox</string>
     <string name="welcome_feature_ask_text">The AI search answers free-form questions like "How much did I spend at Amazon?" — and finds years-old emails too.</string>
+
+    <!-- ProUpsell (BlockMail Pro) -->
+    <string name="pro_title">BlockMail Pro</string>
+    <string name="pro_upsell_text">The AI features — AI search, summarizing, daily overview, drafting replies and emails with AI, proofreading, and the newsletter scan — are part of BlockMail Pro.</string>
+    <string name="pro_ok">Got it</string>
 </resources>

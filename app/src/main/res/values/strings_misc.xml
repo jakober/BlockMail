@@ -66,4 +66,9 @@
     <string name="nlog_delete">Löschen</string>
     <string name="welcome_feature_ask_title">Frag dein Postfach</string>
     <string name="welcome_feature_ask_text">Die KI-Suche beantwortet freie Fragen wie „Wie viel habe ich bei Amazon ausgegeben?" — und findet auch jahrealte Mails.</string>
+
+    <!-- ProUpsell (BlockMail Pro) -->
+    <string name="pro_title">BlockMail Pro</string>
+    <string name="pro_upsell_text">Die KI-Funktionen — KI-Suche, Zusammenfassen, Tages-Überblick, Antworten und Mails mit KI verfassen, Rechtschreibprüfung und der Newsletter-Scan — sind Teil von BlockMail Pro.</string>
+    <string name="pro_ok">Verstanden</string>
 </resources>

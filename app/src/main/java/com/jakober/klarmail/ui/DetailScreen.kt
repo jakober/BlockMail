@@ -199,6 +199,15 @@ fun DetailScreen(
     var summary by remember(uid) { mutableStateOf<String?>(null) }
     var summarizing by remember(uid) { mutableStateOf(false) }
 
+    // BlockMail Pro: „Mit KI zusammenfassen“ ist eine Pro-Funktion. In der
+    // Testphase (ProAccess.TEST_PHASE_UNLOCK = true) ist isPro immer true —
+    // das Gate greift dann nie und das Verhalten bleibt exakt wie bisher.
+    val isPro by com.jakober.klarmail.data.ProAccess.isProFlow.collectAsState()
+    var showProUpsell by remember { mutableStateOf(false) }
+    if (showProUpsell) {
+        ProUpsellDialog(onDismiss = { showProUpsell = false })
+    }
+
     if (showSnoozeDialog && mail != null) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showSnoozeDialog = false },
@@ -561,6 +570,12 @@ fun DetailScreen(
             val aiAvailable = hasClaudeKey || geminiAvailable
 
             fun runSummarize() {
+                // Pro-Gate: gilt für den Compose-Chip UND den Knopf in der
+                // HTML-Mail-Seite (onAppLink "blockmail://summarize")
+                if (!isPro) {
+                    showProUpsell = true
+                    return
+                }
                 val b = body ?: return
                 if (summarizing) return
                 scope.launch {

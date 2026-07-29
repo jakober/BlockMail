@@ -30,7 +30,10 @@ class SyncGuardWorker(
             val cal = java.util.Calendar.getInstance()
             val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
                 .format(java.util.Date())
-            if (Prefs.newsletterAutoEnabled &&
+            // BlockMail Pro: Der automatische Newsletter-Lauf ist eine
+            // Pro-Funktion — ohne Pro passiert hier einfach nichts
+            if (com.jakober.klarmail.data.ProAccess.isPro &&
+                Prefs.newsletterAutoEnabled &&
                 cal.get(java.util.Calendar.HOUR_OF_DAY) >= 20 &&
                 Prefs.lastNewsletterRunDay != today
             ) {
