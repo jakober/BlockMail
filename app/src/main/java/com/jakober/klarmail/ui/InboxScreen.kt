@@ -1640,26 +1640,9 @@ fun InboxScreen(
                     }
                 )
                 if (aiAskBusy) {
-                    val busyLabel = when {
-                        aiReadingCount > 0 ->
-                            stringResource(R.string.inbox_ai_reading, aiReadingCount)
-                        aiPhase == 1 -> stringResource(R.string.inbox_ai_phase_search)
-                        aiPhase == 2 -> stringResource(R.string.inbox_ai_phase_ask)
-                        else -> null
-                    }
-                    if (busyLabel != null) {
-                        Text(
-                            busyLabel,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
-                    )
+                    // Der Statustext wandert in die gut sichtbare Pille
+                    // UNTER der Leiste — hier nur Abstand halten, damit
+                    // nichts mit dem getippten Text kollidiert
                     Spacer(Modifier.width(14.dp))
                 } else if (query.isNotEmpty()) {
                     IconButton(onClick = { exitSearch() }) {
@@ -1671,6 +1654,39 @@ fun InboxScreen(
                     }
                 } else {
                     Spacer(Modifier.width(14.dp))
+                }
+            }
+
+            // KI-Status als eigene, gut sichtbare Pille unter der Leiste:
+            // "Durchsuche Postfach …", "Frage KI …", "Lese X Mails …"
+            if (aiAskBusy) {
+                val busyLabel = when {
+                    aiReadingCount > 0 ->
+                        stringResource(R.string.inbox_ai_reading, aiReadingCount)
+                    aiPhase == 2 -> stringResource(R.string.inbox_ai_phase_ask)
+                    else -> stringResource(R.string.inbox_ai_phase_search)
+                }
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 6.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        busyLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        maxLines = 1
+                    )
                 }
             }
 
