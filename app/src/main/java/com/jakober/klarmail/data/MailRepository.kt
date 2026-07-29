@@ -300,8 +300,10 @@ object MailRepository {
     /**
      * HTML → sichtbarer Text: Style-/Script-/Head-Blöcke müssen vorher raus,
      * denn Androids Html.fromHtml übernimmt deren Inhalt (CSS!) als Text.
+     * internal statt private: MailIndex nutzt denselben Helfer für den
+     * lokalen Volltext-Index (keine Logik-Kopie).
      */
-    private fun htmlToVisibleText(html: String): String = Html.fromHtml(
+    internal fun htmlToVisibleText(html: String): String = Html.fromHtml(
         html.replace(Regex("(?is)<(style|script|head|title)[^>]*>.*?</\\1>"), " ")
             .replace(Regex("(?s)<!--.*?-->"), " "),
         Html.FROM_HTML_MODE_LEGACY
@@ -486,8 +488,9 @@ object MailRepository {
     /**
      * Verbindung zu einem beliebigen gespeicherten Konto (Sammel-Posteingang).
      * Für das aktive Konto wird der normale Weg genutzt.
+     * internal statt private: auch MailIndex.syncBatch verbindet sich damit.
      */
-    private fun openStoreFor(account: String): Store {
+    internal fun openStoreFor(account: String): Store {
         if (isActiveAccount(account)) return openStore()
         val acc = Prefs.accounts().firstOrNull { it.email.equals(account, ignoreCase = true) }
             ?: throw IllegalStateException("Konto $account nicht gefunden")
@@ -2038,8 +2041,11 @@ object MailRepository {
         }
     }
 
-    /** Liefert den ersten Part mit dem gewünschten MIME-Typ (rekursiv). */
-    private fun extractPart(part: Part, mime: String): String? {
+    /**
+     * Liefert den ersten Part mit dem gewünschten MIME-Typ (rekursiv).
+     * internal statt private: MailIndex extrahiert damit den Mail-Text.
+     */
+    internal fun extractPart(part: Part, mime: String): String? {
         try {
             when {
                 part.isMimeType(mime) -> return part.content as? String
@@ -2058,8 +2064,9 @@ object MailRepository {
     /**
      * Fallback: Falls der Text noch sichtbares Quoted-Printable enthält
      * (z. B. "=C3=BC" statt "ü"), manuell dekodieren.
+     * internal statt private: auch MailIndex nutzt die Reparatur.
      */
-    private fun fixEncoding(s: String): String {
+    internal fun fixEncoding(s: String): String {
         // Nur anspringen, wenn eindeutig unkodiertes Quoted-Printable vorliegt:
         // (a) zwei aufeinanderfolgende Escape-Bytes eines UTF-8-Mehrbyte-Zeichens
         //     wie "=C3=BC" (ü) oder "=E2=80" (typografische Zeichen), oder

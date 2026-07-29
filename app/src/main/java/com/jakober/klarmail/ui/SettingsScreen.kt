@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.ManageSearch
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.People
@@ -1790,6 +1791,78 @@ fun SettingsScreen(
 
             GroupHeader(stringResource(R.string.settings_group_data))
             SectionCard(
+                stringResource(R.string.settings_index_title), Icons.Filled.ManageSearch,
+                subtitle = stringResource(R.string.settings_index_subtitle)
+            ) {
+            var indexStats by remember {
+                mutableStateOf<com.jakober.klarmail.data.MailIndex.IndexStats?>(null)
+            }
+            var showClearIndexDialog by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                com.jakober.klarmail.data.MailIndex.init(context)
+                indexStats = com.jakober.klarmail.data.MailIndex.stats()
+            }
+            Text(
+                stringResource(R.string.settings_index_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(6.dp))
+            indexStats?.let { stats ->
+                Text(
+                    if (stats.mailCount == 0) stringResource(R.string.settings_index_empty)
+                    else stringResource(
+                        R.string.settings_index_status, stats.mailCount, formatDbSize(stats.dbBytes)
+                    ),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.height(6.dp))
+            }
+            val indexOn by Prefs.indexEnabledFlow.collectAsState()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.settings_index_auto),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                androidx.compose.material3.Switch(
+                    checked = indexOn,
+                    onCheckedChange = { on -> Prefs.indexEnabled = on }
+                )
+            }
+            TextButton(onClick = { showClearIndexDialog = true }) {
+                Text(stringResource(R.string.settings_index_clear))
+            }
+            if (showClearIndexDialog) {
+                AlertDialog(
+                    onDismissRequest = { showClearIndexDialog = false },
+                    title = { Text(stringResource(R.string.settings_index_clear_title)) },
+                    text = { Text(stringResource(R.string.settings_index_clear_text)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showClearIndexDialog = false
+                            scope.launch {
+                                com.jakober.klarmail.data.MailIndex.clearAll()
+                                indexStats = com.jakober.klarmail.data.MailIndex.stats()
+                                snackbar.showSnackbar(
+                                    context.getString(R.string.settings_index_cleared)
+                                )
+                            }
+                        }) { Text(stringResource(R.string.settings_index_clear)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearIndexDialog = false }) {
+                            Text(stringResource(R.string.settings_cancel))
+                        }
+                    }
+                )
+            }
+            }
+
+            SectionCard(
                 stringResource(R.string.settings_backup_title), Icons.Filled.ImportExport,
                 subtitle = stringResource(R.string.settings_backup_subtitle)
             ) {
@@ -2172,6 +2245,14 @@ private fun GroupHeader(text: String) {
         HorizontalDivider(modifier = Modifier.weight(1f))
     }
 }
+
+/** Menschenlesbare Größe der Index-Datenbank (MB mit einer Nachkommastelle). */
+private fun formatDbSize(bytes: Long): String =
+    if (bytes < 1_000_000) {
+        String.format(java.util.Locale.getDefault(), "%d kB", bytes / 1000)
+    } else {
+        String.format(java.util.Locale.getDefault(), "%.1f MB", bytes / 1_000_000.0)
+    }
 
 /** Abgerundete Einstellungs-Karte mit Symbol, Titel und optionalem Untertitel. */
 @Composable

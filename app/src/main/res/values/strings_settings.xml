@@ -201,6 +201,18 @@
     <string name="settings_template_delete">Vorlage löschen</string>
     <string name="settings_templates_empty">Noch keine Vorlagen.</string>
 
+    <!-- Lokaler Suchindex -->
+    <string name="settings_index_title">Lokaler Suchindex</string>
+    <string name="settings_index_subtitle">Mail-Texte auf dem Gerät für schnelle Suche und KI</string>
+    <string name="settings_index_desc">BlockMail speichert Betreff und Text deiner Mails (ohne Anhänge) lokal auf dem Gerät. So funktionieren die Suche und KI-Fragen zu deinen Mails schnell und auch offline.</string>
+    <string name="settings_index_status">%1$d Mails indexiert · %2$s</string>
+    <string name="settings_index_empty">Noch nichts indexiert</string>
+    <string name="settings_index_auto">Automatisch im Hintergrund indexieren</string>
+    <string name="settings_index_clear">Index löschen</string>
+    <string name="settings_index_clear_title">Index löschen?</string>
+    <string name="settings_index_clear_text">Der belegte Speicher wird freigegeben. Die Suche greift dann wieder auf den Server zurück, bis der Index neu aufgebaut ist.</string>
+    <string name="settings_index_cleared">Index gelöscht</string>
+
     <!-- Backup &amp; Umzug -->
     <string name="settings_group_data">Daten &amp; Feedback</string>
     <string name="settings_backup_title">Backup &amp; Umzug</string>

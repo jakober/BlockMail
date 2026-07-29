@@ -41,6 +41,12 @@ class SyncGuardWorker(
         runCatching { com.jakober.klarmail.data.MailRepository.cleanupBodyCache() }
         // Antwort-Radar (läuft intern höchstens einmal pro Tag)
         runCatching { MailChecker.runReplyRadar(applicationContext) }
+        // Lokalen Suchindex schonend weiter aufbauen (ein kleiner Batch pro Lauf)
+        runCatching {
+            if (Prefs.indexEnabled && Prefs.isConfigured) {
+                com.jakober.klarmail.data.MailIndex.syncBatch(applicationContext)
+            }
+        }
 
         // Sparmodus: bewusst keine Dauerverbindung — direkt auf neue Mails prüfen
         if (Prefs.pushMode == "eco") {

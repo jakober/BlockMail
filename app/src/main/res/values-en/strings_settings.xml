@@ -201,6 +201,18 @@
     <string name="settings_template_delete">Delete template</string>
     <string name="settings_templates_empty">No templates yet.</string>
 
+    <!-- Local search index -->
+    <string name="settings_index_title">Local search index</string>
+    <string name="settings_index_subtitle">Mail text on your device for fast search and AI</string>
+    <string name="settings_index_desc">BlockMail stores the subject and text of your mails (without attachments) locally on your device. This makes search and AI questions about your mails fast and available offline.</string>
+    <string name="settings_index_status">%1$d mails indexed · %2$s</string>
+    <string name="settings_index_empty">Nothing indexed yet</string>
+    <string name="settings_index_auto">Index automatically in the background</string>
+    <string name="settings_index_clear">Delete index</string>
+    <string name="settings_index_clear_title">Delete index?</string>
+    <string name="settings_index_clear_text">The storage used will be freed. Search falls back to the server until the index has been rebuilt.</string>
+    <string name="settings_index_cleared">Index deleted</string>
+
     <!-- Backup &amp; migration -->
     <string name="settings_group_data">Data &amp; feedback</string>
     <string name="settings_backup_title">Backup &amp; migration</string>

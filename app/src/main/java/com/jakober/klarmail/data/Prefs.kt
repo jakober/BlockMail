@@ -40,6 +40,9 @@ object Prefs {
     /** Tägliches Newsletter-Aufräumen aktiv? */
     val newsletterAutoFlow = MutableStateFlow(true)
 
+    /** Lokalen Suchindex automatisch im Hintergrund aufbauen? */
+    val indexEnabledFlow = MutableStateFlow(true)
+
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
@@ -96,6 +99,7 @@ object Prefs {
         radarFlow.value = radarEnabled
         focusModeFlow.value = focusMode
         newsletterAutoFlow.value = newsletterAutoEnabled
+        indexEnabledFlow.value = indexEnabled
     }
 
     // ---- Backup & Umzug: Einstellungen als JSON sichern/wiederherstellen ----
@@ -356,6 +360,14 @@ object Prefs {
             sp.edit().putString("not_newsletter", org.json.JSONArray(set.toList()).toString()).apply()
         }
     }
+
+    /** Lokaler Suchindex: automatisch im Hintergrund indexieren? Standard: an. */
+    var indexEnabled: Boolean
+        get() = sp.getBoolean("index_enabled", true)
+        set(v) {
+            sp.edit().putBoolean("index_enabled", v).apply()
+            indexEnabledFlow.value = v
+        }
 
     /** Tägliches Newsletter-Aufräumen (20 Uhr) aktiv? Standard: an. */
     var newsletterAutoEnabled: Boolean

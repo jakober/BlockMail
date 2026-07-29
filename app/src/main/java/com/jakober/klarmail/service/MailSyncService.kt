@@ -191,6 +191,14 @@ class MailSyncService : Service() {
                 runCatching { MailChecker.processOutbox(applicationContext) }
                 // Antwort-Radar (läuft intern höchstens einmal pro Tag)
                 runCatching { MailChecker.runReplyRadar(applicationContext) }
+                // Lokalen Suchindex schonend weiter aufbauen: ein kleiner Batch
+                // (25 Mails je Konto) pro Lauf — mehr nicht, um Akku und Netz
+                // nicht zu belasten
+                runCatching {
+                    if (Prefs.indexEnabled && Prefs.isConfigured) {
+                        com.jakober.klarmail.data.MailIndex.syncBatch(applicationContext)
+                    }
+                }
                 delay(10 * 60_000)
             }
         }
