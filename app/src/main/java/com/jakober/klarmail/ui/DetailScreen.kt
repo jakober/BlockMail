@@ -1023,9 +1023,11 @@ private fun buildMailPageHtml(
     texts: MailPageTexts
 ): String {
     val orange = "#EE5F0F"
-    // Dunkles App-Design → dunkler Kopfbereich (der Mail-Inhalt darunter
-    // behält seine eigenen Farben, meist weiß)
-    val headerBg = if (dark) "#101012" else "transparent"
+    // Fester Kopf-Hintergrund je App-Design: Mails bringen oft eigene
+    // (auch dunkle) Seitenhintergründe mit — mit "transparent" schien der
+    // durch und machte Betreff/Absender unlesbar. Der Mail-Inhalt unter
+    // der Trennlinie behält seine eigenen Farben.
+    val headerBg = if (dark) "#101012" else "#ffffff"
     val titleColor = if (dark) "#F2F2F2" else "#1a1a1a"
     val subColor = if (dark) "#A8A8A8" else "#8a8a8a"
     val chipBg = if (dark) "#2A2A2E" else "#f1f1f1"
