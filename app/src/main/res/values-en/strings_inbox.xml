@@ -31,6 +31,7 @@
     <string name="inbox_search_results_local">Results in subject/sender (%1$d)</string>
     <string name="inbox_search_no_results">No results.</string>
     <string name="inbox_search_server">Full text (server)</string>
+    <string name="inbox_search_archive_header">From the archive</string>
 
     <!-- Folder menu -->
     <string name="inbox_all_accounts">All accounts</string>

@@ -124,11 +124,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jakober.klarmail.R
+import com.jakober.klarmail.data.MailIndex
 import com.jakober.klarmail.data.MailMessage
 import com.jakober.klarmail.data.MailRepository
 import com.jakober.klarmail.data.Prefs
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -182,6 +184,30 @@ private fun extractAiKeywords(question: String): List<String> {
     if (words.isEmpty()) return emptyList()
     val (caps, rest) = words.partition { it.first().isUpperCase() }
     return (caps + rest.sortedByDescending { it.length }).take(4)
+}
+
+/**
+ * Bringt einen Treffer des lokalen Volltext-Index (Stufe A) in die
+ * AiSearchHit-Form der KI-Suche: MailMessage minimal befüllt (uid, Betreff,
+ * Absender, Datum, Konto, FTS-Snippet als Vorschau), der Ordner-Name wird auf
+ * MailFolder zurückgemappt (unbekannt → INBOX).
+ */
+private fun indexHitToAiHit(h: MailIndex.IndexHit): MailRepository.AiSearchHit {
+    val folder = MailRepository.MailFolder.entries.firstOrNull { it.name == h.folder }
+        ?: MailRepository.MailFolder.INBOX
+    return MailRepository.AiSearchHit(
+        MailMessage(
+            uid = h.uid,
+            subject = h.subject,
+            from = h.sender.ifBlank { h.senderAddr },
+            fromAddress = h.senderAddr,
+            date = h.date,
+            seen = true,
+            snippet = h.snippet,
+            account = h.account
+        ),
+        folder
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -476,6 +502,24 @@ fun InboxScreen(
                 // unwichtigsten (ältesten) Index-Mails
                 val headerLimit = if (hasClaudeKey) 800 else 60
                 val keywords = extractAiKeywords(question)
+                // Stufe B: ZUERST der lokale Volltext-Index — schnell, lokal,
+                // durchsucht komplette Mail-Texte (besser als die IMAP-
+                // From/Subject-Suche) und kennt auch den Newsletter-Ordner.
+                // Der Index kann leer oder deaktiviert sein — dann kommt
+                // einfach nichts zurück; die IMAP-Wege unten laufen IMMER
+                // zusätzlich als Ergänzung/Fallback.
+                val wantsNewsletter = question.contains("newsletter", ignoreCase = true)
+                val newsletterIndexHits = if (wantsNewsletter) {
+                    // Newsletter-Frage: auch ohne brauchbare Stichwörter
+                    // sinnvoll (reine Filter-Suche, neueste zuerst)
+                    runCatching {
+                        MailIndex.search(keywords, onlyNewsletter = true, limit = 200)
+                    }.getOrDefault(emptyList())
+                } else emptyList()
+                val indexHits = if (keywords.isEmpty()) emptyList() else {
+                    runCatching { MailIndex.search(keywords, limit = 200) }
+                        .getOrDefault(emptyList())
+                }
                 // Beide Server-Abfragen parallel (je eigene IMAP-Verbindung)
                 val (fromServer, keywordHits) = coroutineScope {
                     val idx = async {
@@ -495,31 +539,41 @@ fun InboxScreen(
                 val snippets = fillMails
                     .filter { it.snippet?.isNotBlank() == true }
                     .associate { "${it.account}:${it.uid}" to it.snippet }
-                // Pool: ZUERST alle Stichwort-Treffer (nach Datum absteigend),
-                // dann mit den neuesten Mails auffüllen; Doppelte fliegen raus
+                // Pool-Reihenfolge (Stufe B): (0) Newsletter-Index-Treffer
+                // bei Newsletter-Fragen, (1) Index-Treffer, (2) IMAP-
+                // Stichwort-Treffer (nach Datum absteigend), (3) Anzeige/
+                // Cache/Kopfdaten-Index als Auffüller. Dedupliziert über
+                // Ordner:Konto:UID — das Konto wird normalisiert, weil der
+                // Index immer die E-Mail-Adresse (kleingeschrieben) trägt,
+                // geladene Mails aber "" für das aktive Konto.
                 val seenKeys = HashSet<String>()
                 val pool = mutableListOf<MailRepository.AiSearchHit>()
+                fun addHit(h: MailRepository.AiSearchHit) {
+                    val acc = h.mail.account.ifBlank { Prefs.email }.trim().lowercase()
+                    if (seenKeys.add("${h.folder.name}:$acc:${h.mail.uid}")) pool += h
+                }
+                newsletterIndexHits.forEach { addHit(indexHitToAiHit(it)) }
+                indexHits.forEach { addHit(indexHitToAiHit(it)) }
                 keywordHits
                     .sortedByDescending { it.mail.date }
                     .forEach { h ->
-                        if (seenKeys.add("${h.folder.name}:${h.mail.account}:${h.mail.uid}")) {
-                            val snip =
-                                if (h.folder == MailRepository.MailFolder.INBOX) {
-                                    snippets["${h.mail.account}:${h.mail.uid}"]
-                                } else null
-                            pool += if (snip != null) {
+                        val snip =
+                            if (h.folder == MailRepository.MailFolder.INBOX) {
+                                snippets["${h.mail.account}:${h.mail.uid}"]
+                            } else null
+                        addHit(
+                            if (snip != null) {
                                 h.copy(mail = h.mail.copy(snippet = snip))
                             } else h
-                        }
-                    }
-                fillMails
-                    .filter {
-                        seenKeys.add(
-                            "${MailRepository.MailFolder.INBOX.name}:${it.account}:${it.uid}"
                         )
                     }
+                fillMails
                     .sortedByDescending { it.date }
-                    .forEach { pool += MailRepository.AiSearchHit(it, MailRepository.MailFolder.INBOX) }
+                    .forEach {
+                        addHit(
+                            MailRepository.AiSearchHit(it, MailRepository.MailFolder.INBOX)
+                        )
+                    }
                 val indexed = pool.take(limit)
                 if (indexed.isEmpty()) {
                     snackbar.showSnackbar(
@@ -574,10 +628,21 @@ fun InboxScreen(
                         // ist eine suspend-Funktion und braucht Coroutine-Kontext
                         val parts = mutableListOf<String>()
                         for ((n, h) in toRead) {
-                            val text = if (h.folder != MailRepository.MailFolder.INBOX) {
-                                unavailable
-                            } else {
-                                runCatching {
+                            // Stufe B: Zuerst der lokale Index — hat auch die
+                            // Volltexte des Newsletter-Ordners, deren Inhalte
+                            // damit lesbar werden statt "[Inhalt nicht
+                            // verfügbar]". Nur bei null/leer der bisherige Weg.
+                            val fromIndex = runCatching {
+                                MailIndex.bodyOf(
+                                    h.mail.account.ifBlank { Prefs.email },
+                                    h.folder.name,
+                                    h.mail.uid
+                                )
+                            }.getOrNull()?.takeIf { it.isNotBlank() }
+                            val text = when {
+                                fromIndex != null -> fromIndex.take(3000)
+                                h.folder != MailRepository.MailFolder.INBOX -> unavailable
+                                else -> runCatching {
                                     MailRepository.loadVisibleText(
                                         h.mail.uid,
                                         h.mail.account,
@@ -1706,6 +1771,35 @@ fun InboxScreen(
                     .filter { !filterUnread || !it.seen }
                     .filter { !filterAttachment || it.hasAttachments }
                     .filter { !filterRecent || it.date >= weekAgo }
+                // Stufe B: Ab 3 Zeichen läuft parallel (debounced) der lokale
+                // Volltext-Index mit; Treffer, die nicht schon im Live-Filter
+                // stehen, erscheinen unten unter "Aus dem Archiv". Ist der
+                // Index leer oder deaktiviert, kommt nichts zurück und der
+                // Abschnitt bleibt einfach unsichtbar.
+                var archiveHits by remember {
+                    mutableStateOf<List<MailRepository.AiSearchHit>>(emptyList())
+                }
+                LaunchedEffect(query) {
+                    val q = query.trim()
+                    if (q.length < 3) {
+                        archiveHits = emptyList()
+                        return@LaunchedEffect
+                    }
+                    delay(300) // Debounce: Neueingabe bricht den Lauf ab
+                    val words = q.split(Regex("\\s+")).filter { it.isNotBlank() }
+                    archiveHits = runCatching { MailIndex.search(words, limit = 50) }
+                        .getOrDefault(emptyList())
+                        .map { indexHitToAiHit(it) }
+                }
+                // Doppelte zum Live-Filter ausblenden (Konto normalisiert:
+                // der Index trägt die Adresse, geladene Mails oft "")
+                val shownKeys = results
+                    .map { "${it.account.ifBlank { Prefs.email }.trim().lowercase()}:${it.uid}" }
+                    .toSet()
+                val archiveExtra = archiveHits.filter { h ->
+                    h.folder != MailRepository.MailFolder.INBOX ||
+                        "${h.mail.account}:${h.mail.uid}" !in shownKeys
+                }
                 fun runServerSearch() {
                     if (query.isBlank() || searching) return
                     keyboard?.hide()
@@ -1809,7 +1903,9 @@ fun InboxScreen(
                             modifier = Modifier.animateItem()
                         )
                     }
-                    if (query.isNotBlank() && results.isEmpty() && !searching) {
+                    if (query.isNotBlank() && results.isEmpty() && !searching &&
+                        archiveExtra.isEmpty()
+                    ) {
                         item {
                             Text(
                                 stringResource(R.string.inbox_search_no_results),
@@ -1817,6 +1913,55 @@ fun InboxScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(20.dp)
                             )
+                        }
+                    }
+                    // "Aus dem Archiv": Volltext-Treffer aus dem lokalen
+                    // Index, die der Live-Filter nicht kennt — gerendert wie
+                    // die KI-Treffer; Newsletter-Ordner-Treffer ohne
+                    // Wisch/Klick, nur mit dem bestehenden Snackbar-Hinweis
+                    if (archiveExtra.isNotEmpty()) {
+                        item(key = "header_archive") {
+                            SectionHeader(
+                                stringResource(R.string.inbox_search_archive_header)
+                            )
+                        }
+                        items(
+                            archiveExtra,
+                            key = { "arch_${it.folder.name}:${it.mail.account}:${it.mail.uid}" },
+                            contentType = { "mail" }
+                        ) { hit ->
+                            val mail = hit.mail
+                            if (hit.folder == MailRepository.MailFolder.NEWSLETTER) {
+                                MailRow(
+                                    mail = mail,
+                                    selected = false,
+                                    selectionMode = false,
+                                    onClick = {
+                                        scope.launch {
+                                            snackbar.showSnackbar(
+                                                context.getString(
+                                                    R.string.inbox_ai_hit_newsletter_info
+                                                )
+                                            )
+                                        }
+                                    },
+                                    onLongClick = {},
+                                    modifier = Modifier
+                                        .animateItem()
+                                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                                )
+                            } else {
+                                SwipeableMailRow(
+                                    mail = mail,
+                                    onClick = { onOpenMail(mail.uid) },
+                                    onLongClick = {},
+                                    selected = false,
+                                    selectionMode = false,
+                                    rightSpec = specFor(swipeRight, mail),
+                                    leftSpec = specFor(swipeLeft, mail),
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
                         }
                     }
                 }

@@ -31,6 +31,7 @@
     <string name="inbox_search_results_local">Ergebnisse in Betreff/Absender (%1$d)</string>
     <string name="inbox_search_no_results">Keine Treffer.</string>
     <string name="inbox_search_server">Volltext (Server)</string>
+    <string name="inbox_search_archive_header">Aus dem Archiv</string>
 
     <!-- Ordner-Menü -->
     <string name="inbox_all_accounts">Alle Konten</string>
