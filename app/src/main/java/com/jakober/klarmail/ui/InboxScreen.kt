@@ -714,12 +714,32 @@ fun InboxScreen(
                 // keine Lese-Runde gelaufen ist
                 val claimsNeedContents = Regex(
                     "volltext|m.sste ich|kann ich nicht|nicht sichtbar|" +
-                        "nicht ersichtlich|nicht erkennbar|" +
-                        "full text|would need|cannot|not visible|not shown",
+                        "nicht ersichtlich|nicht erkennbar|kopfdaten|" +
+                        "betreffzeile|keine konkreten|enthalten keine|" +
+                        "nennen[^.]{0,30}keine|zeigen nur|geht nicht hervor|" +
+                        "full text|would need|cannot|not visible|not shown|" +
+                        "header data|subject line|no specific|only show|" +
+                        "not contain|only indicate",
                     RegexOption.IGNORE_CASE
                 ).containsMatchIn(aiAnswer.orEmpty())
-                if (answerRaw === raw && claimsNeedContents && aiHits.isNotEmpty()) {
-                    val toRead = aiHits.take(15).mapNotNull { h ->
+                // Kandidaten für die Lese-Runde: zuerst die TREFFER der KI;
+                // hat sie keine genannt (TREFFER: -), wählen wir selbst die
+                // Stichwort-Treffer aus dem Pool (Absender/Adresse/Betreff,
+                // neueste zuerst) — z. B. alle Amazon-Mails bei einer
+                // Amazon-Frage
+                val readCandidates = aiHits.ifEmpty {
+                    if (keywords.isEmpty()) emptyList() else indexed
+                        .filter { h ->
+                            keywords.any { k ->
+                                h.mail.from.contains(k, ignoreCase = true) ||
+                                    h.mail.fromAddress.contains(k, ignoreCase = true) ||
+                                    h.mail.subject.contains(k, ignoreCase = true)
+                            }
+                        }
+                        .sortedByDescending { it.mail.date }
+                }
+                if (answerRaw === raw && claimsNeedContents && readCandidates.isNotEmpty()) {
+                    val toRead = readCandidates.take(15).mapNotNull { h ->
                         val n = indexed.indexOf(h) + 1
                         if (n > 0) n to h else null
                     }
