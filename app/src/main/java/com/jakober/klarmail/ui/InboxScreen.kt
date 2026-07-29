@@ -132,6 +132,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -455,6 +456,9 @@ fun InboxScreen(
     // Lese-Runde (Agent-Modus Stufe 2): Anzahl der Mails, deren Volltext
     // gerade geladen wird — 0 = keine Lese-Runde aktiv
     var aiReadingCount by remember { mutableStateOf(0) }
+    // Sichtbare Phase der KI-Suche: 0 = keine, 1 = Postfach durchsuchen,
+    // 2 = KI befragen (Lese-Runde hat ihre eigene Anzeige)
+    var aiPhase by remember { mutableStateOf(0) }
     var aiAnswer by remember { mutableStateOf<String?>(null) }
     var aiHits by remember {
         mutableStateOf<List<MailRepository.AiSearchHit>>(emptyList())
@@ -514,14 +518,17 @@ fun InboxScreen(
         keyboard?.hide()
         scope.launch {
             aiAskBusy = true
+            aiPhase = 1
             try {
                 // Einziger KI-Weg: Pro-KI über den BlockMail-Proxy —
                 // die früheren Nano-Limits (60/4) entfallen
                 val limit = 500
-                // Kopfzeilen sind billig: mehr Index holen, als in den Pool
-                // passt — Stichwort-Treffer verdrängen dann nur die
-                // unwichtigsten (ältesten) Index-Mails
-                val headerLimit = 800
+                // Kopfzeilen sind billig — aber nur, solange der lokale Index
+                // noch leer ist: Sobald er gut gefüllt ist, reichen weniger
+                // frische Server-Kopfzeilen, das spart viel IMAP-Wartezeit
+                val idxCount = runCatching { MailIndex.stats().mailCount }
+                    .getOrDefault(0)
+                val headerLimit = if (idxCount >= 300) 200 else 800
                 val keywords = extractAiKeywords(question)
                 // Stufe B: ZUERST der lokale Volltext-Index — schnell, lokal,
                 // durchsucht komplette Mail-Texte (besser als die IMAP-
@@ -541,19 +548,24 @@ fun InboxScreen(
                     runCatching { MailIndex.search(keywords, limit = 200) }
                         .getOrDefault(emptyList())
                 }
-                // Beide Server-Abfragen parallel (je eigene IMAP-Verbindung)
-                val (fromServer, keywordHits) = coroutineScope {
-                    val idx = async {
-                        runCatching { MailRepository.headerIndex(headerLimit) }
-                            .getOrDefault(emptyList())
+                // Beide Server-Abfragen parallel (je eigene IMAP-Verbindung);
+                // harte Zeitgrenze: Nach 90 s geht es mit dem weiter, was
+                // Index/Cache hergeben, statt endlos zu warten
+                val (fromServer, keywordHits) = withTimeoutOrNull(90_000) {
+                    coroutineScope {
+                        val idx = async {
+                            runCatching { MailRepository.headerIndex(headerLimit) }
+                                .getOrDefault(emptyList())
+                        }
+                        val kw = async {
+                            if (keywords.isEmpty()) emptyList()
+                            else runCatching { MailRepository.searchHeadersFor(keywords) }
+                                .getOrDefault(emptyList())
+                        }
+                        idx.await() to kw.await()
                     }
-                    val kw = async {
-                        if (keywords.isEmpty()) emptyList()
-                        else runCatching { MailRepository.searchHeadersFor(keywords) }
-                            .getOrDefault(emptyList())
-                    }
-                    idx.await() to kw.await()
-                }
+                } ?: (emptyList<MailMessage>() to
+                    emptyList<MailRepository.AiSearchHit>())
                 // Vorschau-Texte der bereits geladenen/gecachten Mails den
                 // Posteingangs-Treffern mitgeben (Kopfdaten haben keine)
                 val fillMails = messages + MailRepository.cachedInboxMails() + fromServer
@@ -611,6 +623,7 @@ fun InboxScreen(
                     "[${i + 1}] ${df.format(Date(m.date))} | ${m.from} | " +
                         "${m.fromAddress} | ${m.subject}$snip"
                 }.joinToString("\n")
+                aiPhase = 2
                 val raw = com.jakober.klarmail.ai.ClaudeClient.askMailbox(question, list)
                 // Agent-Modus Stufe 2: Beginnt die Antwort mit der
                 // Marker-Zeile "LESEN: …", fordert die KI die Volltexte
@@ -658,20 +671,25 @@ fun InboxScreen(
                                 fromIndex != null -> fromIndex.take(3000)
                                 h.folder != MailRepository.MailFolder.INBOX -> unavailable
                                 else -> runCatching {
-                                    MailRepository.loadVisibleText(
-                                        h.mail.uid,
-                                        h.mail.account,
-                                        MailRepository.MailFolder.INBOX
-                                    )
+                                    // Zeitgrenze je Mail: eine zähe Mail darf
+                                    // nicht die ganze Antwort blockieren
+                                    withTimeoutOrNull(12_000) {
+                                        MailRepository.loadVisibleText(
+                                            h.mail.uid,
+                                            h.mail.account,
+                                            MailRepository.MailFolder.INBOX
+                                        )
+                                    }
                                 }.getOrNull()?.take(3000) ?: unavailable
                             }
                             parts += "=== MAIL [$n] ===\n$text"
                         }
                         val contents = parts.joinToString("\n\n")
+                        aiReadingCount = 0
+                        aiPhase = 2
                         answerRaw = com.jakober.klarmail.ai.ClaudeClient.answerWithContents(
                             question, list, contents
                         )
-                        aiReadingCount = 0
                     }
                 }
                 // Marker-Zeile "TREFFER: 3,7,12" bzw. "TREFFER: -" auswerten.
@@ -699,6 +717,7 @@ fun InboxScreen(
             } finally {
                 aiAskBusy = false
                 aiReadingCount = 0
+                aiPhase = 0
             }
         }
     }
@@ -1578,10 +1597,16 @@ fun InboxScreen(
                     }
                 )
                 if (aiAskBusy) {
-                    if (aiReadingCount > 0) {
-                        // Lese-Runde: KI hat Mail-Inhalte angefordert
+                    val busyLabel = when {
+                        aiReadingCount > 0 ->
+                            stringResource(R.string.inbox_ai_reading, aiReadingCount)
+                        aiPhase == 1 -> stringResource(R.string.inbox_ai_phase_search)
+                        aiPhase == 2 -> stringResource(R.string.inbox_ai_phase_ask)
+                        else -> null
+                    }
+                    if (busyLabel != null) {
                         Text(
-                            stringResource(R.string.inbox_ai_reading, aiReadingCount),
+                            busyLabel,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1

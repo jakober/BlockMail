@@ -20,7 +20,7 @@ object ClaudeClient {
      * (Allowlist) und ersetzt es gegebenenfalls; max_tokens wird dort auf
      * 4096 gekappt.
      */
-    private const val MODEL = "claude-opus-4-8"
+    private const val MODEL = "claude-haiku-4-5-20251001"
 
     /**
      * KI-Proxy des App-Betreibers: Anthropic-kompatibler Passthrough.

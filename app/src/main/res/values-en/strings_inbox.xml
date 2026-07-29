@@ -131,4 +131,6 @@
     <string name="inbox_phishing_warning">Possible phishing attempt</string>
     <string name="inbox_has_attachment">Has attachment</string>
     <string name="inbox_view_quick_switch">Switch view</string>
+    <string name="inbox_ai_phase_search">Searching your mailbox …</string>
+    <string name="inbox_ai_phase_ask">Asking AI …</string>
 </resources>
