@@ -212,6 +212,15 @@
     <string name="settings_index_clear_title">Index löschen?</string>
     <string name="settings_index_clear_text">Der belegte Speicher wird freigegeben. Die Suche greift dann wieder auf den Server zurück, bis der Index neu aufgebaut ist.</string>
     <string name="settings_index_cleared">Index gelöscht</string>
+    <string name="settings_index_years">Zeitraum</string>
+    <string name="settings_index_years_1">Letzte 12 Monate</string>
+    <string name="settings_index_years_2">Letzte 2 Jahre</string>
+    <string name="settings_index_years_5">Letzte 5 Jahre</string>
+    <string name="settings_index_years_all">Alles</string>
+    <string name="settings_index_build">Index jetzt aufbauen</string>
+    <string name="settings_index_building">Indexiere … %1$d/%2$d</string>
+    <string name="settings_index_building_unknown">Indexiere … %1$d Mails</string>
+    <string name="settings_index_build_hint">Am besten im WLAN und am Ladegerät starten.</string>
 
     <!-- Backup &amp; Umzug -->
     <string name="settings_group_data">Daten &amp; Feedback</string>

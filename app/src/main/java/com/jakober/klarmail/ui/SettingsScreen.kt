@@ -1833,7 +1833,81 @@ fun SettingsScreen(
                     onCheckedChange = { on -> Prefs.indexEnabled = on }
                 )
             }
-            TextButton(onClick = { showClearIndexDialog = true }) {
+            Spacer(Modifier.height(6.dp))
+            val indexYears by Prefs.indexYearsFlow.collectAsState()
+            Text(
+                stringResource(R.string.settings_index_years),
+                style = MaterialTheme.typography.bodyLarge
+            )
+            listOf(
+                1 to stringResource(R.string.settings_index_years_1),
+                2 to stringResource(R.string.settings_index_years_2),
+                5 to stringResource(R.string.settings_index_years_5),
+                0 to stringResource(R.string.settings_index_years_all)
+            ).forEach { (years, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { Prefs.indexYears = years }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = indexYears == years,
+                        onClick = { Prefs.indexYears = years }
+                    )
+                    Text(label, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            val indexBuilding by com.jakober.klarmail.data.MailIndex.buildRunning.collectAsState()
+            val indexBuildProgress by
+                com.jakober.klarmail.data.MailIndex.buildProgress.collectAsState()
+            val indexBuildTotal by com.jakober.klarmail.data.MailIndex.buildTotal.collectAsState()
+            LaunchedEffect(indexBuilding, indexBuildProgress) {
+                // Statuszeile (X Mails · Y MB) während des Aufbaus mitlaufen lassen
+                indexStats = com.jakober.klarmail.data.MailIndex.stats()
+            }
+            if (indexBuilding) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (indexBuildTotal > 0) stringResource(
+                            R.string.settings_index_building,
+                            indexBuildProgress, indexBuildTotal
+                        ) else stringResource(
+                            R.string.settings_index_building_unknown, indexBuildProgress
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { com.jakober.klarmail.data.MailIndex.cancelBuild() }) {
+                        Text(stringResource(R.string.settings_cancel))
+                    }
+                }
+            } else {
+                Button(onClick = {
+                    MailSyncService.startWithAction(
+                        context, MailSyncService.ACTION_BUILD_INDEX
+                    )
+                }) { Text(stringResource(R.string.settings_index_build)) }
+            }
+            Text(
+                stringResource(R.string.settings_index_build_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TextButton(
+                onClick = { showClearIndexDialog = true },
+                enabled = !indexBuilding
+            ) {
                 Text(stringResource(R.string.settings_index_clear))
             }
             if (showClearIndexDialog) {

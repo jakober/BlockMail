@@ -43,6 +43,9 @@ object Prefs {
     /** Lokalen Suchindex automatisch im Hintergrund aufbauen? */
     val indexEnabledFlow = MutableStateFlow(true)
 
+    /** Zeitraum des Suchindex in Jahren (0 = alles indexieren). */
+    val indexYearsFlow = MutableStateFlow(1)
+
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
@@ -100,6 +103,7 @@ object Prefs {
         focusModeFlow.value = focusMode
         newsletterAutoFlow.value = newsletterAutoEnabled
         indexEnabledFlow.value = indexEnabled
+        indexYearsFlow.value = indexYears
     }
 
     // ---- Backup & Umzug: Einstellungen als JSON sichern/wiederherstellen ----
@@ -367,6 +371,17 @@ object Prefs {
         set(v) {
             sp.edit().putBoolean("index_enabled", v).apply()
             indexEnabledFlow.value = v
+        }
+
+    /**
+     * Lokaler Suchindex: nur Mails indexieren, die jünger sind als so viele
+     * Jahre (0 = keine Zeitgrenze, alles indexieren). Standard: 1 Jahr.
+     */
+    var indexYears: Int
+        get() = sp.getInt("index_years", 1)
+        set(v) {
+            sp.edit().putInt("index_years", v).apply()
+            indexYearsFlow.value = v
         }
 
     /** Tägliches Newsletter-Aufräumen (20 Uhr) aktiv? Standard: an. */

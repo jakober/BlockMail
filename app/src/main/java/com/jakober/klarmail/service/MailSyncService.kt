@@ -105,6 +105,17 @@ class MailSyncService : Service() {
                     if (eco) stopSelfClean()
                 }
             }
+            ACTION_BUILD_INDEX -> {
+                maybeStartIdle()
+                // Schnellaufbau des Suchindex im Dienst-Scope: läuft auch
+                // weiter, wenn die Einstellungen geschlossen werden
+                scope.launch {
+                    runCatching {
+                        com.jakober.klarmail.data.MailIndex.fullBuild(applicationContext)
+                    }
+                    if (eco) stopSelfClean()
+                }
+            }
             ACTION_SEND_REPLY -> {
                 maybeStartIdle()
                 val text = intent?.let {
@@ -341,6 +352,7 @@ class MailSyncService : Service() {
         var lastAliveMs: Long = 0
         const val ACTION_CHECK_NOW = "com.jakober.klarmail.CHECK_NOW"
         const val ACTION_NEWSLETTER = "com.jakober.klarmail.RUN_NEWSLETTER"
+        const val ACTION_BUILD_INDEX = "com.jakober.klarmail.BUILD_INDEX"
         const val ACTION_SEND_REPLY = "com.jakober.klarmail.SEND_REPLY"
         const val KEY_QUICK_REPLY = "quick_reply"
 

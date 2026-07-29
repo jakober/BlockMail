@@ -6,14 +6,20 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.sun.mail.imap.IMAPFolder
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Calendar
+import java.util.Date
 import javax.mail.FetchProfile
 import javax.mail.Folder
 import javax.mail.Message
 import javax.mail.Store
 import javax.mail.UIDFolder
 import javax.mail.internet.InternetAddress
+import javax.mail.search.ComparisonTerm
+import javax.mail.search.ReceivedDateTerm
 import kotlin.math.max
 
 /**
@@ -349,29 +355,38 @@ object MailIndex {
             syncRunning = true
             try {
                 init(context)
+                // Zeitgrenze einmal je Lauf bestimmen (0 = keine Grenze)
+                val cutoff = indexCutoffMillis()
                 for (acc in Prefs.accounts()) {
                     // Fehler eines Kontos (offline, Passwort) stoppen die anderen nicht
-                    runCatching { syncAccount(acc, batchSize) }
+                    runCatching { syncAccount(acc, batchSize, cutoff) }
                 }
             } finally {
                 syncRunning = false
             }
         }
 
-    private fun syncAccount(acc: Prefs.Account, batchSize: Int) {
+    /** Zeitgrenze aus [Prefs.indexYears] als Epoch-Millis (0 = keine Grenze). */
+    private fun indexCutoffMillis(): Long {
+        val years = Prefs.indexYears
+        if (years <= 0) return 0L
+        return Calendar.getInstance().apply { add(Calendar.YEAR, -years) }.timeInMillis
+    }
+
+    private fun syncAccount(acc: Prefs.Account, batchSize: Int, cutoff: Long) {
         var budget = minOf(batchSize, MAX_PER_ACCOUNT - countForAccount(acc.email))
         if (budget <= 0) return
         val store = MailRepository.openStoreFor(acc.email)
         try {
             budget -= indexFolder(
                 store, "INBOX", MailRepository.MailFolder.INBOX.name,
-                acc.email, budget, isNewsletter = false
+                acc.email, budget, cutoff, isNewsletter = false
             )
             if (budget > 0) {
                 runCatching {
                     indexFolder(
                         store, "Newsletter", MailRepository.MailFolder.NEWSLETTER.name,
-                        acc.email, budget, isNewsletter = true
+                        acc.email, budget, cutoff, isNewsletter = true
                     )
                 }
             }
@@ -390,6 +405,7 @@ object MailIndex {
         folderKey: String,
         account: String,
         budget: Int,
+        cutoff: Long,
         isNewsletter: Boolean
     ): Int {
         if (budget <= 0) return 0
@@ -421,6 +437,10 @@ object MailIndex {
                 runCatching {
                     val uid = folder.getUID(m)
                     if (uid < 0) return@runCatching
+                    val date = (m.receivedDate ?: m.sentDate)?.time ?: 0L
+                    // Zeitgrenze: ältere Mails überspringen (Datum 0 = unbekannt,
+                    // solche Mails werden weiterhin indexiert)
+                    if (cutoff > 0 && date in 1 until cutoff) return@runCatching
                     val fromAddr = m.from?.firstOrNull() as? InternetAddress
                     upsertSync(
                         account = account,
@@ -430,11 +450,181 @@ object MailIndex {
                         sender = fromAddr?.personal?.takeIf { it.isNotBlank() }
                             ?: fromAddr?.address ?: "",
                         senderAddr = fromAddr?.address ?: "",
-                        date = (m.receivedDate ?: m.sentDate)?.time ?: 0L,
+                        date = date,
                         isNewsletter = isNewsletter,
                         bodyText = plainTextOf(m)
                     )
                     done++
+                }
+            }
+            return done
+        } finally {
+            runCatching { folder.close(false) }
+        }
+    }
+
+    // ---- Schnellaufbau (fullBuild) ----
+
+    /** Absolutes Sicherheitsnetz des Schnellaufbaus: höchstens so viele je Konto. */
+    const val HARD_MAX_PER_ACCOUNT = 20_000
+
+    /** Serverpaket-Größe des Schnellaufbaus (Kopfdaten + Texte je Runde). */
+    private const val BUILD_CHUNK = 100
+
+    private val _buildRunning = MutableStateFlow(false)
+
+    /** Läuft gerade ein Schnellaufbau? */
+    val buildRunning: StateFlow<Boolean> get() = _buildRunning
+
+    private val _buildProgress = MutableStateFlow(0)
+
+    /** In diesem Schnellaufbau-Lauf bereits indexierte Mails. */
+    val buildProgress: StateFlow<Int> get() = _buildProgress
+
+    private val _buildTotal = MutableStateFlow(-1)
+
+    /**
+     * Geschätzte Gesamtzahl dieses Laufs (-1 = unbekannt). Wird je Ordner nach
+     * dem billigen UID-Scan um die dort noch fehlenden Mails erhöht — die Zahl
+     * wächst also, während weitere Konten/Ordner untersucht werden.
+     */
+    val buildTotal: StateFlow<Int> get() = _buildTotal
+
+    @Volatile
+    private var cancelRequested = false
+
+    /** Bittet einen laufenden Schnellaufbau, nach der aktuellen Mail aufzuhören. */
+    fun cancelBuild() {
+        cancelRequested = true
+    }
+
+    /**
+     * Schnellaufbau: indexiert in einer Schleife ALLE noch fehlenden Mails
+     * innerhalb der Zeitgrenze ([Prefs.indexYears]) für alle Konten (INBOX +
+     * Newsletter-Ordner), in Serverpaketen von [BUILD_CHUNK] Kopfdaten + Texten,
+     * neueste zuerst, bis fertig oder [cancelBuild] gerufen wurde. Anders als
+     * [syncBatch] gilt hier nicht der 3000er-Deckel, sondern nur das absolute
+     * Sicherheitsnetz [HARD_MAX_PER_ACCOUNT]. Läuft nie parallel zu [syncBatch]
+     * (gemeinsames syncRunning-Flag).
+     */
+    suspend fun fullBuild(context: Context): Unit = withContext(Dispatchers.IO) {
+        if (!Prefs.isConfigured) return@withContext
+        if (syncRunning) return@withContext // nicht parallel zu syncBatch/fullBuild
+        syncRunning = true
+        cancelRequested = false
+        _buildProgress.value = 0
+        _buildTotal.value = 0
+        _buildRunning.value = true
+        try {
+            init(context)
+            // Zeitgrenze einmal je Lauf bestimmen (0 = keine Grenze)
+            val cutoff = indexCutoffMillis()
+            for (acc in Prefs.accounts()) {
+                if (cancelRequested) break
+                // Fehler eines Kontos (offline, Passwort) stoppen die anderen nicht
+                runCatching { fullBuildAccount(acc, cutoff) }
+            }
+        } finally {
+            _buildRunning.value = false
+            syncRunning = false
+        }
+    }
+
+    private fun fullBuildAccount(acc: Prefs.Account, cutoff: Long) {
+        var budget = HARD_MAX_PER_ACCOUNT - countForAccount(acc.email)
+        if (budget <= 0) return
+        val store = MailRepository.openStoreFor(acc.email)
+        try {
+            budget -= fullBuildFolder(
+                store, "INBOX", MailRepository.MailFolder.INBOX.name,
+                acc.email, budget, cutoff, isNewsletter = false
+            )
+            if (budget > 0 && !cancelRequested) {
+                // Fehler eines Ordners (existiert nicht o. Ä.) sind unkritisch
+                runCatching {
+                    fullBuildFolder(
+                        store, "Newsletter", MailRepository.MailFolder.NEWSLETTER.name,
+                        acc.email, budget, cutoff, isNewsletter = true
+                    )
+                }
+            }
+        } finally {
+            runCatching { store.close() }
+        }
+    }
+
+    /**
+     * Indexiert alle noch fehlenden Mails eines Ordners innerhalb der
+     * Zeitgrenze (höchstens [budget]), neueste zuerst, in Paketen von
+     * [BUILD_CHUNK]. Liefert die Anzahl neu indexierter Mails.
+     */
+    private fun fullBuildFolder(
+        store: Store,
+        imapName: String,
+        folderKey: String,
+        account: String,
+        budget: Int,
+        cutoff: Long,
+        isNewsletter: Boolean
+    ): Int {
+        if (budget <= 0) return 0
+        val folder = store.getFolder(imapName)
+        if (!folder.exists()) return 0
+        (folder as IMAPFolder).open(Folder.READ_ONLY)
+        try {
+            val msgs: Array<Message> = if (cutoff > 0) {
+                // Serverseitige Suche (IMAP SEARCH SINCE, tagesgenau): nur
+                // Mails ab der Zeitgrenze — billig auch bei großen Ordnern
+                folder.search(ReceivedDateTerm(ComparisonTerm.GE, Date(cutoff)))
+            } else {
+                val total = folder.messageCount
+                if (total <= 0) return 0
+                folder.getMessages(max(1, total - HARD_MAX_PER_ACCOUNT + 1), total)
+            }
+            if (msgs.isEmpty()) return 0
+            // Billiger UID-Scan: die noch fehlenden Mails bestimmen
+            folder.fetch(msgs, FetchProfile().apply { add(UIDFolder.FetchProfileItem.UID) })
+            val known = indexedUidsSync(account, folderKey)
+            val todo = msgs.reversed() // neueste zuerst
+                .filter { m -> runCatching { folder.getUID(m) }.getOrDefault(-1L) !in known }
+                .take(budget)
+            if (todo.isEmpty()) return 0
+            // Grobe Gesamtschätzung dieses Laufs um die hier fehlenden erhöhen
+            _buildTotal.value = max(0, _buildTotal.value) + todo.size
+            var done = 0
+            for (chunk in todo.chunked(BUILD_CHUNK)) {
+                if (cancelRequested) break
+                folder.fetch(
+                    chunk.toTypedArray(),
+                    FetchProfile().apply {
+                        add(FetchProfile.Item.ENVELOPE)
+                        add(UIDFolder.FetchProfileItem.UID)
+                    }
+                )
+                for (m in chunk) {
+                    if (cancelRequested) break
+                    runCatching {
+                        val uid = folder.getUID(m)
+                        if (uid < 0) return@runCatching
+                        val date = (m.receivedDate ?: m.sentDate)?.time ?: 0L
+                        // SEARCH SINCE ist nur tagesgenau — Rest hier aussortieren
+                        if (cutoff > 0 && date in 1 until cutoff) return@runCatching
+                        val fromAddr = m.from?.firstOrNull() as? InternetAddress
+                        upsertSync(
+                            account = account,
+                            folder = folderKey,
+                            uid = uid,
+                            subject = m.subject ?: "",
+                            sender = fromAddr?.personal?.takeIf { it.isNotBlank() }
+                                ?: fromAddr?.address ?: "",
+                            senderAddr = fromAddr?.address ?: "",
+                            date = date,
+                            isNewsletter = isNewsletter,
+                            bodyText = plainTextOf(m)
+                        )
+                        done++
+                        _buildProgress.value = _buildProgress.value + 1
+                    }
                 }
             }
             return done

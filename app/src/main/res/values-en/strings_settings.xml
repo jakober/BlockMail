@@ -212,6 +212,15 @@
     <string name="settings_index_clear_title">Delete index?</string>
     <string name="settings_index_clear_text">The storage used will be freed. Search falls back to the server until the index has been rebuilt.</string>
     <string name="settings_index_cleared">Index deleted</string>
+    <string name="settings_index_years">Time range</string>
+    <string name="settings_index_years_1">Last 12 months</string>
+    <string name="settings_index_years_2">Last 2 years</string>
+    <string name="settings_index_years_5">Last 5 years</string>
+    <string name="settings_index_years_all">Everything</string>
+    <string name="settings_index_build">Build index now</string>
+    <string name="settings_index_building">Indexing … %1$d/%2$d</string>
+    <string name="settings_index_building_unknown">Indexing … %1$d mails</string>
+    <string name="settings_index_build_hint">Best on Wi-Fi and while charging.</string>
 
     <!-- Backup &amp; migration -->
     <string name="settings_group_data">Data &amp; feedback</string>
