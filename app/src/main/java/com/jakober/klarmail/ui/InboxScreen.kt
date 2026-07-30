@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Tonality
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Schedule
@@ -1318,6 +1319,40 @@ fun InboxScreen(
                                             }
                                         )
                                     }
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(
+                                            horizontal = 16.dp, vertical = 4.dp
+                                        )
+                                    )
+                                    // Schlichtes Design direkt an-/abwählbar
+                                    // (Haken = aktiv), wie in den Einstellungen
+                                    val menuPlain by Prefs.plainDesignFlow.collectAsState()
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                stringResource(R.string.settings_plain_design),
+                                                fontWeight = if (menuPlain) FontWeight.SemiBold
+                                                else FontWeight.Normal
+                                            )
+                                        },
+                                        leadingIcon = { Icon(Icons.Filled.Tonality, null) },
+                                        trailingIcon = if (menuPlain) {
+                                            { Icon(Icons.Filled.Check, null) }
+                                        } else null,
+                                        colors = if (menuPlain) {
+                                            androidx.compose.material3.MenuDefaults.itemColors(
+                                                textColor = MaterialTheme.colorScheme.primary,
+                                                leadingIconColor = MaterialTheme.colorScheme.primary,
+                                                trailingIconColor = MaterialTheme.colorScheme.primary
+                                            )
+                                        } else {
+                                            androidx.compose.material3.MenuDefaults.itemColors()
+                                        },
+                                        onClick = {
+                                            overflowOpen = false
+                                            Prefs.plainDesign = !menuPlain
+                                        }
+                                    )
                                     HorizontalDivider(
                                         modifier = Modifier.padding(
                                             horizontal = 16.dp, vertical = 4.dp
