@@ -46,6 +46,9 @@ object Prefs {
     /** Zeitraum des Suchindex in Jahren (0 = alles indexieren). */
     val indexYearsFlow = MutableStateFlow(1)
 
+    /** Schlichtes Design: Mail-Zeilen/-Kacheln ohne farbige Verläufe. */
+    val plainDesignFlow = MutableStateFlow(false)
+
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
@@ -104,13 +107,14 @@ object Prefs {
         newsletterAutoFlow.value = newsletterAutoEnabled
         indexEnabledFlow.value = indexEnabled
         indexYearsFlow.value = indexYears
+        plainDesignFlow.value = plainDesign
     }
 
     // ---- Backup & Umzug: Einstellungen als JSON sichern/wiederherstellen ----
     // Bewusst OHNE Zugangsdaten (Passwörter, Tokens, API-Schlüssel, Konten).
 
     private val backupKeys = setOf(
-        "color_scheme", "custom_color", "dark_mode", "inbox_layout",
+        "color_scheme", "custom_color", "dark_mode", "inbox_layout", "plain_design",
         "conversation_view", "swipe_left", "swipe_right", "signature",
         "mail_templates", "muted_senders", "blocked_senders", "vip_senders",
         "vip_only_notif", "notif_actions", "push_mode", "default_send_account",
@@ -400,6 +404,14 @@ object Prefs {
         set(v) {
             sp.edit().putInt("index_years", v).apply()
             indexYearsFlow.value = v
+        }
+
+    /** Schlichtes Design: keine Verläufe/Hintergründe in den Mail-Listen. */
+    var plainDesign: Boolean
+        get() = sp.getBoolean("plain_design", false)
+        set(v) {
+            sp.edit().putBoolean("plain_design", v).apply()
+            plainDesignFlow.value = v
         }
 
     /** Tägliches Newsletter-Aufräumen (20 Uhr) aktiv? Standard: an. */

@@ -1056,6 +1056,31 @@ fun SettingsScreen(
                 )
             }
 
+            // Schlichtes Design: Mail-Listen ohne Verläufe/Hintergründe —
+            // wirkt auf Liste, Kacheln und kleine Kacheln, hell wie dunkel
+            Spacer(Modifier.height(8.dp))
+            val plainDesign by Prefs.plainDesignFlow.collectAsState()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_plain_design),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        stringResource(R.string.settings_plain_design_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = plainDesign,
+                    onCheckedChange = { Prefs.plainDesign = it }
+                )
+            }
+
             }
 
             SectionCard(

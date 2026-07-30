@@ -33,6 +33,8 @@
     <string name="settings_group_appearance">Appearance</string>
     <string name="settings_appearance_title">Appearance</string>
     <string name="settings_appearance_subtitle">Light/dark and the app\'s colors</string>
+    <string name="settings_plain_design">Plain design</string>
+    <string name="settings_plain_design_desc">Mail lists without tinted backgrounds and gradients</string>
     <string name="settings_darkmode_system">Same as device (automatic)</string>
     <string name="settings_darkmode_light">Light</string>
     <string name="settings_darkmode_dark">Dark</string>

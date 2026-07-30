@@ -2878,11 +2878,15 @@ private fun MailRow(
     threadCount: Int? = null
 ) {
     val scheme = MaterialTheme.colorScheme
+    // Schlichtes Design (Einstellungen → Aussehen): keine Verläufe, Zeilen
+    // liegen direkt auf dem Grundton; nur die Auswahl bleibt eingefärbt
+    val plain by Prefs.plainDesignFlow.collectAsState()
     // Gleiche Optik wie die Kacheln: sanfter Verlauf gibt den Zeilen Tiefe.
     // Im Hellmodus liegen die Flächentöne nah beieinander — dort kräftigere
     // Endpunkte wählen, sonst ist der Verlauf unsichtbar.
     val isLight = scheme.surface.luminance() > 0.5f
     val bgBrush = when {
+        plain -> SolidColor(if (selected) scheme.primaryContainer else Color.Transparent)
         selected -> Brush.verticalGradient(
             listOf(scheme.primaryContainer, scheme.primaryContainer)
         )
@@ -2944,6 +2948,16 @@ private fun MailRow(
             }
         }
         MailRowContent(mail, selected, selectionMode, threadCount)
+        // Schlicht: feine Trennlinie am Zeilenende ersetzt die Kartenoptik
+        if (plain && !selected) {
+            HorizontalDivider(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp),
+                thickness = 0.5.dp,
+                color = scheme.outlineVariant
+            )
+        }
     }
 }
 
@@ -3207,10 +3221,14 @@ private fun MailBlock(
     compact: Boolean = false
 ) {
     val scheme = MaterialTheme.colorScheme
+    // Schlichtes Design: Kacheln ohne Verlauf, nur eine feine Kontur
+    // (siehe borderMod) hält das Raster ablesbar
+    val plain by Prefs.plainDesignFlow.collectAsState()
     // Sanfter Verlauf gibt den Kacheln Tiefe; Ungelesene leuchten oben.
     // Im Hellmodus kräftigere Endpunkte, sonst ist der Verlauf unsichtbar.
     val isLight = scheme.surface.luminance() > 0.5f
     val bgBrush = when {
+        plain -> SolidColor(if (selected) scheme.primaryContainer else Color.Transparent)
         selected -> Brush.verticalGradient(
             listOf(scheme.primaryContainer, scheme.primaryContainer)
         )
@@ -3244,6 +3262,8 @@ private fun MailBlock(
         inThread -> Modifier.border(
             1.dp, scheme.secondary.copy(alpha = 0.45f), MailBlockShape
         )
+        // Schlicht: feine Kontur ersetzt den Kachel-Hintergrund
+        plain -> Modifier.border(0.75.dp, scheme.outlineVariant, MailBlockShape)
         else -> Modifier
     }
     val colorsVersion by Prefs.accountColorsFlow.collectAsState()

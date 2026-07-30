@@ -33,6 +33,8 @@
     <string name="settings_group_appearance">Aussehen</string>
     <string name="settings_appearance_title">Erscheinungsbild</string>
     <string name="settings_appearance_subtitle">Hell/Dunkel und die Farben der App</string>
+    <string name="settings_plain_design">Schlichtes Design</string>
+    <string name="settings_plain_design_desc">Mail-Listen ohne farbige Hintergründe und Verläufe</string>
     <string name="settings_darkmode_system">Wie das Gerät (automatisch)</string>
     <string name="settings_darkmode_light">Hell</string>
     <string name="settings_darkmode_dark">Dunkel</string>
