@@ -2879,14 +2879,16 @@ private fun MailRow(
 ) {
     val scheme = MaterialTheme.colorScheme
     // Schlichtes Design (Einstellungen → Aussehen): keine Verläufe, Zeilen
-    // liegen direkt auf dem Grundton; nur die Auswahl bleibt eingefärbt
+    // im Grundton des Bildschirms — DECKEND, nicht transparent, damit die
+    // Wischgesten-Aktionsfläche darunter nicht durchscheint; nur die
+    // Auswahl bleibt eingefärbt
     val plain by Prefs.plainDesignFlow.collectAsState()
     // Gleiche Optik wie die Kacheln: sanfter Verlauf gibt den Zeilen Tiefe.
     // Im Hellmodus liegen die Flächentöne nah beieinander — dort kräftigere
     // Endpunkte wählen, sonst ist der Verlauf unsichtbar.
     val isLight = scheme.surface.luminance() > 0.5f
     val bgBrush = when {
-        plain -> SolidColor(if (selected) scheme.primaryContainer else Color.Transparent)
+        plain -> SolidColor(if (selected) scheme.primaryContainer else scheme.background)
         selected -> Brush.verticalGradient(
             listOf(scheme.primaryContainer, scheme.primaryContainer)
         )
@@ -3211,14 +3213,16 @@ private fun MailBlock(
     compact: Boolean = false
 ) {
     val scheme = MaterialTheme.colorScheme
-    // Schlichtes Design: Kacheln ohne Verlauf, nur eine feine Kontur
-    // (siehe borderMod) hält das Raster ablesbar
+    // Schlichtes Design: Kacheln ohne Verlauf im Grundton des Bildschirms —
+    // DECKEND, nicht transparent, damit die Wischgesten-Aktionsfläche
+    // darunter nicht durchscheint; die feine Kontur (siehe borderMod)
+    // hält das Raster ablesbar
     val plain by Prefs.plainDesignFlow.collectAsState()
     // Sanfter Verlauf gibt den Kacheln Tiefe; Ungelesene leuchten oben.
     // Im Hellmodus kräftigere Endpunkte, sonst ist der Verlauf unsichtbar.
     val isLight = scheme.surface.luminance() > 0.5f
     val bgBrush = when {
-        plain -> SolidColor(if (selected) scheme.primaryContainer else Color.Transparent)
+        plain -> SolidColor(if (selected) scheme.primaryContainer else scheme.background)
         selected -> Brush.verticalGradient(
             listOf(scheme.primaryContainer, scheme.primaryContainer)
         )
