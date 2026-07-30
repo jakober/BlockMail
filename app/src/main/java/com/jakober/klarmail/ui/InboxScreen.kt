@@ -2948,16 +2948,6 @@ private fun MailRow(
             }
         }
         MailRowContent(mail, selected, selectionMode, threadCount)
-        // Schlicht: feine Trennlinie am Zeilenende ersetzt die Kartenoptik
-        if (plain && !selected) {
-            HorizontalDivider(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 16.dp),
-                thickness = 0.5.dp,
-                color = scheme.outlineVariant
-            )
-        }
     }
 }
 
