@@ -1010,7 +1010,10 @@ fun SettingsScreen(
                             .background(scheme.preview, CircleShape)
                     )
                     Spacer(Modifier.width(12.dp))
-                    Text(scheme.label, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(scheme.labelRes),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
             }
 

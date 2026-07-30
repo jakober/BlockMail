@@ -11,11 +11,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
+import com.jakober.klarmail.R
 import com.jakober.klarmail.data.Prefs
 
 data class SchemeDef(
     val id: String,
-    val label: String,
+    /** Anzeigename als String-Ressource (uebersetzbar de/en). */
+    val labelRes: Int,
     val preview: Color,
     val light: ColorScheme,
     val dark: ColorScheme
@@ -23,7 +25,7 @@ data class SchemeDef(
 
 private fun makeScheme(
     id: String,
-    label: String,
+    labelRes: Int,
     primary: Color,
     primaryDark: Color,
     container: Color,
@@ -32,7 +34,7 @@ private fun makeScheme(
     onContainerDark: Color
 ) = SchemeDef(
     id = id,
-    label = label,
+    labelRes = labelRes,
     preview = primary,
     light = lightColorScheme(
         primary = primary,
@@ -59,7 +61,7 @@ private fun makeScheme(
 val colorSchemes = listOf(
     SchemeDef(
         id = "klarmail",
-        label = "BlockMail (Standard)",
+        labelRes = R.string.scheme_default,
         preview = Color(0xFFEE5F0F),
         light = lightColorScheme(
             primary = Color(0xFFD9530A),
@@ -85,31 +87,31 @@ val colorSchemes = listOf(
         )
     ),
     makeScheme(
-        "ozean", "Ozean",
+        "ozean", R.string.scheme_ocean,
         primary = Color(0xFF2F5FD0), primaryDark = Color(0xFFAEC6FF),
         container = Color(0xFFDBE1FF), onContainer = Color(0xFF00174B),
         containerDark = Color(0xFF10448F), onContainerDark = Color(0xFFDBE1FF)
     ),
     makeScheme(
-        "wald", "Wald",
+        "wald", R.string.scheme_forest,
         primary = Color(0xFF2E6B3F), primaryDark = Color(0xFF95D5A2),
         container = Color(0xFFB1F1BC), onContainer = Color(0xFF00210C),
         containerDark = Color(0xFF15522A), onContainerDark = Color(0xFFB1F1BC)
     ),
     makeScheme(
-        "violett", "Violett",
+        "violett", R.string.scheme_violet,
         primary = Color(0xFF6B4FA8), primaryDark = Color(0xFFD0BCFF),
         container = Color(0xFFE9DDFF), onContainer = Color(0xFF22005D),
         containerDark = Color(0xFF503786), onContainerDark = Color(0xFFE9DDFF)
     ),
     makeScheme(
-        "sonne", "Sonnenuntergang",
+        "sonne", R.string.scheme_sunset,
         primary = Color(0xFFB4491F), primaryDark = Color(0xFFFFB59A),
         container = Color(0xFFFFDBCE), onContainer = Color(0xFF390C00),
         containerDark = Color(0xFF8A3313), onContainerDark = Color(0xFFFFDBCE)
     ),
     makeScheme(
-        "mono", "Monochrom",
+        "mono", R.string.scheme_mono,
         primary = Color(0xFF3C3C43), primaryDark = Color(0xFFC9C9D0),
         container = Color(0xFFE2E2E9), onContainer = Color(0xFF17171C),
         containerDark = Color(0xFF47474E), onContainerDark = Color(0xFFE2E2E9)
@@ -122,7 +124,7 @@ val colorSchemes = listOf(
  */
 fun customScheme(base: Color): SchemeDef = makeScheme(
     id = "custom",
-    label = "Eigene Farbe",
+    labelRes = R.string.settings_custom_color,
     primary = base,
     primaryDark = lerp(base, Color.White, 0.45f),
     container = lerp(base, Color.White, 0.82f),

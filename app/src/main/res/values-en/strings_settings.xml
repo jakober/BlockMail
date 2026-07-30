@@ -35,6 +35,12 @@
     <string name="settings_appearance_subtitle">Light/dark and the app\'s colors</string>
     <string name="settings_plain_design">Plain design</string>
     <string name="settings_plain_design_desc">Mail lists without tinted backgrounds and gradients</string>
+    <string name="scheme_default">BlockMail (default)</string>
+    <string name="scheme_ocean">Ocean</string>
+    <string name="scheme_forest">Forest</string>
+    <string name="scheme_violet">Violet</string>
+    <string name="scheme_sunset">Sunset</string>
+    <string name="scheme_mono">Monochrome</string>
     <string name="settings_darkmode_system">Same as device (automatic)</string>
     <string name="settings_darkmode_light">Light</string>
     <string name="settings_darkmode_dark">Dark</string>
