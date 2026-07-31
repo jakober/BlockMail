@@ -49,6 +49,8 @@
     <string name="inbox_layout_to_blocks3">Zur kompakten Kachel-Ansicht wechseln</string>
     <string name="inbox_layout_to_list">Zur Listen-Ansicht wechseln</string>
     <string name="inbox_theme_light">Helles Design</string>
+    <string name="inbox_font_smaller">Schrift verkleinern</string>
+    <string name="inbox_font_larger">Schrift vergrößern</string>
     <string name="inbox_theme_dark">Dunkles Design</string>
     <string name="inbox_layout_list">Liste</string>
     <string name="inbox_layout_blocks">Kacheln (2er)</string>

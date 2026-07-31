@@ -49,6 +49,9 @@ object Prefs {
     /** Schlichtes Design: Mail-Zeilen/-Kacheln ohne farbige Verläufe. */
     val plainDesignFlow = MutableStateFlow(false)
 
+    /** Schriftgröße der App in Prozent (50–150, Standard 100). */
+    val fontScaleFlow = MutableStateFlow(100)
+
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
@@ -108,6 +111,7 @@ object Prefs {
         indexEnabledFlow.value = indexEnabled
         indexYearsFlow.value = indexYears
         plainDesignFlow.value = plainDesign
+        fontScaleFlow.value = fontScalePercent
     }
 
     // ---- Backup & Umzug: Einstellungen als JSON sichern/wiederherstellen ----
@@ -115,6 +119,7 @@ object Prefs {
 
     private val backupKeys = setOf(
         "color_scheme", "custom_color", "dark_mode", "inbox_layout", "plain_design",
+        "font_scale",
         "conversation_view", "swipe_left", "swipe_right", "signature",
         "mail_templates", "muted_senders", "blocked_senders", "vip_senders",
         "vip_only_notif", "notif_actions", "push_mode", "default_send_account",
@@ -412,6 +417,15 @@ object Prefs {
         set(v) {
             sp.edit().putBoolean("plain_design", v).apply()
             plainDesignFlow.value = v
+        }
+
+    /** Schriftgröße der App in Prozent (50–150, Standard 100). */
+    var fontScalePercent: Int
+        get() = sp.getInt("font_scale", 100)
+        set(v) {
+            val c = v.coerceIn(50, 150)
+            sp.edit().putInt("font_scale", c).apply()
+            fontScaleFlow.value = c
         }
 
     /** Tägliches Newsletter-Aufräumen (20 Uhr) aktiv? Standard: an. */

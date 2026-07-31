@@ -49,6 +49,8 @@
     <string name="inbox_layout_to_blocks3">Switch to compact tile view</string>
     <string name="inbox_layout_to_list">Switch to list view</string>
     <string name="inbox_theme_light">Light theme</string>
+    <string name="inbox_font_smaller">Decrease font size</string>
+    <string name="inbox_font_larger">Increase font size</string>
     <string name="inbox_theme_dark">Dark theme</string>
     <string name="inbox_layout_list">List</string>
     <string name="inbox_layout_blocks">Tiles (2 columns)</string>

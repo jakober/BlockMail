@@ -65,7 +65,9 @@ import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Tonality
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.Newspaper
@@ -1353,6 +1355,53 @@ fun InboxScreen(
                                             Prefs.plainDesign = !menuPlain
                                         }
                                     )
+                                    // Schriftgröße: − / Prozent / + in
+                                    // 10er-Schritten (50–150 %); das Menü
+                                    // bleibt offen, damit man mehrfach
+                                    // tippen und die Wirkung sehen kann
+                                    val fontScale by Prefs.fontScaleFlow.collectAsState()
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(
+                                            onClick = {
+                                                Prefs.fontScalePercent = fontScale - 10
+                                            },
+                                            enabled = fontScale > 50
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.Remove,
+                                                contentDescription = stringResource(
+                                                    R.string.inbox_font_smaller
+                                                )
+                                            )
+                                        }
+                                        Text(
+                                            "$fontScale %",
+                                            modifier = Modifier.weight(1f),
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = if (fontScale != 100) {
+                                                FontWeight.SemiBold
+                                            } else FontWeight.Normal
+                                        )
+                                        IconButton(
+                                            onClick = {
+                                                Prefs.fontScalePercent = fontScale + 10
+                                            },
+                                            enabled = fontScale < 150
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.Add,
+                                                contentDescription = stringResource(
+                                                    R.string.inbox_font_larger
+                                                )
+                                            )
+                                        }
+                                    }
                                     HorizontalDivider(
                                         modifier = Modifier.padding(
                                             horizontal = 16.dp, vertical = 4.dp
