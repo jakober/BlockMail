@@ -174,7 +174,7 @@ fun KlarMailTheme(
         }
     }
 
-    // Schriftgröße (Dreipunkt-Menü im Posteingang, 50–150 %): skaliert
+    // Schriftgröße (Dreipunkt-Menü im Posteingang, 80–120 %): skaliert
     // alle sp-Texte der App über den fontScale der Dichte
     val fontScalePercent by Prefs.fontScaleFlow.collectAsState()
     val baseDensity = androidx.compose.ui.platform.LocalDensity.current

@@ -972,7 +972,7 @@ private fun HtmlMailView(
                 settings.useWideViewPort = true
                 settings.builtInZoomControls = true
                 settings.displayZoomControls = false
-                // Schriftgrößen-Einstellung (50–150 %) auch für den
+                // Schriftgrößen-Einstellung (80–120 %) auch für den
                 // Mail-Inhalt übernehmen
                 settings.textZoom = com.jakober.klarmail.data.Prefs.fontScalePercent
                 setBackgroundColor(android.graphics.Color.WHITE)

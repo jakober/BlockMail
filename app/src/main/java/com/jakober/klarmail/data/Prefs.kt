@@ -49,7 +49,7 @@ object Prefs {
     /** Schlichtes Design: Mail-Zeilen/-Kacheln ohne farbige Verläufe. */
     val plainDesignFlow = MutableStateFlow(false)
 
-    /** Schriftgröße der App in Prozent (50–150, Standard 100). */
+    /** Schriftgröße der App in Prozent (80–120, Standard 100). */
     val fontScaleFlow = MutableStateFlow(100)
 
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
@@ -419,11 +419,11 @@ object Prefs {
             plainDesignFlow.value = v
         }
 
-    /** Schriftgröße der App in Prozent (50–150, Standard 100). */
+    /** Schriftgröße der App in Prozent (80–120, Standard 100). */
     var fontScalePercent: Int
-        get() = sp.getInt("font_scale", 100)
+        get() = sp.getInt("font_scale", 100).coerceIn(80, 120)
         set(v) {
-            val c = v.coerceIn(50, 150)
+            val c = v.coerceIn(80, 120)
             sp.edit().putInt("font_scale", c).apply()
             fontScaleFlow.value = c
         }

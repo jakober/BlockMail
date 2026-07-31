@@ -1355,8 +1355,13 @@ fun InboxScreen(
                                             Prefs.plainDesign = !menuPlain
                                         }
                                     )
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(
+                                            horizontal = 16.dp, vertical = 4.dp
+                                        )
+                                    )
                                     // Schriftgröße: − / Prozent / + in
-                                    // 10er-Schritten (50–150 %); das Menü
+                                    // 10er-Schritten (80–120 %); das Menü
                                     // bleibt offen, damit man mehrfach
                                     // tippen und die Wirkung sehen kann
                                     val fontScale by Prefs.fontScaleFlow.collectAsState()
@@ -1370,7 +1375,7 @@ fun InboxScreen(
                                             onClick = {
                                                 Prefs.fontScalePercent = fontScale - 10
                                             },
-                                            enabled = fontScale > 50
+                                            enabled = fontScale > 80
                                         ) {
                                             Icon(
                                                 Icons.Filled.Remove,
@@ -1392,7 +1397,7 @@ fun InboxScreen(
                                             onClick = {
                                                 Prefs.fontScalePercent = fontScale + 10
                                             },
-                                            enabled = fontScale < 150
+                                            enabled = fontScale < 120
                                         ) {
                                             Icon(
                                                 Icons.Filled.Add,
@@ -2773,11 +2778,15 @@ private fun SwipeableMailRow(
     modifier: Modifier = Modifier,
     threadCount: Int? = null
 ) {
+    // Schlichtes Design: Zeilen rücken enger zusammen (keine Kartenoptik,
+    // die Luft bräuchte)
+    val plainRow by Prefs.plainDesignFlow.collectAsState()
+    val rowVPad = if (plainRow) 1.dp else 3.dp
     // Im Auswahlmodus keine Wischgesten – nur antippen/lange drücken
     if (selectionMode) {
         MailRow(
             mail, selected, true, onClick, onLongClick,
-            modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+            modifier.padding(horizontal = 10.dp, vertical = rowVPad),
             threadCount = threadCount
         )
         return
@@ -2785,7 +2794,7 @@ private fun SwipeableMailRow(
     // Abstand hier außen, damit widthPx (Basis der 30-%-Wischschwelle)
     // exakt der sichtbaren Kartenbreite entspricht
     androidx.compose.foundation.layout.BoxWithConstraints(
-        modifier = modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+        modifier = modifier.padding(horizontal = 10.dp, vertical = rowVPad)
     ) {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val widthPx = with(density) { maxWidth.toPx() }
