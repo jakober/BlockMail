@@ -2981,16 +2981,18 @@ private fun MailRow(
     // Endpunkte wählen, sonst ist der Verlauf unsichtbar.
     val isLight = scheme.surface.luminance() > 0.5f
     val bgBrush = when {
-        plain -> SolidColor(if (selected) scheme.primaryContainer else scheme.background)
         selected -> Brush.verticalGradient(
             listOf(scheme.primaryContainer, scheme.primaryContainer)
         )
+        // Ungelesene behalten IMMER den gewohnten farbigen Verlauf —
+        // auch im schlichten Design
         !mail.seen -> Brush.verticalGradient(
             listOf(
                 scheme.secondaryContainer.copy(alpha = if (isLight) 0.9f else 0.55f),
                 scheme.surfaceContainerLow
             )
         )
+        plain -> SolidColor(scheme.background)
         else -> Brush.verticalGradient(
             listOf(
                 if (isLight) scheme.surfaceContainerHigh else scheme.surfaceContainerLow,
@@ -3320,16 +3322,18 @@ private fun MailBlock(
     // Im Hellmodus kräftigere Endpunkte, sonst ist der Verlauf unsichtbar.
     val isLight = scheme.surface.luminance() > 0.5f
     val bgBrush = when {
-        plain -> SolidColor(if (selected) scheme.primaryContainer else scheme.background)
         selected -> Brush.verticalGradient(
             listOf(scheme.primaryContainer, scheme.primaryContainer)
         )
+        // Ungelesene behalten IMMER den gewohnten farbigen Verlauf —
+        // auch im schlichten Design
         !mail.seen -> Brush.verticalGradient(
             listOf(
                 scheme.secondaryContainer.copy(alpha = if (isLight) 0.9f else 0.55f),
                 scheme.surfaceContainerLow
             )
         )
+        plain -> SolidColor(scheme.background)
         else -> Brush.verticalGradient(
             listOf(
                 if (isLight) scheme.surfaceContainerHigh else scheme.surfaceContainerLow,
