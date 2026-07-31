@@ -2781,7 +2781,7 @@ private fun SwipeableMailRow(
     // Schlichtes Design: Zeilen rücken enger zusammen (keine Kartenoptik,
     // die Luft bräuchte)
     val plainRow by Prefs.plainDesignFlow.collectAsState()
-    val rowVPad = if (plainRow) 1.dp else 3.dp
+    val rowVPad = if (plainRow) 0.dp else 3.dp
     // Im Auswahlmodus keine Wischgesten – nur antippen/lange drücken
     if (selectionMode) {
         MailRow(
@@ -3053,8 +3053,13 @@ private fun MailRowContent(
     selectionMode: Boolean,
     threadCount: Int? = null
 ) {
+    // Schlichtes Design: kompaktere Zeilen (weniger Innenabstand)
+    val plain by Prefs.plainDesignFlow.collectAsState()
     Row(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.padding(
+            horizontal = 16.dp,
+            vertical = if (plain) 7.dp else 12.dp
+        ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (selectionMode && selected) {
