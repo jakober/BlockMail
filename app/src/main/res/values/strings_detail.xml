@@ -38,6 +38,8 @@
     <!-- Antworten -->
     <string name="detail_reply">Antworten</string>
     <string name="detail_reply_all">Allen antworten (%1$d)</string>
+    <string name="detail_reply_to">Antwort an %1$s</string>
+    <string name="detail_reply_all_to">Allen antworten (%1$s)</string>
 
     <!-- Lade-/Fehlerzustände -->
     <string name="detail_message_not_found">Nachricht nicht gefunden</string>

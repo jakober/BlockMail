@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExpandMore
@@ -436,68 +438,116 @@ fun DetailScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
+            // Platzsparender Antworten-Knopf: unten nur das Antworten-Icon.
+            // Ein Tipp klappt (falls es weitere Empfänger gibt) zwei Knöpfe
+            // darüber auf: "Antwort an <Absender>" und "Allen antworten
+            // (<Adressen>)". Ohne weitere Empfänger antwortet der Icon-Knopf
+            // direkt.
             Column(horizontalAlignment = Alignment.End) {
-                // „Allen antworten“, wenn die Mail an weitere Empfänger oder
-                // mit CC ging (eigene Adressen zählen nicht mit)
                 val loadedBody = body
-                if (folder == null && mail != null && loadedBody != null) {
-                    val myAddresses = remember {
-                        (com.jakober.klarmail.data.Prefs.accounts().map { it.email } +
-                            com.jakober.klarmail.data.Prefs.email)
-                            .map { it.trim().lowercase() }.toSet()
-                    }
-                    val senderKey = mail.fromAddress.trim().lowercase()
-                    val otherRecipients = (loadedBody.to + loadedBody.cc)
+                var replyMenuOpen by remember(uid) { mutableStateOf(false) }
+                val myAddresses = remember {
+                    (com.jakober.klarmail.data.Prefs.accounts().map { it.email } +
+                        com.jakober.klarmail.data.Prefs.email)
+                        .map { it.trim().lowercase() }.toSet()
+                }
+                val senderKey = mail?.fromAddress?.trim()?.lowercase().orEmpty()
+                // "Allen antworten" nur, wenn die Mail an weitere Empfänger
+                // oder mit CC ging (eigene Adressen zählen nicht mit)
+                val otherRecipients =
+                    if (folder == null && mail != null && loadedBody != null) {
+                        (loadedBody.to + loadedBody.cc)
+                            .map { it.trim() }
+                            .filter {
+                                it.lowercase() !in myAddresses &&
+                                    it.lowercase() != senderKey
+                            }
+                            .distinctBy { it.lowercase() }
+                    } else emptyList()
+                if (replyMenuOpen && mail != null && loadedBody != null &&
+                    otherRecipients.isNotEmpty()
+                ) {
+                    val allTo = (listOf(mail.fromAddress) + loadedBody.to
                         .map { it.trim() }
                         .filter {
-                            it.lowercase() !in myAddresses && it.lowercase() != senderKey
+                            it.lowercase() !in myAddresses &&
+                                it.lowercase() != senderKey
+                        }).distinctBy { it.lowercase() }
+                    val allCc = loadedBody.cc
+                        .map { it.trim() }
+                        .filter { addr ->
+                            addr.lowercase() !in myAddresses &&
+                                allTo.none { it.equals(addr, ignoreCase = true) }
                         }
-                        .distinctBy { it.lowercase() }
-                    if (otherRecipients.isNotEmpty()) {
-                        ExtendedFloatingActionButton(
-                            onClick = {
-                                val allTo = (listOf(mail.fromAddress) + loadedBody.to
-                                    .map { it.trim() }
-                                    .filter {
-                                        it.lowercase() !in myAddresses &&
-                                            it.lowercase() != senderKey
-                                    }).distinctBy { it.lowercase() }
-                                val allCc = loadedBody.cc
-                                    .map { it.trim() }
-                                    .filter { addr ->
-                                        addr.lowercase() !in myAddresses &&
-                                            allTo.none { it.equals(addr, ignoreCase = true) }
-                                    }
-                                MailRepository.pendingReplyAll =
-                                    allTo.joinToString(", ") to allCc.joinToString(", ")
-                                onReply()
-                            },
-                            icon = {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ReplyAll,
-                                    contentDescription = null
-                                )
-                            },
-                            text = {
-                                Text(
-                                    stringResource(
-                                        R.string.detail_reply_all, otherRecipients.size + 1
-                                    )
-                                )
-                            },
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
-                        Spacer(Modifier.height(12.dp))
-                    }
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            replyMenuOpen = false
+                            MailRepository.pendingReplyAll =
+                                allTo.joinToString(", ") to allCc.joinToString(", ")
+                            onReply()
+                        },
+                        icon = {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ReplyAll,
+                                contentDescription = null
+                            )
+                        },
+                        text = {
+                            Text(
+                                stringResource(
+                                    R.string.detail_reply_all_to,
+                                    (allTo + allCc).joinToString(", ")
+                                ),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.widthIn(max = 300.dp)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            replyMenuOpen = false
+                            MailRepository.pendingReplyAll = null
+                            onReply()
+                        },
+                        icon = {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Reply,
+                                contentDescription = null
+                            )
+                        },
+                        text = {
+                            Text(
+                                stringResource(
+                                    R.string.detail_reply_to, mail.fromAddress
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.widthIn(max = 300.dp)
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
-                ExtendedFloatingActionButton(
+                androidx.compose.material3.FloatingActionButton(
                     onClick = {
-                        MailRepository.pendingReplyAll = null
-                        onReply()
-                    },
-                    icon = { Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = null) },
-                    text = { Text(stringResource(R.string.detail_reply)) }
-                )
+                        if (otherRecipients.isEmpty()) {
+                            MailRepository.pendingReplyAll = null
+                            onReply()
+                        } else {
+                            replyMenuOpen = !replyMenuOpen
+                        }
+                    }
+                ) {
+                    Icon(
+                        if (replyMenuOpen) Icons.Filled.Close
+                        else Icons.AutoMirrored.Filled.Reply,
+                        contentDescription = stringResource(R.string.detail_reply)
+                    )
+                }
             }
         }
     ) { padding ->

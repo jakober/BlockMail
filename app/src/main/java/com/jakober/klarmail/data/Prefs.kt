@@ -47,7 +47,7 @@ object Prefs {
     val indexYearsFlow = MutableStateFlow(1)
 
     /** Schlichtes Design: Mail-Zeilen/-Kacheln ohne farbige Verläufe. */
-    val plainDesignFlow = MutableStateFlow(false)
+    val plainDesignFlow = MutableStateFlow(true)
 
     /** Schriftgröße der App in Prozent (80–120, Standard 100). */
     val fontScaleFlow = MutableStateFlow(100)
@@ -411,9 +411,9 @@ object Prefs {
             indexYearsFlow.value = v
         }
 
-    /** Schlichtes Design: keine Verläufe/Hintergründe in den Mail-Listen. */
+    /** Schlichtes Design: keine Verläufe/Hintergründe in den Mail-Listen (Standard: an). */
     var plainDesign: Boolean
-        get() = sp.getBoolean("plain_design", false)
+        get() = sp.getBoolean("plain_design", true)
         set(v) {
             sp.edit().putBoolean("plain_design", v).apply()
             plainDesignFlow.value = v
