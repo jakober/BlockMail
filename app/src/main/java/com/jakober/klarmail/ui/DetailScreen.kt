@@ -79,6 +79,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -769,13 +770,17 @@ fun DetailScreen(
                                 com.jakober.klarmail.data.SenderIcon.resolve(senderDomain)
                         }
                     }
+                    // Akzentfarbe des Farbschemas als Hex für die HTML-Seite
+                    val accentHex = "#%06X".format(
+                        LocalAccent.current.toArgb() and 0xFFFFFF
+                    )
                     val fullHtml = remember(
                         currentBody, phishingResult, aiAvailable, darkTheme, pageTexts,
-                        senderIconUrl
+                        senderIconUrl, accentHex
                     ) {
                         buildMailPageHtml(
                             mail, currentBody, phishingResult, aiAvailable, darkTheme,
-                            pageTexts, senderIconUrl
+                            pageTexts, senderIconUrl, accentHex
                         )
                     }
                     HtmlMailView(
@@ -1093,9 +1098,12 @@ private fun buildMailPageHtml(
     aiAvailable: Boolean,
     dark: Boolean = false,
     texts: MailPageTexts,
-    senderIconUrl: String? = null
+    senderIconUrl: String? = null,
+    // Akzentfarbe des gewählten Farbschemas (Initialen-Kreis + KI-Knopf) —
+    // früher fest Orange, jetzt folgt der Kopf der Design-Einstellung
+    accent: String = "#EE5F0F"
 ): String {
-    val orange = "#EE5F0F"
+    val orange = accent
     // Fester Kopf-Hintergrund je App-Design: Mails bringen oft eigene
     // (auch dunkle) Seitenhintergründe mit — mit "transparent" schien der
     // durch und machte Betreff/Absender unlesbar. Der Mail-Inhalt unter
