@@ -88,7 +88,9 @@
     <string name="tour_step_theme_title">Hell, dunkel, deine Farbe</string>
     <string name="tour_step_theme_text">Mit dem Sonne/Mond-Symbol wechselst du zwischen Hell und Dunkel. Die Farbpalette daneben schaltet durch die Farbschemata der App.</string>
     <string name="tour_step_menu_title">Ansicht &amp; Menü</string>
-    <string name="tour_step_menu_text">Hier wechselst du zwischen Liste und Kacheln. Im Menü dahinter findest du das schlichte Design, die Schriftgröße und die Einstellungen.</string>
+    <string name="tour_step_menu_text">Mit dem linken Symbol wechselst du direkt zwischen Liste und Kacheln. Daneben das Menü — hier geöffnet: Hell/Dunkel, Ansicht, schlichtes Design, Schriftgröße und die Einstellungen.</string>
+    <string name="tour_step_extras_title">Noch mehr drin</string>
+    <string name="tour_step_extras_text">BlockMail räumt Newsletter automatisch in einen eigenen Ordner, warnt vor Phishing, erinnert mit dem Antwort-Radar an unbeantwortete Mails und zeigt Statistiken. Alle Zusatzfunktionen findest du in den Einstellungen.</string>
     <string name="tour_step_compose_title">Neue Mail schreiben</string>
     <string name="tour_step_compose_text">Mit dem Stift beginnst du eine neue Mail — auf Wunsch hilft dir die KI beim Formulieren.</string>
 </resources>

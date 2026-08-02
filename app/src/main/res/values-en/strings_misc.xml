@@ -88,7 +88,9 @@
     <string name="tour_step_theme_title">Light, dark, your color</string>
     <string name="tour_step_theme_text">Use the sun/moon icon to switch between light and dark. The palette next to it cycles through the app’s color schemes.</string>
     <string name="tour_step_menu_title">View &amp; menu</string>
-    <string name="tour_step_menu_text">Switch between list and tiles here. The menu behind it holds the plain design, the font size, and the settings.</string>
+    <string name="tour_step_menu_text">The left icon switches directly between list and tiles. Next to it, the menu — open right now: light/dark, view, plain design, font size, and the settings.</string>
+    <string name="tour_step_extras_title">There’s more inside</string>
+    <string name="tour_step_extras_text">BlockMail tidies newsletters into their own folder automatically, warns you about phishing, reminds you of unanswered mails with the reply radar, and shows statistics. You’ll find all extras in the settings.</string>
     <string name="tour_step_compose_title">Write a new email</string>
     <string name="tour_step_compose_text">Tap the pen to start a new email — the AI can help you phrase it if you like.</string>
 </resources>

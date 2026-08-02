@@ -1263,6 +1263,9 @@ fun InboxScreen(
                         }
                     },
                     actions = {
+                        // Beide Aktionen (Ansicht-Wechsler + Menü) in einem
+                        // Row, damit das Tour-Spotlight sie GEMEINSAM umrahmt
+                        Row(Modifier.tourTarget("headerRight")) {
                         // Schnellwechsler für die Ansicht: Das Icon zeigt die
                         // NÄCHSTE Ansicht im Kreis Liste → 2er-Kacheln → 3er-Kacheln
                         val nextLayout = when (inboxLayout) {
@@ -1283,7 +1286,13 @@ fun InboxScreen(
                         // Dreipunkt-Menü hält die Leiste schlank: Design,
                         // Ansicht und Einstellungen wandern hier hinein
                         var overflowOpen by remember { mutableStateOf(false) }
-                        Box(Modifier.tourTarget("headerRight")) {
+                        // Tour-Schritt "Ansicht & Menü": Menü automatisch
+                        // öffnen, damit man den Inhalt sieht; beim nächsten
+                        // Schritt (oder Tour-Ende) wieder schließen
+                        LaunchedEffect(InboxTour.active, InboxTour.step) {
+                            overflowOpen = InboxTour.active && InboxTour.step == 1
+                        }
+                        Box {
                             IconButton(onClick = { overflowOpen = true }) {
                                 Icon(
                                     Icons.Filled.MoreVert,
@@ -1294,7 +1303,13 @@ fun InboxScreen(
                                 expanded = overflowOpen,
                                 onDismissRequest = { overflowOpen = false },
                                 shape = RoundedCornerShape(20.dp),
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                // Während der Tour nicht fokussierbar: Tipps
+                                // daneben erreichen dann das Tour-Overlay
+                                // (weiter) statt nur das Menü zu schließen
+                                properties = androidx.compose.ui.window.PopupProperties(
+                                    focusable = !InboxTour.active
+                                )
                             ) {
                                 if (configured) {
                                     // Hell/Dunkel auch als Menü-Eintrag —
@@ -1482,6 +1497,7 @@ fun InboxScreen(
                                     }
                                 )
                             }
+                        }
                         }
                     }
                 )
@@ -2718,6 +2734,11 @@ private fun TourOverlay() {
             ),
             TourStep("search", R.string.tour_2_title, R.string.tour_2_text),
             TourStep("list", R.string.tour_3_title, R.string.tour_3_text),
+            // Ohne Ziel: zentrierte Karte zu den Zusatzfunktionen
+            TourStep(
+                "",
+                R.string.tour_step_extras_title, R.string.tour_step_extras_text
+            ),
             TourStep(
                 "fab",
                 R.string.tour_step_compose_title, R.string.tour_step_compose_text
@@ -2726,8 +2747,20 @@ private fun TourOverlay() {
     }
     val idx = InboxTour.step.coerceIn(0, steps.lastIndex)
     val s = steps[idx]
-    val rect = InboxTour.targets[s.key]
     val density = androidx.compose.ui.platform.LocalDensity.current
+    // Wisch-Schritt: nicht die ganze Liste ausstanzen, sondern nur die
+    // oberste Mail-Zeile — sonst bleibt kein Platz für die Erklär-Karte
+    val rect = InboxTour.targets[s.key]?.let { raw ->
+        if (s.key == "list") {
+            val cap = with(density) { 116.dp.toPx() }
+            androidx.compose.ui.geometry.Rect(
+                raw.left, raw.top, raw.right,
+                minOf(raw.bottom, raw.top + cap)
+            )
+        } else {
+            raw
+        }
+    }
     fun next() {
         if (idx >= steps.lastIndex) InboxTour.finish() else InboxTour.step = idx + 1
     }
@@ -2773,18 +2806,31 @@ private fun TourOverlay() {
                 drawRect(dim)
             }
         }
-        // Erklär-Karte unter dem Ziel (obere Bildschirmhälfte) bzw. darüber
-        val below = rect == null || rect.center.y < heightPx / 2f
-        val padTop = if (below && rect != null) {
-            with(density) { (rect.bottom + 28f).toDp() }
+        // Erklär-Karte: dort platzieren, wo wirklich Platz ist. Beim
+        // Menü-Schritt ist das geöffnete Menü oben — Karte fest nach unten;
+        // ohne Ziel (Extras-Schritt) mittig.
+        val placement = when {
+            rect == null -> "center"
+            s.key == "headerRight" -> "bottom"
+            (heightPx - rect.bottom) >= rect.top -> "below"
+            else -> "above"
+        }
+        val padTop = if (placement == "below") {
+            with(density) { (rect!!.bottom + 28f).toDp() }
         } else 0.dp
-        val padBottom = if (!below && rect != null) {
-            with(density) { (heightPx - rect.top + 28f).toDp() }
-        } else 24.dp
+        val padBottom = when (placement) {
+            "above" -> with(density) { (heightPx - rect!!.top + 28f).toDp() }
+            "bottom" -> 32.dp
+            else -> 0.dp
+        }
         Card(
             modifier = Modifier
                 .align(
-                    if (below) Alignment.TopCenter else Alignment.BottomCenter
+                    when (placement) {
+                        "below" -> Alignment.TopCenter
+                        "center" -> Alignment.Center
+                        else -> Alignment.BottomCenter
+                    }
                 )
                 .padding(top = padTop, bottom = padBottom)
                 .padding(horizontal = 20.dp)
