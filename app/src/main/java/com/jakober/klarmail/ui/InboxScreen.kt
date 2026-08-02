@@ -34,6 +34,8 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -208,6 +210,36 @@ private val searchHoldAiAnswer =
     androidx.compose.runtime.mutableStateOf<String?>(null)
 private val searchHoldAiHits =
     androidx.compose.runtime.mutableStateOf<List<MailRepository.AiSearchHit>>(emptyList())
+
+/**
+ * Live-Einführungs-Tour (Tester-Feedback): dunkelt den Posteingang ab und
+ * hebt die echten Bedienelemente nacheinander per Spotlight hervor.
+ * Startet einmalig nach der Einrichtung; erneut über Einstellungen →
+ * Daten & Feedback → "Einführung ansehen".
+ */
+internal object InboxTour {
+    var active by androidx.compose.runtime.mutableStateOf(false)
+    var step by androidx.compose.runtime.mutableStateOf(0)
+    /** Positionen der markierten Ziele (Fensterkoordinaten). */
+    val targets =
+        androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.ui.geometry.Rect>()
+
+    fun start() {
+        step = 0
+        active = true
+    }
+
+    fun finish() {
+        active = false
+        Prefs.tourShown = true
+    }
+}
+
+/** Markiert ein Bedienelement als Tour-Ziel (Position wird mitgeschrieben). */
+internal fun Modifier.tourTarget(key: String): Modifier =
+    this.onGloballyPositioned {
+        InboxTour.targets[key] = it.boundsInRoot()
+    }
 
 private fun indexHitToAiHit(h: MailIndex.IndexHit): MailRepository.AiSearchHit {
     val folder = MailRepository.MailFolder.entries.firstOrNull { it.name == h.folder }
@@ -884,6 +916,9 @@ fun InboxScreen(
         }
     }
 
+    // Box um den Scaffold: Die Tour-Abdunklung muss auch die Kopfzeile
+    // überdecken können
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         topBar = {
             if (selectionMode) {
@@ -1173,7 +1208,7 @@ fun InboxScreen(
                     },
                     navigationIcon = {
                         if (configured) {
-                            Row {
+                            Row(Modifier.tourTarget("headerLeft")) {
                                 // Hell/Dunkel direkt umschalten — exakt derselbe
                                 // Mechanismus wie früher der Eintrag im ⋮-Menü
                                 val darkModeSetting by Prefs.darkModeFlow.collectAsState()
@@ -1248,7 +1283,7 @@ fun InboxScreen(
                         // Dreipunkt-Menü hält die Leiste schlank: Design,
                         // Ansicht und Einstellungen wandern hier hinein
                         var overflowOpen by remember { mutableStateOf(false) }
-                        Box {
+                        Box(Modifier.tourTarget("headerRight")) {
                             IconButton(onClick = { overflowOpen = true }) {
                                 Icon(
                                     Icons.Filled.MoreVert,
@@ -1458,6 +1493,7 @@ fun InboxScreen(
             ) {
                 FloatingActionButton(
                     onClick = onCompose,
+                    modifier = Modifier.tourTarget("fab"),
                     // Kräftige Grundfarbe des Schemas — auch im Dunkelmodus
                     // nicht aufgehellt, Symbol in Weiß
                     containerColor = LocalAccent.current,
@@ -1700,7 +1736,8 @@ fun InboxScreen(
                     .padding(horizontal = 12.dp, vertical = 6.dp)
                     .height(48.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .tourTarget("search"),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Spacer(Modifier.width(14.dp))
@@ -2162,6 +2199,7 @@ fun InboxScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .tourTarget("list")
         ) {
         PullToRefreshBox(
             isRefreshing = loading,
@@ -2654,6 +2692,144 @@ fun InboxScreen(
             }
         }
     }
+    if (InboxTour.active) {
+        TourOverlay()
+    }
+    }
+}
+
+/**
+ * Spotlight-Overlay der Live-Tour: dunkelt alles ab, stanzt ein Loch um
+ * das aktuelle Ziel und zeigt eine Erklär-Karte daneben. Tipp irgendwo
+ * (oder "Weiter") springt zum nächsten Schritt.
+ */
+@Composable
+private fun TourOverlay() {
+    data class TourStep(val key: String, val titleRes: Int, val textRes: Int)
+    val steps = remember {
+        listOf(
+            TourStep(
+                "headerLeft",
+                R.string.tour_step_theme_title, R.string.tour_step_theme_text
+            ),
+            TourStep(
+                "headerRight",
+                R.string.tour_step_menu_title, R.string.tour_step_menu_text
+            ),
+            TourStep("search", R.string.tour_2_title, R.string.tour_2_text),
+            TourStep("list", R.string.tour_3_title, R.string.tour_3_text),
+            TourStep(
+                "fab",
+                R.string.tour_step_compose_title, R.string.tour_step_compose_text
+            )
+        )
+    }
+    val idx = InboxTour.step.coerceIn(0, steps.lastIndex)
+    val s = steps[idx]
+    val rect = InboxTour.targets[s.key]
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    fun next() {
+        if (idx >= steps.lastIndex) InboxTour.finish() else InboxTour.step = idx + 1
+    }
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            // Schluckt alle Tipps auf den Untergrund; Tipp = weiter
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { next() }
+    ) {
+        val heightPx = constraints.maxHeight.toFloat()
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val dim = Color.Black.copy(alpha = 0.7f)
+            if (rect != null) {
+                val hole = androidx.compose.ui.geometry.Rect(
+                    rect.left - 12f, rect.top - 12f,
+                    rect.right + 12f, rect.bottom + 12f
+                )
+                val corner = androidx.compose.ui.geometry.CornerRadius(28f, 28f)
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    fillType = androidx.compose.ui.graphics.PathFillType.EvenOdd
+                    addRect(
+                        androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)
+                    )
+                    addRoundRect(
+                        androidx.compose.ui.geometry.RoundRect(hole, corner)
+                    )
+                }
+                drawPath(path, dim)
+                // Feiner heller Rahmen ums Spotlight
+                drawRoundRect(
+                    color = Color.White.copy(alpha = 0.85f),
+                    topLeft = hole.topLeft,
+                    size = hole.size,
+                    cornerRadius = corner,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = with(density) { 2.dp.toPx() }
+                    )
+                )
+            } else {
+                drawRect(dim)
+            }
+        }
+        // Erklär-Karte unter dem Ziel (obere Bildschirmhälfte) bzw. darüber
+        val below = rect == null || rect.center.y < heightPx / 2f
+        val padTop = if (below && rect != null) {
+            with(density) { (rect.bottom + 28f).toDp() }
+        } else 0.dp
+        val padBottom = if (!below && rect != null) {
+            with(density) { (heightPx - rect.top + 28f).toDp() }
+        } else 24.dp
+        Card(
+            modifier = Modifier
+                .align(
+                    if (below) Alignment.TopCenter else Alignment.BottomCenter
+                )
+                .padding(top = padTop, bottom = padBottom)
+                .padding(horizontal = 20.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(Modifier.padding(18.dp)) {
+                Text(
+                    stringResource(s.titleRes),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    stringResource(s.textRes),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.TextButton(
+                        onClick = { InboxTour.finish() }
+                    ) { Text(stringResource(R.string.tour_skip)) }
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        "${idx + 1}/${steps.size}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    androidx.compose.material3.Button(onClick = { next() }) {
+                        Text(
+                            if (idx == steps.lastIndex) {
+                                stringResource(R.string.tour_done)
+                            } else {
+                                stringResource(R.string.tour_next)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** Überschriften der Fokus-Blöcke in fester Reihenfolge (Index = Kategorie). */
@@ -2725,12 +2901,30 @@ private fun FocusToolbar(busy: Boolean, refined: Boolean, onRefine: () -> Unit) 
 
 @Composable
 private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(start = 14.dp, top = 16.dp, bottom = 6.dp)
-    )
+    // Überschrift beginnt auf der Höhe des Absendernamens (Zeilen-Außenrand
+    // 10 + Innenrand 16 + Avatar 44 + Abstand 14 = 84 dp), links und rechts
+    // je eine feine Linie
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 10.dp, end = 10.dp, top = 16.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        HorizontalDivider(
+            modifier = Modifier.width(64.dp),
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 10.dp)
+        )
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+    }
 }
 
 /** Ordnet Einträge Zeitgruppen zu (Reihenfolge der Liste bleibt erhalten). */

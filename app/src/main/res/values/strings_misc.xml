@@ -85,4 +85,10 @@
     <string name="tour_4_text">BlockMail erkennt Newsletter und räumt sie auf Wunsch täglich automatisch in einen eigenen Ordner. Der Phishing-Wächter warnt dich vor verdächtigen Mails – direkt auf dem Gerät.</string>
     <string name="tour_5_title">Echtzeit-Push &amp; mehrere Konten</string>
     <string name="tour_5_text">Neue Mails erreichen dich in Sekunden. Verbinde mehrere Konten und behalte alles gemeinsam im Sammel-Posteingang im Blick.</string>
+    <string name="tour_step_theme_title">Hell, dunkel, deine Farbe</string>
+    <string name="tour_step_theme_text">Mit dem Sonne/Mond-Symbol wechselst du zwischen Hell und Dunkel. Die Farbpalette daneben schaltet durch die Farbschemata der App.</string>
+    <string name="tour_step_menu_title">Ansicht &amp; Menü</string>
+    <string name="tour_step_menu_text">Hier wechselst du zwischen Liste und Kacheln. Im Menü dahinter findest du das schlichte Design, die Schriftgröße und die Einstellungen.</string>
+    <string name="tour_step_compose_title">Neue Mail schreiben</string>
+    <string name="tour_step_compose_text">Mit dem Stift beginnst du eine neue Mail — auf Wunsch hilft dir die KI beim Formulieren.</string>
 </resources>

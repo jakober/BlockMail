@@ -85,4 +85,10 @@
     <string name="tour_4_text">BlockMail detects newsletters and, if you like, tidies them into their own folder every day. The phishing guard warns you about suspicious mails – right on your device.</string>
     <string name="tour_5_title">Real-time push &amp; multiple accounts</string>
     <string name="tour_5_text">New mails reach you in seconds. Connect several accounts and keep track of everything in one unified inbox.</string>
+    <string name="tour_step_theme_title">Light, dark, your color</string>
+    <string name="tour_step_theme_text">Use the sun/moon icon to switch between light and dark. The palette next to it cycles through the app’s color schemes.</string>
+    <string name="tour_step_menu_title">View &amp; menu</string>
+    <string name="tour_step_menu_text">Switch between list and tiles here. The menu behind it holds the plain design, the font size, and the settings.</string>
+    <string name="tour_step_compose_title">Write a new email</string>
+    <string name="tour_step_compose_text">Tap the pen to start a new email — the AI can help you phrase it if you like.</string>
 </resources>

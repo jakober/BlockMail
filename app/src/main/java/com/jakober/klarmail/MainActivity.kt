@@ -185,31 +185,25 @@ class MainActivity : ComponentActivity() {
                             onBack = { nav.popBackStack() },
                             onOpenNewsletterLog = { nav.navigate("newsletterlog") },
                             onOpenSetup = { nav.navigate("setup") },
-                            onOpenTour = { nav.navigate("tour") }
+                            onOpenTour = {
+                                // Live-Tour läuft im Posteingang — dorthin
+                                // zurück und Overlay starten
+                                com.jakober.klarmail.ui.InboxTour.start()
+                                nav.popBackStack("inbox", inclusive = false)
+                            }
                         )
                     }
                     composable("setup") {
                         com.jakober.klarmail.ui.SetupWizardScreen(
                             onDone = {
+                                nav.popBackStack("inbox", inclusive = false)
                                 // Nach der ersten Einrichtung einmalig die
-                                // Einführungs-Tour zeigen
+                                // Live-Tour im Posteingang starten
                                 if (!Prefs.tourShown) {
-                                    nav.navigate("tour") {
-                                        popUpTo("inbox") { inclusive = false }
-                                    }
-                                } else {
-                                    nav.popBackStack("inbox", inclusive = false)
+                                    com.jakober.klarmail.ui.InboxTour.start()
                                 }
                             },
                             onBack = { nav.popBackStack() }
-                        )
-                    }
-                    composable("tour") {
-                        com.jakober.klarmail.ui.TourScreen(
-                            onDone = {
-                                Prefs.tourShown = true
-                                nav.popBackStack("inbox", inclusive = false)
-                            }
                         )
                     }
                     composable("welcome") {
