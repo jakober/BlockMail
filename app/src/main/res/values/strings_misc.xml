@@ -13,8 +13,8 @@
     <string name="welcome_feature_push_text">Echtzeit-Push mit Schnellantwort direkt aus der Benachrichtigung.</string>
     <string name="welcome_feature_accounts_title">Alle Konten, ein Überblick</string>
     <string name="welcome_feature_accounts_text">Mehrere Postfächer mit eigenen Farben — einzeln oder gemeinsam.</string>
-    <string name="welcome_feature_ai_title">KI, die auf dem Gerät bleibt</string>
-    <string name="welcome_feature_ai_text">Zusammenfassen, Antworten entwerfen, Tages-Überblick und Newsletter-Ordnung.</string>
+    <string name="welcome_feature_ai_title">KI-Assistent (BlockMail Pro)</string>
+    <string name="welcome_feature_ai_text">Zusammenfassen, Antworten entwerfen, Tages-Überblick und Newsletter-Ordnung. Läuft über den BlockMail-Server — Inhalte werden dort nicht gespeichert. 3 Tage kostenlos testen, danach 4,90 € im Monat.</string>
     <string name="welcome_setup">Konto einrichten</string>
     <string name="welcome_skip">Später erkunden</string>
 

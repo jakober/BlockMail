@@ -13,8 +13,8 @@
     <string name="welcome_feature_push_text">Real-time push with quick reply straight from the notification.</string>
     <string name="welcome_feature_accounts_title">All accounts, one overview</string>
     <string name="welcome_feature_accounts_text">Multiple mailboxes with their own colors — separately or combined.</string>
-    <string name="welcome_feature_ai_title">AI that stays on your device</string>
-    <string name="welcome_feature_ai_text">Summarize, draft replies, daily overview and newsletter tidying.</string>
+    <string name="welcome_feature_ai_title">AI assistant (BlockMail Pro)</string>
+    <string name="welcome_feature_ai_text">Summarize, draft replies, daily overview and newsletter tidying. Runs via the BlockMail server — contents are not stored there. Try it free for 3 days, then €4.90 per month.</string>
     <string name="welcome_setup">Set up account</string>
     <string name="welcome_skip">Explore later</string>
 

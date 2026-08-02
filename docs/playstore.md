@@ -1,3 +1,6 @@
+> **VERALTET (nicht mehr verwenden).** Beschreibt den früheren Stand mit
+> KI auf dem Gerät. Aktueller Store-Eintrag: `docs/store-eintrag-aso.md`.
+
 # BlockMail in den Play Store bringen (Option B)
 
 Gestaffelter Start: zuerst mit Einrichtungsassistent (App-Passwörter,

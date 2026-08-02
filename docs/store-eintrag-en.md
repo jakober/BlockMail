@@ -1,3 +1,8 @@
+> **VERALTET (nicht mehr verwenden).** Enthält die inzwischen falsche
+> Aussage "AI that runs on your device" — seit v3.51 laufen alle
+> KI-Funktionen über den BlockMail-Server. Aktuelle Fassung:
+> `docs/store-eintrag-aso.md`.
+
 # BlockMail — Play Store listing (English, en-US)
 
 Paste these into Play Console → Store listing → Manage translations → English (United States).
