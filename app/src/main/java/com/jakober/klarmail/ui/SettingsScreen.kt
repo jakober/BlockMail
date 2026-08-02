@@ -467,6 +467,11 @@ fun SettingsScreen(
                 stringResource(R.string.settings_pro_features),
                 style = MaterialTheme.typography.bodyMedium
             )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.settings_pro_price),
+                style = MaterialTheme.typography.bodyMedium
+            )
             // KI-Status: Es gibt nur noch EINEN KI-Weg — die Pro-KI über den
             // BlockMail-Server. Der Status wird deshalb hier in der Pro-Karte
             // angezeigt (die frühere KI-Status-Karte ist entfallen).

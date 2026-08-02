@@ -2652,6 +2652,7 @@ fun InboxScreen(
                         if (!isPro) showProUpsell = true
                         else if (!aiBusy) aiMenuOpen = true
                     },
+                    modifier = Modifier.tourTarget("aiFab"),
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 ) {
@@ -2733,6 +2734,11 @@ private fun TourOverlay() {
                 R.string.tour_step_menu_title, R.string.tour_step_menu_text
             ),
             TourStep("search", R.string.tour_2_title, R.string.tour_2_text),
+            // KI-Knopf unten links: Tages-Überblick & Co. + Pro-Hinweis
+            TourStep(
+                "aiFab",
+                R.string.tour_step_ai_title, R.string.tour_step_ai_text
+            ),
             TourStep("list", R.string.tour_3_title, R.string.tour_3_text),
             // Ohne Ziel: zentrierte Karte zu den Zusatzfunktionen
             TourStep(

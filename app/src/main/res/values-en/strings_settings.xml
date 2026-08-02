@@ -301,4 +301,5 @@
     <string name="setup_pw_icloud">App-specific password</string>
     <string name="settings_rate_app">Rate this app</string>
     <string name="settings_tour">View the intro</string>
+    <string name="settings_pro_price">BlockMail Pro: try it free for 3 days, then €4.90 per month.</string>
 </resources>

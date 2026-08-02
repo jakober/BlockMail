@@ -69,7 +69,7 @@
 
     <!-- ProUpsell (BlockMail Pro) -->
     <string name="pro_title">BlockMail Pro</string>
-    <string name="pro_upsell_text">Die KI-Funktionen — KI-Suche, Zusammenfassen, Tages-Überblick, Antworten und Mails mit KI verfassen, Rechtschreibprüfung und der Newsletter-Scan — sind Teil von BlockMail Pro.</string>
+    <string name="pro_upsell_text">Die KI-Funktionen — KI-Suche, Zusammenfassen, Tages-Überblick, Antworten und Mails mit KI verfassen, Rechtschreibprüfung und der Newsletter-Scan — sind Teil von BlockMail Pro: 3 Tage kostenlos testen, danach 4,90 € im Monat.</string>
     <string name="pro_ok">Verstanden</string>
     <!-- Einführungs-Tour -->
     <string name="tour_skip">Überspringen</string>
@@ -78,7 +78,7 @@
     <string name="tour_1_title">Dein Posteingang, deine Ansicht</string>
     <string name="tour_1_text">Wechsle in der Kopfzeile zwischen Liste und Kacheln, hell und dunkel und deiner Lieblingsfarbe. Im Menü rechts oben findest du außerdem das schlichte Design und die Schriftgröße.</string>
     <string name="tour_2_title">Frag dein Postfach</string>
-    <string name="tour_2_text">Stelle der KI freie Fragen in der Suchleiste – zum Beispiel „Wie viel habe ich diesen Monat bei Amazon ausgegeben?“. Enter startet die KI, sie durchsucht dein Postfach und liest bei Bedarf die passenden Mails.</string>
+    <string name="tour_2_text">Stelle der KI freie Fragen in der Suchleiste – zum Beispiel „Wie viel habe ich diesen Monat bei Amazon ausgegeben?“. Enter startet die KI, sie durchsucht dein Postfach und liest bei Bedarf die passenden Mails. Teil von BlockMail Pro.</string>
     <string name="tour_3_title">Wischen erledigt den Rest</string>
     <string name="tour_3_text">Wische eine Mail nach links oder rechts: als gelesen markieren, erinnern, archivieren oder löschen. Welche Geste was tut, bestimmst du in den Einstellungen.</string>
     <string name="tour_4_title">Newsletter im Griff</string>
@@ -93,4 +93,6 @@
     <string name="tour_step_extras_text">BlockMail räumt Newsletter automatisch in einen eigenen Ordner, warnt vor Phishing, erinnert mit dem Antwort-Radar an unbeantwortete Mails und zeigt Statistiken. Alle Zusatzfunktionen findest du in den Einstellungen.</string>
     <string name="tour_step_compose_title">Neue Mail schreiben</string>
     <string name="tour_step_compose_text">Mit dem Stift beginnst du eine neue Mail — auf Wunsch hilft dir die KI beim Formulieren.</string>
+    <string name="tour_step_ai_title">Dein KI-Assistent</string>
+    <string name="tour_step_ai_text">Der KI-Knopf fasst deinen ganzen Tag oder alle ungelesenen Mails auf einen Blick zusammen. Alle KI-Funktionen sind Teil von BlockMail Pro: 3 Tage kostenlos testen, danach 4,90 € im Monat.</string>
 </resources>
