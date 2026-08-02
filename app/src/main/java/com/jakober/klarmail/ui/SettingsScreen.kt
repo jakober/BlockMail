@@ -259,7 +259,8 @@ private fun SwipeActionPicker(title: String, value: String, onSelect: (String) -
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenNewsletterLog: () -> Unit = {},
-    onOpenSetup: () -> Unit = {}
+    onOpenSetup: () -> Unit = {},
+    onOpenTour: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -1992,6 +1993,36 @@ fun SettingsScreen(
                     }
                 }
             }) { Text(stringResource(R.string.settings_feedback_write)) }
+            Row {
+                // Play-Store-Eintrag öffnen ("App bewerten") — wirkt erst
+                // richtig, sobald die App öffentlich im Store ist
+                OutlinedButton(onClick = {
+                    val pkg = context.packageName
+                    val flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                    try {
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("market://details?id=$pkg")
+                            ).addFlags(flags)
+                        )
+                    } catch (e: Exception) {
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(
+                                    "https://play.google.com/store/apps/details?id=$pkg"
+                                )
+                            ).addFlags(flags)
+                        )
+                    }
+                }) { Text(stringResource(R.string.settings_rate_app)) }
+                Spacer(Modifier.width(8.dp))
+                // Einführungs-Tour jederzeit erneut ansehen
+                OutlinedButton(onClick = onOpenTour) {
+                    Text(stringResource(R.string.settings_tour))
+                }
+            }
             if (showFeedbackDialog) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { if (!feedbackSending) showFeedbackDialog = false },

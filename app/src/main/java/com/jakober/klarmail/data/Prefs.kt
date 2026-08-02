@@ -295,6 +295,11 @@ object Prefs {
         get() = sp.getBoolean("welcome_shown", false)
         set(v) = sp.edit().putBoolean("welcome_shown", v).apply()
 
+    /** Einführungs-Tour bereits gezeigt? (einmalig nach der Einrichtung) */
+    var tourShown: Boolean
+        get() = sp.getBoolean("tour_shown", false)
+        set(v) = sp.edit().putBoolean("tour_shown", v).apply()
+
     var email: String
         get() = sp.getString("email", "") ?: ""
         set(v) = sp.edit().putString("email", v.trim()).apply()

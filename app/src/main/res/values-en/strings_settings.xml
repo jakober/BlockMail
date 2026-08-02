@@ -299,4 +299,6 @@
     <string name="setup_pw_outlook">Password / app password</string>
     <string name="setup_pw_tonline">Email password</string>
     <string name="setup_pw_icloud">App-specific password</string>
+    <string name="settings_rate_app">Rate this app</string>
+    <string name="settings_tour">View the intro</string>
 </resources>

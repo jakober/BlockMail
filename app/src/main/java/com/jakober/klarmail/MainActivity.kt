@@ -184,13 +184,32 @@ class MainActivity : ComponentActivity() {
                         SettingsScreen(
                             onBack = { nav.popBackStack() },
                             onOpenNewsletterLog = { nav.navigate("newsletterlog") },
-                            onOpenSetup = { nav.navigate("setup") }
+                            onOpenSetup = { nav.navigate("setup") },
+                            onOpenTour = { nav.navigate("tour") }
                         )
                     }
                     composable("setup") {
                         com.jakober.klarmail.ui.SetupWizardScreen(
-                            onDone = { nav.popBackStack("inbox", inclusive = false) },
+                            onDone = {
+                                // Nach der ersten Einrichtung einmalig die
+                                // Einführungs-Tour zeigen
+                                if (!Prefs.tourShown) {
+                                    nav.navigate("tour") {
+                                        popUpTo("inbox") { inclusive = false }
+                                    }
+                                } else {
+                                    nav.popBackStack("inbox", inclusive = false)
+                                }
+                            },
                             onBack = { nav.popBackStack() }
+                        )
+                    }
+                    composable("tour") {
+                        com.jakober.klarmail.ui.TourScreen(
+                            onDone = {
+                                Prefs.tourShown = true
+                                nav.popBackStack("inbox", inclusive = false)
+                            }
                         )
                     }
                     composable("welcome") {

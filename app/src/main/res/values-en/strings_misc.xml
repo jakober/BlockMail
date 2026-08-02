@@ -71,4 +71,18 @@
     <string name="pro_title">BlockMail Pro</string>
     <string name="pro_upsell_text">The AI features — AI search, summarizing, daily overview, drafting replies and emails with AI, proofreading, and the newsletter scan — are part of BlockMail Pro.</string>
     <string name="pro_ok">Got it</string>
+    <!-- Intro tour -->
+    <string name="tour_skip">Skip</string>
+    <string name="tour_next">Next</string>
+    <string name="tour_done">Let’s go</string>
+    <string name="tour_1_title">Your inbox, your view</string>
+    <string name="tour_1_text">Switch between list and tiles, light and dark, and your favorite color right from the header. The menu at the top right also holds the plain design and the font size.</string>
+    <string name="tour_2_title">Ask your mailbox</string>
+    <string name="tour_2_text">Ask the AI free-form questions in the search bar – for example “How much did I spend at Amazon this month?”. Enter starts the AI; it searches your mailbox and reads the matching mails when needed.</string>
+    <string name="tour_3_title">Swiping does the rest</string>
+    <string name="tour_3_text">Swipe a mail left or right: mark as read, snooze, archive, or delete. You choose what each gesture does in the settings.</string>
+    <string name="tour_4_title">Newsletters under control</string>
+    <string name="tour_4_text">BlockMail detects newsletters and, if you like, tidies them into their own folder every day. The phishing guard warns you about suspicious mails – right on your device.</string>
+    <string name="tour_5_title">Real-time push &amp; multiple accounts</string>
+    <string name="tour_5_text">New mails reach you in seconds. Connect several accounts and keep track of everything in one unified inbox.</string>
 </resources>
