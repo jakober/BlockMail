@@ -15,6 +15,28 @@ class MailApp : Application() {
         com.jakober.klarmail.data.MailIndex.init(this)
         createChannels()
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)
+        cleanupSenderShortcuts()
+    }
+
+    /**
+     * Frühere Versionen legten je Absender eine dynamische Verknüpfung an
+     * (für die Konversations-Benachrichtigung). Die tauchten sichtbar im
+     * Startbildschirm-Menü auf ("Amazon.de", "ING", …). Sie werden hier
+     * einmalig entfernt; neue Verknüpfungen sind vom Menü ausgeschlossen.
+     */
+    private fun cleanupSenderShortcuts() {
+        if (Prefs.senderShortcutsCleaned) return
+        runCatching {
+            val stale = androidx.core.content.pm.ShortcutManagerCompat
+                .getDynamicShortcuts(this)
+                .map { it.id }
+                .filter { it.startsWith("sender_") }
+            if (stale.isNotEmpty()) {
+                androidx.core.content.pm.ShortcutManagerCompat
+                    .removeDynamicShortcuts(this, stale)
+            }
+        }
+        Prefs.senderShortcutsCleaned = true
     }
 
     private fun createChannels() {

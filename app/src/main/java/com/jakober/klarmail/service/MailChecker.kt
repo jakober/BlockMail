@@ -258,12 +258,24 @@ object MailChecker {
             .apply { personIcon?.let { setIcon(it) } }
             .build()
         val shortcutId = "sender_" + fromAddress.ifBlank { senderName }.lowercase()
-        runCatching {
+        // Der Absender-Shortcut wird NUR ab Android 12 angelegt: Erst dort
+        // lässt er sich vom Startbildschirm-Menü ausschließen. Darunter
+        // greift der Fallback mit setLargeIcon(avatar) — die Absender
+        // erscheinen dafür nicht als App-Verknüpfungen.
+        val useConversationShortcut = android.os.Build.VERSION.SDK_INT >= 31
+        if (useConversationShortcut) runCatching {
             val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(context, shortcutId)
                 .setShortLabel(senderName)
                 .setLongLived(true)
                 .setPerson(senderPerson)
                 .apply { personIcon?.let { setIcon(it) } }
+                // NUR für die Konversations-Benachrichtigung, NICHT im
+                // Startbildschirm-Menü: Ohne diesen Ausschluss tauchten
+                // Absender wie "Amazon.de" als App-Verknüpfungen auf, wenn
+                // man lange auf das App-Symbol drückt.
+                .setExcludedFromSurfaces(
+                    androidx.core.content.pm.ShortcutInfoCompat.SURFACE_LAUNCHER
+                )
                 .setIntent(
                     Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
                 )
@@ -330,7 +342,7 @@ object MailChecker {
             .setContentTitle(from)
             .setContentText(subject)
             .setStyle(messagingStyle)
-            .setShortcutId(shortcutId)
+            .apply { if (useConversationShortcut) setShortcutId(shortcutId) }
             .setAutoCancel(true)
             .setContentIntent(openPending)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

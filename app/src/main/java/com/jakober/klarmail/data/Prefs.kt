@@ -300,6 +300,14 @@ object Prefs {
         get() = sp.getBoolean("tour_shown", false)
         set(v) = sp.edit().putBoolean("tour_shown", v).apply()
 
+    /**
+     * Einmalige Aufräumaktion: Absender-Verknüpfungen, die frühere
+     * Versionen im Startbildschirm-Menü hinterlassen haben, entfernen.
+     */
+    var senderShortcutsCleaned: Boolean
+        get() = sp.getBoolean("sender_shortcuts_cleaned", false)
+        set(v) = sp.edit().putBoolean("sender_shortcuts_cleaned", v).apply()
+
     var email: String
         get() = sp.getString("email", "") ?: ""
         set(v) = sp.edit().putString("email", v.trim()).apply()
