@@ -62,6 +62,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -454,7 +455,40 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
-            // Ganz oben: Erscheinungsbild (Hell/Dunkel + Farbwelt)
+            // Ganz oben: BlockMail Pro — Übersichtskarte, was Pro umfasst
+            // und der aktuelle Status. Bewusst ohne Kauf-Knopf (kommt
+            // später mit Play Billing).
+            SectionCard(
+                stringResource(R.string.settings_pro_title), Icons.Filled.WorkspacePremium,
+                subtitle = stringResource(R.string.settings_pro_subtitle)
+            ) {
+            Text(
+                stringResource(R.string.settings_pro_features),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            // KI-Status: Es gibt nur noch EINEN KI-Weg — die Pro-KI über den
+            // BlockMail-Server. Der Status wird deshalb hier in der Pro-Karte
+            // angezeigt (die frühere KI-Status-Karte ist entfallen).
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (isPro) stringResource(R.string.settings_ai_pro_active)
+                else stringResource(R.string.settings_ai_pro_inactive),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            if (com.jakober.klarmail.data.ProAccess.TEST_PHASE_UNLOCK) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.settings_pro_test_phase),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            }
+
             GroupHeader(stringResource(R.string.settings_group_accounts))
             SectionCard(
                 stringResource(R.string.settings_connect_title), Icons.Filled.AccountCircle,
@@ -506,7 +540,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
-                        TextButton(onClick = {
+                        OutlinedButton(onClick = {
                             GoogleAuth.signOut()
                             googleConnected = false
                             scope.launch {
@@ -518,7 +552,7 @@ fun SettingsScreen(
                     }
                 }
                 // Weiteres Konto anlegen, OHNE das aktuelle zu trennen
-                TextButton(onClick = {
+                OutlinedButton(onClick = {
                     addingAccount = true
                     email = ""
                     password = ""
@@ -535,7 +569,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    TextButton(onClick = {
+                    OutlinedButton(onClick = {
                         addingAccount = false
                         email = Prefs.email
                         password = Prefs.appPassword
@@ -688,7 +722,7 @@ fun SettingsScreen(
                     )
                 }
                 if (providerId == "gmail") {
-                    TextButton(onClick = { uriHandler.openUri("https://myaccount.google.com/apppasswords") }) {
+                    OutlinedButton(onClick = { uriHandler.openUri("https://myaccount.google.com/apppasswords") }) {
                         Text(stringResource(R.string.settings_gmail_app_password))
                         Spacer(Modifier.width(6.dp))
                         Icon(
@@ -1045,7 +1079,7 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = { showColorPicker = true }) { Text(stringResource(R.string.settings_change)) }
+                OutlinedButton(onClick = { showColorPicker = true }) { Text(stringResource(R.string.settings_change)) }
             }
             if (showColorPicker) {
                 ColorPickerDialog(
@@ -1213,7 +1247,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(8.dp))
             Row {
-                TextButton(onClick = {
+                OutlinedButton(onClick = {
                     MailSyncService.restart(context)
                     scope.launch {
                         snackbar.showSnackbar(context.getString(R.string.settings_push_restarted))
@@ -1221,7 +1255,7 @@ fun SettingsScreen(
                 }) { Text(stringResource(R.string.settings_push_restart)) }
                 val pm = context.getSystemService(android.os.PowerManager::class.java)
                 if (pm?.isIgnoringBatteryOptimizations(context.packageName) != true) {
-                    TextButton(onClick = {
+                    OutlinedButton(onClick = {
                         try {
                             context.startActivity(
                                 android.content.Intent(
@@ -1421,40 +1455,6 @@ fun SettingsScreen(
             }
 
             GroupHeader(stringResource(R.string.settings_group_ai))
-            // BlockMail Pro: Übersichtskarte — was Pro umfasst und der
-            // aktuelle Status. Bewusst ohne Kauf-Knopf (kommt später mit
-            // Play Billing).
-            SectionCard(
-                stringResource(R.string.settings_pro_title), Icons.Filled.WorkspacePremium,
-                subtitle = stringResource(R.string.settings_pro_subtitle)
-            ) {
-            Text(
-                stringResource(R.string.settings_pro_features),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            // KI-Status: Es gibt nur noch EINEN KI-Weg — die Pro-KI über den
-            // BlockMail-Server. Der Status wird deshalb hier in der Pro-Karte
-            // angezeigt (die frühere KI-Status-Karte ist entfallen).
-            Spacer(Modifier.height(8.dp))
-            Text(
-                if (isPro) stringResource(R.string.settings_ai_pro_active)
-                else stringResource(R.string.settings_ai_pro_inactive),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            if (com.jakober.klarmail.data.ProAccess.TEST_PHASE_UNLOCK) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.settings_pro_test_phase),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            }
-
             SectionCard(
                 stringResource(R.string.settings_newsletter_title), Icons.Filled.Newspaper,
                 subtitle = stringResource(R.string.settings_newsletter_subtitle)
@@ -1494,8 +1494,8 @@ fun SettingsScreen(
                 )
             }
             Row {
-                TextButton(onClick = onOpenNewsletterLog) { Text(stringResource(R.string.settings_newsletter_log)) }
-                TextButton(
+                OutlinedButton(onClick = onOpenNewsletterLog) { Text(stringResource(R.string.settings_newsletter_log)) }
+                OutlinedButton(
                     enabled = !newsletterRunning,
                     onClick = {
                         // Pro-Gate: Der manuelle Aufräum-Lauf ist Pro
@@ -1753,7 +1753,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            TextButton(onClick = { showTemplateDialog = true }) { Text(stringResource(R.string.settings_template_add)) }
+            OutlinedButton(onClick = { showTemplateDialog = true }) { Text(stringResource(R.string.settings_template_add)) }
 
             }
 
@@ -1856,7 +1856,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
                     )
-                    TextButton(onClick = { com.jakober.klarmail.data.MailIndex.cancelBuild() }) {
+                    OutlinedButton(onClick = { com.jakober.klarmail.data.MailIndex.cancelBuild() }) {
                         Text(stringResource(R.string.settings_cancel))
                     }
                 }
@@ -1960,10 +1960,10 @@ fun SettingsScreen(
                 }
             }
             Row {
-                TextButton(onClick = {
+                OutlinedButton(onClick = {
                     exportLauncher.launch("blockmail-einstellungen.json")
                 }) { Text(stringResource(R.string.settings_backup_export)) }
-                TextButton(onClick = {
+                OutlinedButton(onClick = {
                     importLauncher.launch(arrayOf("application/json", "application/octet-stream"))
                 }) { Text(stringResource(R.string.settings_backup_import)) }
             }
@@ -1981,7 +1981,7 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            TextButton(onClick = {
+            OutlinedButton(onClick = {
                 if (Prefs.isConfigured) {
                     showFeedbackDialog = true
                 } else {
@@ -2232,7 +2232,7 @@ private fun SenderListSection(
         ) { Text(stringResource(R.string.settings_add)) }
     }
     Box {
-        TextButton(onClick = { suggestOpen = true }) { Text(stringResource(R.string.settings_pick_known)) }
+        OutlinedButton(onClick = { suggestOpen = true }) { Text(stringResource(R.string.settings_pick_known)) }
         androidx.compose.material3.DropdownMenu(
             expanded = suggestOpen,
             onDismissRequest = { suggestOpen = false }
