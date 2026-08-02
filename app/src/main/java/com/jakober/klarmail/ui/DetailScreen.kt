@@ -681,32 +681,86 @@ fun DetailScreen(
                 }
             }
             attachmentDialog?.let { att ->
-                androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { attachmentDialog = null },
-                    title = { Text(att.name) },
-                    text = { Text(formatSize(att.size)) },
-                    confirmButton = {
-                        Column {
-                            androidx.compose.material3.TextButton(onClick = {
-                                attachmentDialog = null
-                                attachmentAction(att, "open")
-                            }) { Text(stringResource(R.string.detail_attachment_open)) }
-                            androidx.compose.material3.TextButton(onClick = {
-                                attachmentDialog = null
-                                attachmentAction(att, "share")
-                            }) { Text(stringResource(R.string.detail_attachment_share)) }
-                            androidx.compose.material3.TextButton(onClick = {
-                                attachmentDialog = null
-                                attachmentAction(att, "save")
-                            }) { Text(stringResource(R.string.detail_attachment_save)) }
+                // Bottom Sheet statt Dialog: Kopf mit Dateisymbol, Name und
+                // Größe, darunter volle Aktionszeilen mit Icons — schließt
+                // per Wisch nach unten oder Tipp daneben
+                androidx.compose.material3.ModalBottomSheet(
+                    onDismissRequest = { attachmentDialog = null }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.secondaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                attachmentIcon(att.mime),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
                         }
-                    },
-                    dismissButton = {
-                        androidx.compose.material3.TextButton(onClick = { attachmentDialog = null }) {
-                            Text(stringResource(R.string.detail_cancel))
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                att.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                formatSize(att.size),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
-                )
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    @Composable
+                    fun actionRow(
+                        icon: androidx.compose.ui.graphics.vector.ImageVector,
+                        label: String,
+                        action: String
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    attachmentDialog = null
+                                    attachmentAction(att, action)
+                                }
+                                .padding(horizontal = 24.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                icon,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.width(16.dp))
+                            Text(label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    actionRow(
+                        Icons.AutoMirrored.Filled.OpenInNew,
+                        stringResource(R.string.detail_attachment_open), "open"
+                    )
+                    actionRow(
+                        Icons.Filled.Share,
+                        stringResource(R.string.detail_attachment_share), "share"
+                    )
+                    actionRow(
+                        Icons.Filled.Download,
+                        stringResource(R.string.detail_attachment_save), "save"
+                    )
+                    Spacer(Modifier.height(24.dp))
+                }
             }
             // Bei HTML-Mails liegt der Kopf IM Seiteninhalt — das KI-Ergebnis
             // kommt deshalb als Dialog
