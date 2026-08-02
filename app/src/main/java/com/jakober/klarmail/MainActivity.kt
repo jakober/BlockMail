@@ -129,11 +129,17 @@ class MainActivity : ComponentActivity() {
                         arguments = listOf(navArgument("uid") { type = NavType.LongType })
                     ) { entry ->
                         val uid = entry.arguments?.getLong("uid") ?: return@composable
+                        // Rückfall-Objekt aus Suche/KI-Treffern: Die Mail kann
+                        // außerhalb des geladenen Fensters liegen — ohne den
+                        // Merker käme "Nachricht nicht gefunden"
+                        val fallback = com.jakober.klarmail.data.MailRepository
+                            .pendingOpen?.second?.takeIf { it.uid == uid }
                         DetailScreen(
                             uid = uid,
                             onBack = { nav.popBackStack() },
                             onReply = { nav.navigate("compose?replyTo=$uid") },
-                            onForward = { nav.navigate("compose?forward=$uid") }
+                            onForward = { nav.navigate("compose?forward=$uid") },
+                            fallbackMail = fallback
                         )
                     }
                     composable(

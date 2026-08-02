@@ -196,6 +196,19 @@ private fun extractAiKeywords(question: String): List<String> {
  * Absender, Datum, Konto, FTS-Snippet als Vorschau), der Ordner-Name wird auf
  * MailFolder zurückgemappt (unbekannt → INBOX).
  */
+/**
+ * Suchzustand auf Datei-Ebene: überlebt die Navigation in die Mail-Ansicht
+ * und zurück (der Posteingang verlässt dabei die Composition). exitSearch()
+ * setzt alles zurück.
+ */
+private val searchHoldQuery = androidx.compose.runtime.mutableStateOf("")
+private val searchHoldServerResults =
+    androidx.compose.runtime.mutableStateOf<List<MailMessage>?>(null)
+private val searchHoldAiAnswer =
+    androidx.compose.runtime.mutableStateOf<String?>(null)
+private val searchHoldAiHits =
+    androidx.compose.runtime.mutableStateOf<List<MailRepository.AiSearchHit>>(emptyList())
+
 private fun indexHitToAiHit(h: MailIndex.IndexHit): MailRepository.AiSearchHit {
     val folder = MailRepository.MailFolder.entries.firstOrNull { it.name == h.folder }
         ?: MailRepository.MailFolder.INBOX
@@ -450,9 +463,12 @@ fun InboxScreen(
     }
 
     // Such-/KI-Leiste: Tippen filtert live über die geladenen Mails (die
-    // frühere Suchmodus-Logik), Enter stellt die Frage der KI
-    var query by remember { mutableStateOf("") }
-    var serverResults by remember { mutableStateOf<List<MailMessage>?>(null) }
+    // frühere Suchmodus-Logik), Enter stellt die Frage der KI.
+    // Der Suchzustand lebt in SearchHold (Datei-Ebene) statt in remember:
+    // Beim Öffnen einer Mail verlässt der Posteingang die Composition —
+    // mit remember wären Suchbegriff und Ergebnisse beim Zurückkommen weg.
+    var query by searchHoldQuery
+    var serverResults by searchHoldServerResults
     var showDraftsDialog by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     var aiAskBusy by remember { mutableStateOf(false) }
@@ -462,9 +478,16 @@ fun InboxScreen(
     // Sichtbare Phase der KI-Suche: 0 = keine, 1 = Postfach durchsuchen,
     // 2 = KI befragen (Lese-Runde hat ihre eigene Anzeige)
     var aiPhase by remember { mutableStateOf(0) }
-    var aiAnswer by remember { mutableStateOf<String?>(null) }
-    var aiHits by remember {
-        mutableStateOf<List<MailRepository.AiSearchHit>>(emptyList())
+    var aiAnswer by searchHoldAiAnswer
+    var aiHits by searchHoldAiHits
+
+    // Öffnen aus Suche/KI-Treffern: Die Mail kann außerhalb des geladenen
+    // Fensters liegen (Server-Volltextsuche, Index-Treffer) — dann findet
+    // die Detailansicht sie nicht über die Liste. Deshalb wird sie als
+    // Rückfall-Objekt mitgegeben ("Nachricht nicht gefunden"-Fix).
+    fun openFromSearch(mail: MailMessage) {
+        MailRepository.pendingOpen = MailRepository.MailFolder.INBOX to mail
+        onOpenMail(mail.uid)
     }
 
     fun exitSearch() {
@@ -473,6 +496,8 @@ fun InboxScreen(
         searching = false
         aiAnswer = null
         aiHits = emptyList()
+        // Veralteten Öffnen-Merker aufräumen (uid-Kollisionen vermeiden)
+        MailRepository.pendingOpen = null
     }
     androidx.activity.compose.BackHandler(
         enabled = query.isNotEmpty() || aiAnswer != null || serverResults != null
@@ -1884,7 +1909,7 @@ fun InboxScreen(
                             } else {
                                 SwipeableMailBlock(
                                     mail = mail,
-                                    onClick = { onOpenMail(mail.uid) },
+                                    onClick = { openFromSearch(mail) },
                                     onLongClick = {},
                                     selected = false,
                                     selectionMode = false,
@@ -1923,7 +1948,7 @@ fun InboxScreen(
                             } else {
                                 SwipeableMailRow(
                                     mail = mail,
-                                    onClick = { onOpenMail(mail.uid) },
+                                    onClick = { openFromSearch(mail) },
                                     onLongClick = {},
                                     selected = false,
                                     selectionMode = false,
@@ -2032,7 +2057,7 @@ fun InboxScreen(
                     items(results, key = { it.uid }) { mail ->
                         SwipeableMailRow(
                             mail = mail,
-                            onClick = { onOpenMail(mail.uid) },
+                            onClick = { openFromSearch(mail) },
                             onLongClick = {},
                             selected = false,
                             selectionMode = false,
@@ -2119,7 +2144,7 @@ fun InboxScreen(
                             } else {
                                 SwipeableMailRow(
                                     mail = mail,
-                                    onClick = { onOpenMail(mail.uid) },
+                                    onClick = { openFromSearch(mail) },
                                     onLongClick = {},
                                     selected = false,
                                     selectionMode = false,

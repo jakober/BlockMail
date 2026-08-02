@@ -133,10 +133,15 @@ fun TwoPaneScreen(
                     // neu aufgebaut — sonst bleibt der alte WebView der vorherigen
                     // Mail hängen und füllt die Fläche weiß
                     androidx.compose.runtime.key(selectedUid) {
+                        // Rückfall-Objekt aus Suche/KI-Treffern (siehe
+                        // Detail-Route in MainActivity)
+                        val fallback = com.jakober.klarmail.data.MailRepository
+                            .pendingOpen?.second?.takeIf { it.uid == selectedUid }
                         DetailScreen(
                             uid = selectedUid,
                             onBack = { onSelect(-1L) },
-                            onReply = { onReply(selectedUid) }
+                            onReply = { onReply(selectedUid) },
+                            fallbackMail = fallback
                         )
                     }
                 }
