@@ -77,4 +77,8 @@
     <string name="tour_step_ai_title">Your AI assistant</string>
     <string name="tour_step_ai_text">The AI button summarizes your whole day or all unread mails at a glance. All AI features are part of BlockMail Pro: try it free for 3 days, then €4.90 per month.</string>
     <string name="pro_subscribe">Subscribe to Pro</string>
+    <string name="welcome_feature_attachments_title">All attachments in one place</string>
+    <string name="welcome_feature_attachments_text">Images, PDFs and documents from every email gathered in one gallery — find, open and share them without hunting for the email.</string>
+    <string name="tour_step_attachments_title">All attachments in one place</string>
+    <string name="tour_step_attachments_text">Tap the folder name: this is where you switch folders and accounts — and find “Attachments”. Images, PDFs and documents from every email are gathered there in one gallery.</string>
 </resources>

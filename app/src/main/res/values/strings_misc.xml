@@ -77,4 +77,8 @@
     <string name="tour_step_ai_title">Dein KI-Assistent</string>
     <string name="tour_step_ai_text">Der KI-Knopf fasst deinen ganzen Tag oder alle ungelesenen Mails auf einen Blick zusammen. Alle KI-Funktionen sind Teil von BlockMail Pro: 3 Tage kostenlos testen, danach 4,90 € im Monat.</string>
     <string name="pro_subscribe">Pro abonnieren</string>
+    <string name="welcome_feature_attachments_title">Alle Anhänge an einem Ort</string>
+    <string name="welcome_feature_attachments_text">Bilder, PDFs und Dokumente aus allen Mails gebündelt in einer Galerie — suchen, öffnen, teilen, ohne die Mail zu finden.</string>
+    <string name="tour_step_attachments_title">Alle Anhänge an einem Ort</string>
+    <string name="tour_step_attachments_text">Tippe auf den Ordner-Namen: Hier wechselst du Ordner und Konten — und findest „Anhänge“. Dort liegen Bilder, PDFs und Dokumente aus allen Mails gebündelt in einer Galerie.</string>
 </resources>

@@ -15,7 +15,7 @@ Zeichen-Limits: Titel 30, Kurzbeschreibung 80, Beschreibung 4000.
 BlockMail – E-Mail mit KI
 
 **Kurzbeschreibung (max. 80):**
-Schnelle E-Mail-App mit KI-Suche, Echtzeit-Push, Phishing-Schutz & Design.
+E-Mail-App mit KI-Suche, Anhang-Galerie, Echtzeit-Push & Phishing-Schutz.
 
 **Beschreibung:**
 
@@ -26,6 +26,9 @@ Stelle deiner Mailbox freie Fragen wie „Wie viel habe ich diesen Monat bei Ama
 
 ECHTZEIT-PUSH
 Neue E-Mails erreichen dich in Sekunden — dank dauerhafter IMAP-Verbindung, zuverlässig auch nach Neustarts und Netzwechseln.
+
+ALLE ANHÄNGE AN EINEM ORT
+Bilder, PDFs und Dokumente aus allen Mails liegen gebündelt in einer Galerie — nach Typ filterbar, direkt zu öffnen und zu teilen. Nie wieder die Mail suchen, nur um den Anhang zu finden.
 
 SCHUTZ VOR PHISHING & SPAM
 Der Phishing-Wächter prüft verdächtige Absender, Links und Formulierungen direkt auf deinem Gerät und warnt dich, bevor du klickst. Blockierte Absender werden sofort gelöscht.
@@ -40,7 +43,7 @@ ALLES DRIN
 • Lokaler Suchindex: findet auch jahrealte Mails in Sekunden
 • Später-erinnern (Snooze), geplantes Senden, Vorlagen, Signaturen
 • Antwort-Radar erinnert an unbeantwortete Mails
-• Anhang-Galerie, Kontakte mit Avataren, Statistik, Homescreen-Widget
+• Kontakte mit Avataren, Statistik, Homescreen-Widget
 • Backup & Umzug: Einstellungen exportieren und mitnehmen
 • Komplett auf Deutsch und Englisch
 
@@ -57,7 +60,7 @@ Hol dir Ordnung, Tempo und KI in dein Postfach — mit BlockMail.
 BlockMail – Email with AI
 
 **Short description (max. 80):**
-Fast email app with AI search, real-time push, phishing protection & style.
+Email app with AI search, attachment gallery, real-time push & phishing guard.
 
 **Description:**
 
@@ -68,6 +71,9 @@ Ask your mailbox free-form questions like “How much did I spend at Amazon this
 
 REAL-TIME PUSH
 New emails reach you in seconds — thanks to a persistent IMAP connection that survives reboots and network changes.
+
+ALL ATTACHMENTS IN ONE PLACE
+Images, PDFs and documents from every email are gathered in one gallery — filter by type, open and share them directly. Never hunt for an email just to find its attachment again.
 
 PHISHING & SPAM PROTECTION
 The phishing guard checks suspicious senders, links, and wording right on your device and warns you before you tap. Blocked senders are deleted on arrival.
@@ -82,7 +88,7 @@ EVERYTHING INCLUDED
 • Local search index: finds even years-old mails in seconds
 • Snooze, scheduled send, templates, signatures
 • Reply radar reminds you of unanswered mails
-• Attachment gallery, contacts with avatars, statistics, home screen widget
+• Contacts with avatars, statistics, home screen widget
 • Backup & transfer: export your settings and take them along
 • Fully available in English and German
 

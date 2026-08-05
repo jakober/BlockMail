@@ -80,10 +80,15 @@ private Post auf einem Gerät verwalten und dabei auf Datenschutz achten.
 2. **Echtzeit-Push.** Neue Mails kommen in Sekunden an, nicht erst beim
    nächsten Abrufintervall. Technisch über eine dauerhafte
    IMAP-Verbindung, die auch Neustarts und Netzwechsel übersteht.
-3. **Phishing-Wächter.** Prüft verdächtige Absender, Links und
+3. **Alle Anhänge an einem Ort.** Bilder, PDFs und Dokumente aus allen
+   Mails gebündelt in einer Galerie, nach Typ filterbar, direkt zu
+   öffnen und zu teilen — man muss nie wieder die Mail suchen, nur um
+   an den Anhang zu kommen. Das können die wenigsten Mail-Apps; ruhig
+   groß zeigen.
+4. **Phishing-Wächter.** Prüft verdächtige Absender, Links und
    Formulierungen und warnt mit rotem Hinweis, bevor man klickt. Läuft
    vollständig auf dem Gerät — hierfür verlassen keine Daten das Handy.
-4. **Sieht aus, wie man will.** Liste oder Kacheln, hell oder dunkel,
+5. **Sieht aus, wie man will.** Liste oder Kacheln, hell oder dunkel,
    sechs Farbwelten plus frei wählbare Farbe, schlichtes Design ohne
    Ablenkung, einstellbare Schriftgröße.
 
@@ -127,6 +132,10 @@ private Post auf einem Gerät verwalten und dabei auf Datenschutz achten.
 - VIP-Absender: auf Wunsch nur noch von diesen benachrichtigt werden
 - Stumme und blockierte Absender
 
+**Anhänge**
+- Anhang-Galerie über alle Mails: Bilder, PDFs und Dokumente gebündelt
+- Nach Typ filterbar (alle / Bilder / Dokumente), direkt öffnen und teilen
+
 **Sicherheit und Ordnung**
 - Phishing-Wächter (auf dem Gerät)
 - Antwort-Radar: erinnert an Mails mit offenen Fragen und daran, wenn
@@ -134,7 +143,6 @@ private Post auf einem Gerät verwalten und dabei auf Datenschutz achten.
 - Blockierte Absender werden sofort gelöscht
 
 **Extras**
-- Anhang-Galerie über alle Mails
 - Kontakte mit Absenderbildern
 - Statistik: Aufkommen je Wochentag, Top-Absender, Verlauf
 - Startbildschirm-Widget

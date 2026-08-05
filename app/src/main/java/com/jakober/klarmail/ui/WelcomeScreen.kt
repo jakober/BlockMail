@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInbox
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AutoAwesomeMosaic
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -87,6 +88,12 @@ fun WelcomeScreen(onSetup: () -> Unit, onSkip: () -> Unit) {
                 Icons.Filled.Radar,
                 stringResource(R.string.welcome_feature_radar_title),
                 stringResource(R.string.welcome_feature_radar_text)
+            )
+            Spacer(Modifier.height(14.dp))
+            WelcomeFeature(
+                Icons.Filled.AttachFile,
+                stringResource(R.string.welcome_feature_attachments_title),
+                stringResource(R.string.welcome_feature_attachments_text)
             )
             Spacer(Modifier.height(14.dp))
             WelcomeFeature(

@@ -954,12 +954,19 @@ fun InboxScreen(
                         val currentFolder by MailRepository.currentFolder.collectAsState()
                         val customFolder by MailRepository.customFolder.collectAsState()
                         var folderMenuOpen by remember { mutableStateOf(false) }
+                        // Tour-Schritt "Anhänge": Ordner-Menü automatisch
+                        // öffnen, damit der Eintrag sichtbar ist
+                        LaunchedEffect(InboxTour.active, InboxTour.step) {
+                            if (InboxTour.active) folderMenuOpen = InboxTour.step == 2
+                        }
                         Box {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clickable(enabled = configured) {
-                                    folderMenuOpen = true
-                                }
+                                modifier = Modifier
+                                    .tourTarget("folderMenu")
+                                    .clickable(enabled = configured) {
+                                        folderMenuOpen = true
+                                    }
                             ) {
                                 // Lokaler Wert: Bei einer per "by" gehaltenen
                                 // Variablen kann Kotlin nicht smart-casten
@@ -987,7 +994,10 @@ fun InboxScreen(
                                 shape = RoundedCornerShape(20.dp),
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 offset = androidx.compose.ui.unit.DpOffset(0.dp, 8.dp),
-                                modifier = Modifier.widthIn(min = 220.dp)
+                                modifier = Modifier.widthIn(min = 220.dp),
+                                properties = androidx.compose.ui.window.PopupProperties(
+                                    focusable = !InboxTour.active
+                                )
                             ) {
                                 // Vom Nutzer ausgeblendete Ordner dieses Kontos weglassen
                                 val hiddenVersion by Prefs.hiddenFoldersFlow.collectAsState()
@@ -2694,6 +2704,11 @@ private fun TourOverlay() {
                 "headerRight",
                 R.string.tour_step_menu_title, R.string.tour_step_menu_text
             ),
+            TourStep(
+                "folderMenu",
+                R.string.tour_step_attachments_title,
+                R.string.tour_step_attachments_text
+            ),
             TourStep("search", R.string.tour_2_title, R.string.tour_2_text),
             // KI-Knopf unten links: Tages-Überblick & Co. + Pro-Hinweis
             TourStep(
@@ -2778,7 +2793,7 @@ private fun TourOverlay() {
         // ohne Ziel (Extras-Schritt) mittig.
         val placement = when {
             rect == null -> "center"
-            s.key == "headerRight" -> "bottom"
+            s.key == "headerRight" || s.key == "folderMenu" -> "bottom"
             (heightPx - rect.bottom) >= rect.top -> "below"
             else -> "above"
         }
