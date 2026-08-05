@@ -61,6 +61,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -450,20 +451,15 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
-            // Ganz oben: BlockMail Pro — Übersichtskarte, was Pro umfasst
-            // und der aktuelle Status. Bewusst ohne Kauf-Knopf (kommt
-            // später mit Play Billing).
+            // Ganz oben: BlockMail Pro — was Pro umfasst, wie viele
+            // KI-Anfragen im laufenden Monat noch übrig sind und beide
+            // Tarife zur Auswahl bzw. zum Wechseln.
             SectionCard(
                 stringResource(R.string.settings_pro_title), Icons.Filled.WorkspacePremium,
                 subtitle = stringResource(R.string.settings_pro_subtitle)
             ) {
             Text(
                 stringResource(R.string.settings_pro_features),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                stringResource(R.string.settings_pro_price),
                 style = MaterialTheme.typography.bodyMedium
             )
             // KI-Status: Es gibt nur noch EINEN KI-Weg — die Pro-KI über den
@@ -486,18 +482,84 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            // Abo abschließen bzw. verwalten (Play-Kaufdialog)
-            Spacer(Modifier.height(8.dp))
-            val hasSub = com.jakober.klarmail.data.ProAccess.hasSubscription
-            if (hasSub) {
-                OutlinedButton(onClick = {
-                    uriHandler.openUri(
-                        com.jakober.klarmail.data.BillingManager.manageSubscriptionUrl()
+
+            // Monatliches Kontingent: Stand kommt vom BlockMail-Server, der
+            // die Anfragen zählt (siehe AiQuota). Beim Öffnen der
+            // Einstellungen wird einmal frisch abgefragt.
+            val quota by com.jakober.klarmail.data.AiQuota.info.collectAsState()
+            val quotaLoading by com.jakober.klarmail.data.AiQuota.loading.collectAsState()
+            LaunchedEffect(Unit) { com.jakober.klarmail.data.AiQuota.refresh() }
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(R.string.settings_pro_quota_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(6.dp))
+            val q = quota
+            if (q != null) {
+                Text(
+                    stringResource(
+                        R.string.settings_pro_quota_remaining, q.remaining, q.limit
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                // Balken: auf einen Blick, wie viel schon verbraucht ist
+                Spacer(Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = {
+                        if (q.limit <= 0) 0f
+                        else (q.remaining.toFloat() / q.limit).coerceIn(0f, 1f)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                )
+                val resetText = com.jakober.klarmail.data.AiQuota.formatReset(q.resetsAt)
+                if (resetText.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        stringResource(R.string.settings_pro_quota_reset, resetText),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }) { Text(stringResource(R.string.settings_pro_manage)) }
+                }
             } else {
-                OutlinedButton(onClick = {
-                    val started = com.jakober.klarmail.data.BillingManager.purchase(context)
+                Text(
+                    if (quotaLoading) stringResource(R.string.settings_pro_quota_loading)
+                    else stringResource(R.string.settings_pro_quota_unknown),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = {
+                scope.launch { com.jakober.klarmail.data.AiQuota.refresh() }
+            }) { Text(stringResource(R.string.settings_pro_quota_refresh)) }
+
+            // Tarife: Preis kommt aus dem Play Store, die Anfragezahl steht
+            // daneben — so ist beim Kauf klar, was man bekommt.
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
+            val activePlan by
+                com.jakober.klarmail.data.BillingManager.activePlan.collectAsState()
+            Text(
+                stringResource(R.string.settings_pro_plans_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(8.dp))
+            ProPlanChooser(
+                currentPlan = activePlan,
+                onPick = { basePlan ->
+                    val started = com.jakober.klarmail.data.BillingManager
+                        .purchase(context, basePlan)
                     if (!started) {
                         scope.launch {
                             snackbar.showSnackbar(
@@ -505,7 +567,16 @@ fun SettingsScreen(
                             )
                         }
                     }
-                }) { Text(stringResource(R.string.settings_pro_subscribe)) }
+                }
+            )
+            // Abo verwalten (Kündigen, Zahlungsweise) läuft über Play
+            if (com.jakober.klarmail.data.ProAccess.hasSubscription) {
+                Spacer(Modifier.height(10.dp))
+                OutlinedButton(onClick = {
+                    uriHandler.openUri(
+                        com.jakober.klarmail.data.BillingManager.manageSubscriptionUrl()
+                    )
+                }) { Text(stringResource(R.string.settings_pro_manage)) }
             }
 
             }

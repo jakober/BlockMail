@@ -34,7 +34,7 @@ Antwort aus den eigenen Mails.
 | Paketname | com.jakober.klarmail |
 | Sprachen der App | Deutsch, Englisch (automatisch nach Systemsprache) |
 | Preis der App | kostenlos |
-| Optionales Abo | BlockMail Pro: 3 Tage kostenlos testen, danach 4,90 € pro Monat |
+| Optionales Abo | BlockMail Pro: 3 Tage kostenlos testen, danach 4,90 €/Monat (150 KI-Anfragen) oder 9 €/Monat (300 KI-Anfragen) |
 | Anbieter | Mathis Jakober / Blockwerk Orange |
 | Kontakt | mat.jakober@gmail.com |
 | Datenschutzerklärung | https://jakober.github.io/BlockMail/datenschutz.html |
@@ -149,7 +149,22 @@ private Post auf einem Gerät verwalten und dabei auf Datenschutz achten.
 - Backup und Umzug: Einstellungen exportieren und importieren
 - Interaktive Einführung beim ersten Start
 
-### BlockMail Pro (3 Tage kostenlos, danach 4,90 € im Monat)
+### BlockMail Pro (3 Tage kostenlos, danach ab 4,90 € im Monat)
+
+Es gibt zwei Stufen — der Unterschied ist allein die Zahl der
+KI-Anfragen pro Monat, der Funktionsumfang ist identisch:
+
+| Tarif | Preis | KI-Anfragen im Monat |
+|-------|-------|----------------------|
+| BlockMail Pro | 4,90 € / Monat | 150 |
+| BlockMail Pro+ | 9,00 € / Monat | 300 |
+
+Als eine Anfrage zählt jede KI-Aktion (Frage ans Postfach,
+Zusammenfassung, Tages-Überblick, Antwortentwurf, Verfassen,
+Rechtschreibprüfung). Der verbleibende Stand steht jederzeit in den
+Einstellungen der App, samt Datum des nächsten Kontingents. Nicht
+genutzte Anfragen verfallen am Monatsende; der Tarif lässt sich in Google
+Play jederzeit wechseln oder kündigen.
 
 Ein Abo schaltet alle KI-Funktionen zusammen frei:
 - **KI-Suche** „Frag dein Postfach" inklusive Volltext-Lesen
@@ -206,10 +221,12 @@ Als Formulierung für die Webseite geeignet:
    Ansichten, Screenshot-Galerie
 6. **Alle Funktionen** — die Liste aus Abschnitt 5, aufklappbar oder als
    Raster mit Symbolen
-7. **Preise** — zwei Karten: „BlockMail kostenlos" (alle
-   Mail-Funktionen) und „BlockMail Pro — 4,90 €/Monat, 3 Tage gratis
-   testen" (alle KI-Funktionen). Deutlich sagen: Die App selbst ist und
-   bleibt kostenlos.
+7. **Preise** — drei Karten: „BlockMail kostenlos" (alle
+   Mail-Funktionen), „BlockMail Pro — 4,90 €/Monat, 150 KI-Anfragen" und
+   „BlockMail Pro+ — 9 €/Monat, 300 KI-Anfragen", beide mit 3 Tagen
+   gratis. Bei beiden Pro-Karten die Anfragezahl gleich groß setzen wie
+   den Preis — sie ist der einzige Unterschied. Deutlich sagen: Die App
+   selbst ist und bleibt kostenlos.
 8. **Datenschutz** — Abschnitt 6, ruhig mit Schloss-Symbolik
 9. **Häufige Fragen** — siehe Abschnitt 9
 10. **Abschluss-Aufruf** — Play-Store-Knopf noch einmal groß
@@ -261,7 +278,14 @@ gängigen Anbieter sind eingebaut.
 **Kostet die App etwas?**
 Nein. Alle Mail-Funktionen sind dauerhaft kostenlos. Nur die
 KI-Funktionen sind im Abo BlockMail Pro zusammengefasst: 3 Tage
-kostenlos testen, danach 4,90 € im Monat, jederzeit kündbar.
+kostenlos testen, danach 4,90 € im Monat mit 150 KI-Anfragen oder 9 € mit
+300 Anfragen — jederzeit kündbar.
+
+**Was ist eine „KI-Anfrage"?**
+Jede Aktion, für die die KI arbeitet: eine Frage an dein Postfach, eine
+Zusammenfassung, der Tages-Überblick, ein Antwortentwurf, eine mit KI
+verfasste Mail oder eine Rechtschreibprüfung. Wie viele du im laufenden
+Monat noch hast, steht in den Einstellungen der App.
 
 **Was passiert mit meinen Mails?**
 Sie liegen bei deinem Anbieter und auf deinem Gerät. Zugangsdaten

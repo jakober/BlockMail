@@ -288,9 +288,15 @@
     <string name="setup_pw_icloud">App-spezifisches Passwort</string>
     <string name="settings_rate_app">App bewerten</string>
     <string name="settings_tour">Einführung ansehen</string>
-    <string name="settings_pro_price">BlockMail Pro: 3 Tage kostenlos testen, danach 4,90 € im Monat.</string>
     <string name="settings_pro_subscribe">BlockMail Pro abonnieren</string>
     <string name="settings_pro_manage">Abo verwalten</string>
+    <string name="settings_pro_quota_title">Dein KI-Kontingent</string>
+    <string name="settings_pro_quota_remaining">%1$d von %2$d KI-Anfragen übrig</string>
+    <string name="settings_pro_quota_reset">Neues Kontingent am %1$s</string>
+    <string name="settings_pro_quota_loading">Kontingent wird geladen …</string>
+    <string name="settings_pro_quota_unknown">Noch kein Kontingent abrufbar — es erscheint hier, sobald ein Abo aktiv ist.</string>
+    <string name="settings_pro_quota_refresh">Kontingent aktualisieren</string>
+    <string name="settings_pro_plans_title">Tarife</string>
     <string name="settings_pro_unavailable">Der Kauf ist gerade nicht möglich. Prüfe deine Play-Store-Verbindung und versuche es später erneut.</string>
     <string name="settings_more_folders">Weitere Ordner vom Server</string>
     <string name="settings_more_folders_desc">Ordner, die dein Anbieter zusätzlich anbietet — angekreuzte erscheinen im Ordner-Menü des Posteingangs.</string>

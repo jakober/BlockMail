@@ -106,10 +106,13 @@ object ClaudeClient {
                             if (deviceIsGerman) "Pro-Abo erforderlich"
                             else "Pro subscription required"
                         )
-                        429 -> throw IOException(
-                            if (deviceIsGerman) "Tageslimit der Pro-KI erreicht"
-                            else "Daily Pro AI limit reached"
-                        )
+                        429 -> {
+                            com.jakober.klarmail.data.AiQuota.refreshSoon()
+                            throw IOException(
+                                if (deviceIsGerman) "Monatliches KI-Kontingent aufgebraucht"
+                                else "Monthly AI quota used up"
+                            )
+                        }
                     }
                     // Sonst wie bisher: Fehlermeldung der Anthropic-Antwort;
                     // defensiv geparst, weil z. B. ein 504 des Proxys auch
@@ -123,6 +126,8 @@ object ClaudeClient {
                 if (json.optString("stop_reason") == "refusal") {
                     throw IOException("Die Anfrage wurde aus Sicherheitsgründen abgelehnt.")
                 }
+                // Anfrage ging durch: Kontingent-Anzeige sofort mitziehen
+                com.jakober.klarmail.data.AiQuota.noteUsed()
                 val content = json.getJSONArray("content")
                 val sb = StringBuilder()
                 for (i in 0 until content.length()) {

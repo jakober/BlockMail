@@ -17,48 +17,49 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Google-Play-Billing für das Abo „BlockMail Pro“.
+ * Google-Play-Billing für „BlockMail Pro“ mit zwei Stufen.
  *
- * Ablauf:
- *  1. [init] beim App-Start: Verbindung aufbauen und vorhandene Käufe
- *     abfragen — damit ist Pro nach Neuinstallation sofort wieder aktiv.
- *  2. [purchase] öffnet den Play-Kaufdialog (inklusive der 3-Tage-Testphase,
- *     die als Angebot am Basis-Tarif in der Play Console hinterlegt ist).
- *  3. Jeder Kauf wird bestätigt (acknowledge) — ohne Bestätigung erstattet
- *     Google das Abo nach drei Tagen automatisch zurück.
+ * Beide Stufen sind Basis-Tarife EINES Abo-Produkts (so empfiehlt es
+ * Google): Damit kann der Nutzer über Play direkt zwischen ihnen wechseln,
+ * ohne zu kündigen.
  *
- * Der Kauf-Token wird in [Prefs.purchaseToken] abgelegt und von
- * [com.jakober.klarmail.ai.ClaudeClient] als Kopfzeile mitgeschickt, damit
- * der BlockMail-Server das Abo serverseitig gegenprüfen kann.
+ *  - [BASE_PLAN_PRO]  — 150 KI-Anfragen im Monat
+ *  - [BASE_PLAN_PLUS] — 300 KI-Anfragen im Monat
  *
- * Solange [ProAccess.TEST_PHASE_UNLOCK] auf true steht, ist Pro ohnehin für
- * alle frei — dieser Code läuft dann zwar mit, ändert aber nichts.
+ * Die Preise kommen IMMER aus dem Play Store (siehe [priceFor]) — niemals
+ * fest verdrahtet, sonst stimmen Währung und Steuersatz je Land nicht.
+ * Wie viele Anfragen tatsächlich übrig sind, weiß der BlockMail-Server
+ * (siehe [AiQuota]).
  */
 object BillingManager {
 
-    /** Produkt-ID des Abos in der Play Console. */
+    /** Abo-Produkt in der Play Console. */
     const val PRODUCT_ID = "blockmail_pro"
 
-    private var client: BillingClient? = null
-    private var appContext: Context? = null
+    /** Basis-Tarif „Pro“: 150 KI-Anfragen im Monat. */
+    const val BASE_PLAN_PRO = "pro-150"
 
-    /** Zuletzt geladene Angebotsdaten (für Preis-Anzeige und Kauf). */
+    /** Basis-Tarif „Pro+“: 300 KI-Anfragen im Monat. */
+    const val BASE_PLAN_PLUS = "pro-300"
+
+    /** Enthaltene KI-Anfragen je Tarif (nur zur Anzeige). */
+    const val REQUESTS_PRO = 150
+    const val REQUESTS_PLUS = 300
+
+    private var client: BillingClient? = null
+
+    /** Tarif, für den gerade der Play-Kaufdialog geöffnet wurde. */
+    private var pendingPlan = ""
+
     private val _productDetails = MutableStateFlow<ProductDetails?>(null)
     val productDetails: StateFlow<ProductDetails?> = _productDetails
 
-    /** Formatierter Preis aus dem Store, z. B. „4,90 €“ — null, wenn unbekannt. */
-    val formattedPrice: String?
-        get() = _productDetails.value
-            ?.subscriptionOfferDetails
-            ?.lastOrNull()
-            ?.pricingPhases
-            ?.pricingPhaseList
-            ?.lastOrNull()
-            ?.formattedPrice
+    /** Aktiver Basis-Tarif ("" = kein Abo). */
+    private val _activePlan = MutableStateFlow("")
+    val activePlan: StateFlow<String> = _activePlan
 
     fun init(context: Context) {
         if (client != null) return
-        appContext = context.applicationContext
         val c = BillingClient.newBuilder(context.applicationContext)
             .setListener { result, purchases ->
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
@@ -85,13 +86,12 @@ object BillingManager {
                 }
 
                 override fun onBillingServiceDisconnected() {
-                    // Beim nächsten Bedarf wird neu verbunden (siehe purchase/refresh)
+                    // Beim nächsten Bedarf wird neu verbunden
                 }
             })
         }
     }
 
-    /** Angebotsdaten laden (Preis + Angebots-Token für den Kaufdialog). */
     private fun queryProduct() {
         val c = client ?: return
         val params = QueryProductDetailsParams.newBuilder()
@@ -112,9 +112,28 @@ object BillingManager {
     }
 
     /**
-     * Vorhandene Abos abfragen und den Pro-Status setzen. Wird beim App-Start
-     * und nach jedem Kauf aufgerufen.
+     * Angebot eines Basis-Tarifs. Gibt es dazu ein Angebot mit
+     * Gratis-Testphase, hat dieses mehrere Preisphasen — das nehmen wir,
+     * damit der Nutzer die 3 Tage auch wirklich bekommt.
      */
+    private fun offerFor(basePlanId: String): ProductDetails.SubscriptionOfferDetails? {
+        val offers = _productDetails.value?.subscriptionOfferDetails
+            ?.filter { it.basePlanId == basePlanId } ?: return null
+        return offers.maxByOrNull { it.pricingPhases.pricingPhaseList.size }
+    }
+
+    /**
+     * Preis eines Basis-Tarifs, wie ihn Play anzeigt (z. B. „4,90 €“) —
+     * null, solange die Angebotsdaten noch nicht geladen sind. Genommen
+     * wird die LETZTE Preisphase, also der Dauerpreis nach der Testphase.
+     */
+    fun priceFor(basePlanId: String): String? =
+        offerFor(basePlanId)?.pricingPhases?.pricingPhaseList?.lastOrNull()?.formattedPrice
+
+    /** Enthaltene Anfragen je Basis-Tarif. */
+    fun requestsFor(basePlanId: String): Int =
+        if (basePlanId == BASE_PLAN_PLUS) REQUESTS_PLUS else REQUESTS_PRO
+
     fun refreshPurchases() {
         val c = client ?: return
         if (!c.isReady) {
@@ -126,25 +145,40 @@ object BillingManager {
             .build()
         runCatching {
             c.queryPurchasesAsync(params) { result, purchases ->
-                if (result.responseCode != BillingClient.BillingResponseCode.OK) return@queryPurchasesAsync
+                if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                    return@queryPurchasesAsync
+                }
                 val active = purchases.filter {
                     it.purchaseState == Purchase.PurchaseState.PURCHASED
                 }
                 active.forEach { handlePurchase(it) }
                 if (active.isEmpty()) {
                     Prefs.purchaseToken = ""
+                    Prefs.proPlan = ""
+                    _activePlan.value = ""
                     ProAccess.setSubscribed(false)
+                    AiQuota.clear()
+                } else {
+                    _activePlan.value = Prefs.proPlan
+                    AiQuota.refreshSoon()
                 }
             }
         }
     }
 
-    /** Kauf bestätigen, Token merken und Pro freischalten. */
     private fun handlePurchase(purchase: Purchase) {
         if (purchase.purchaseState != Purchase.PurchaseState.PURCHASED) return
         if (purchase.products.none { it == PRODUCT_ID }) return
         Prefs.purchaseToken = purchase.purchaseToken
+        // Welcher Basis-Tarif gekauft wurde, verrät Play erst nach der
+        // Server-Prüfung sicher — der Merker dient nur der Anzeige und wird
+        // von der Kontingent-Abfrage überschrieben (siehe [planFromServer]).
+        val plan = pendingPlan.ifBlank { Prefs.proPlan }.ifBlank { BASE_PLAN_PRO }
+        pendingPlan = ""
+        Prefs.proPlan = plan
+        _activePlan.value = plan
         ProAccess.setSubscribed(true)
+        AiQuota.refreshSoon()
         if (!purchase.isAcknowledged) {
             val c = client ?: return
             val params = AcknowledgePurchaseParams.newBuilder()
@@ -155,22 +189,20 @@ object BillingManager {
     }
 
     /**
-     * Öffnet den Play-Kaufdialog. Gibt false zurück, wenn das nicht möglich
-     * ist (kein Play-Dienst, Angebot noch nicht geladen, kein Activity-
-     * Kontext) — der Aufrufer zeigt dann einen Hinweis.
+     * Öffnet den Play-Kaufdialog für einen Basis-Tarif. Läuft bereits ein
+     * Abo im anderen Tarif, wird gewechselt statt neu gekauft (Play rechnet
+     * den Restbetrag an). false = Kauf nicht möglich (Play nicht bereit,
+     * Angebot noch nicht geladen).
      */
-    fun purchase(context: Context): Boolean {
+    fun purchase(context: Context, basePlanId: String): Boolean {
         val c = client ?: return false
         val activity = context.findActivity() ?: return false
         val details = _productDetails.value ?: run {
             queryProduct()
             return false
         }
-        // Letztes Angebot nehmen: Play stellt das Angebot mit Testphase
-        // voran; das Basis-Angebot ohne Testphase steht am Ende der Liste.
-        val offerToken = details.subscriptionOfferDetails
-            ?.firstOrNull()?.offerToken ?: return false
-        val params = BillingFlowParams.newBuilder()
+        val offerToken = offerFor(basePlanId)?.offerToken ?: return false
+        val builder = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(
                 listOf(
                     BillingFlowParams.ProductDetailsParams.newBuilder()
@@ -179,14 +211,38 @@ object BillingManager {
                         .build()
                 )
             )
-            .build()
+        val oldToken = Prefs.purchaseToken
+        if (oldToken.isNotBlank() && Prefs.proPlan.isNotBlank() &&
+            Prefs.proPlan != basePlanId
+        ) {
+            builder.setSubscriptionUpdateParams(
+                BillingFlowParams.SubscriptionUpdateParams.newBuilder()
+                    .setOldPurchaseToken(oldToken)
+                    .setSubscriptionReplacementMode(
+                        BillingFlowParams.SubscriptionUpdateParams
+                            .ReplacementMode.CHARGE_PRORATED_PRICE
+                    )
+                    .build()
+            )
+        }
+        pendingPlan = basePlanId
         return runCatching {
-            val r = c.launchBillingFlow(activity, params)
+            val r = c.launchBillingFlow(activity, builder.build())
             r.responseCode == BillingClient.BillingResponseCode.OK
         }.getOrDefault(false)
     }
 
-    /** Play-Store-Seite zur Abo-Verwaltung (Kündigen, Zahlungsmittel). */
+    /**
+     * Der BlockMail-Server hat den Kauf bei Google geprüft und kennt den
+     * echten Tarif — der schlägt jede lokale Vermutung.
+     */
+    fun planFromServer(basePlanId: String) {
+        if (basePlanId.isBlank()) return
+        Prefs.proPlan = basePlanId
+        _activePlan.value = basePlanId
+    }
+
+    /** Play-Store-Seite zur Abo-Verwaltung (Tarif wechseln, kündigen). */
     fun manageSubscriptionUrl(): String =
         "https://play.google.com/store/account/subscriptions" +
             "?sku=$PRODUCT_ID&package=com.jakober.klarmail"

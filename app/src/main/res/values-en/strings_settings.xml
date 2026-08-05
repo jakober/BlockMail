@@ -288,9 +288,15 @@
     <string name="setup_pw_icloud">App-specific password</string>
     <string name="settings_rate_app">Rate this app</string>
     <string name="settings_tour">View the intro</string>
-    <string name="settings_pro_price">BlockMail Pro: try it free for 3 days, then €4.90 per month.</string>
     <string name="settings_pro_subscribe">Subscribe to BlockMail Pro</string>
     <string name="settings_pro_manage">Manage subscription</string>
+    <string name="settings_pro_quota_title">Your AI quota</string>
+    <string name="settings_pro_quota_remaining">%1$d of %2$d AI requests left</string>
+    <string name="settings_pro_quota_reset">New quota on %1$s</string>
+    <string name="settings_pro_quota_loading">Loading quota …</string>
+    <string name="settings_pro_quota_unknown">No quota available yet — it appears here as soon as a subscription is active.</string>
+    <string name="settings_pro_quota_refresh">Refresh quota</string>
+    <string name="settings_pro_plans_title">Plans</string>
     <string name="settings_pro_unavailable">Purchasing is not available right now. Check your Play Store connection and try again later.</string>
     <string name="settings_more_folders">More folders from the server</string>
     <string name="settings_more_folders_desc">Folders your provider offers in addition — checked ones appear in the inbox folder menu.</string>

@@ -14,7 +14,7 @@
     <string name="welcome_feature_accounts_title">Alle Konten, ein Überblick</string>
     <string name="welcome_feature_accounts_text">Mehrere Postfächer mit eigenen Farben — einzeln oder gemeinsam.</string>
     <string name="welcome_feature_ai_title">KI-Assistent (BlockMail Pro)</string>
-    <string name="welcome_feature_ai_text">Zusammenfassen, Antworten entwerfen und Tages-Überblick. Läuft über den BlockMail-Server — Inhalte werden dort nicht gespeichert. 3 Tage kostenlos testen, danach 4,90 € im Monat.</string>
+    <string name="welcome_feature_ai_text">Zusammenfassen, Antworten entwerfen und Tages-Überblick. Läuft über den BlockMail-Server — Inhalte werden dort nicht gespeichert. 3 Tage kostenlos testen, danach 4,90 € im Monat mit 150 KI-Anfragen oder 9 € mit 300 Anfragen.</string>
     <string name="welcome_setup">Konto einrichten</string>
     <string name="welcome_skip">Später erkunden</string>
 
@@ -56,8 +56,19 @@
 
     <!-- ProUpsell (BlockMail Pro) -->
     <string name="pro_title">BlockMail Pro</string>
-    <string name="pro_upsell_text">Die KI-Funktionen — KI-Suche, Zusammenfassen, Tages-Überblick, Antworten und Mails mit KI verfassen und Rechtschreibprüfung — sind Teil von BlockMail Pro: 3 Tage kostenlos testen, danach 4,90 € im Monat.</string>
-    <string name="pro_ok">Verstanden</string>
+    <string name="pro_upsell_text">Die KI-Funktionen — KI-Suche, Zusammenfassen, Tages-Überblick, Antworten und Mails mit KI verfassen und Rechtschreibprüfung — sind Teil von BlockMail Pro. Wähle deinen Tarif:</string>
+    <string name="pro_ok">Später</string>
+    <string name="pro_plan_pro_name">BlockMail Pro</string>
+    <string name="pro_plan_plus_name">BlockMail Pro+</string>
+    <string name="pro_plan_requests">%1$d KI-Anfragen pro Monat</string>
+    <string name="pro_plan_price_month">%1$s / Monat</string>
+    <string name="pro_plan_pro_price_fallback">4,90 €</string>
+    <string name="pro_plan_plus_price_fallback">9,00 €</string>
+    <string name="pro_plan_current">Dein aktueller Tarif</string>
+    <string name="pro_plan_choose">Diesen Tarif wählen</string>
+    <string name="pro_plan_switch">Zu diesem Tarif wechseln</string>
+    <string name="pro_what_counts">Als eine Anfrage zählt jede KI-Aktion: Frage an dein Postfach, Mail zusammenfassen, Tages-Überblick, Antwort entwerfen, Mail mit KI verfassen und Rechtschreibprüfung.</string>
+    <string name="pro_billing_note">3 Tage kostenlos testen, danach monatliche Abrechnung über deinen Google-Play-Account — jederzeit kündbar. Nicht genutzte Anfragen verfallen am Monatsende.</string>
     <!-- Einführungs-Tour -->
     <string name="tour_skip">Überspringen</string>
     <string name="tour_next">Weiter</string>
@@ -75,7 +86,7 @@
     <string name="tour_step_compose_title">Neue Mail schreiben</string>
     <string name="tour_step_compose_text">Mit dem Stift beginnst du eine neue Mail — auf Wunsch hilft dir die KI beim Formulieren.</string>
     <string name="tour_step_ai_title">Dein KI-Assistent</string>
-    <string name="tour_step_ai_text">Der KI-Knopf fasst deinen ganzen Tag oder alle ungelesenen Mails auf einen Blick zusammen. Alle KI-Funktionen sind Teil von BlockMail Pro: 3 Tage kostenlos testen, danach 4,90 € im Monat.</string>
+    <string name="tour_step_ai_text">Der KI-Knopf fasst deinen ganzen Tag oder alle ungelesenen Mails auf einen Blick zusammen. Alle KI-Funktionen sind Teil von BlockMail Pro: 3 Tage kostenlos testen, danach ab 4,90 € im Monat (150 KI-Anfragen) oder 9 € (300 Anfragen).</string>
     <string name="pro_subscribe">Pro abonnieren</string>
     <string name="welcome_feature_attachments_title">Alle Anhänge an einem Ort</string>
     <string name="welcome_feature_attachments_text">Bilder, PDFs und Dokumente aus allen Mails gebündelt in einer Galerie — suchen, öffnen, teilen, ohne die Mail zu finden.</string>

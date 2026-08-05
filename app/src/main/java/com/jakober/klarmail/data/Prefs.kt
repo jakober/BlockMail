@@ -313,6 +313,16 @@ object Prefs {
         get() = sp.getString("purchase_token", "") ?: ""
         set(v) = sp.edit().putString("purchase_token", v).apply()
 
+    /**
+     * Gebuchter Basis-Tarif des laufenden Abos ("" = kein Abo), also
+     * [com.jakober.klarmail.data.BillingManager.BASE_PLAN_PRO] oder
+     * [com.jakober.klarmail.data.BillingManager.BASE_PLAN_PLUS]. Nur für die
+     * Anzeige; verbindlich ist immer die Auskunft des BlockMail-Servers.
+     */
+    var proPlan: String
+        get() = sp.getString("pro_plan", "") ?: ""
+        set(v) = sp.edit().putString("pro_plan", v).apply()
+
     var email: String
         get() = sp.getString("email", "") ?: ""
         set(v) = sp.edit().putString("email", v.trim()).apply()
