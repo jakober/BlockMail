@@ -211,6 +211,12 @@ private val searchHoldAiAnswer =
 private val searchHoldAiHits =
     androidx.compose.runtime.mutableStateOf<List<MailRepository.AiSearchHit>>(emptyList())
 
+/** Wartezeit nach der Installation, bevor die Pro-Hinweiskarte erscheint. */
+private const val PRO_AD_DELAY_MS = 10L * 60 * 1000
+
+/** Mindestabstand zwischen zwei Erscheinen der Pro-Hinweiskarte. */
+private const val PRO_AD_INTERVAL_MS = 7L * 24 * 60 * 60 * 1000
+
 /**
  * Live-Einführungs-Tour (Tester-Feedback): dunkelt den Posteingang ab und
  * hebt die echten Bedienelemente nacheinander per Spotlight hervor.
@@ -301,10 +307,12 @@ fun InboxScreen(
     // nicht als Dialog davor — Werbung soll nicht im Weg stehen.
     val proAdEnabled by Prefs.proAdFlow.collectAsState()
     var proAdClosed by remember { mutableStateOf(false) }
-    val proAdDue = remember(proAdEnabled, proAdClosed) {
-        System.currentTimeMillis() - Prefs.proAdLastShown > 7L * 24 * 60 * 60 * 1000
-    }
-    val showProAd = !isPro && proAdEnabled && !proAdClosed && proAdDue
+    val now = System.currentTimeMillis()
+    // Nicht gleich nach der Installation: Erst wer die App ein paar Minuten
+    // benutzt hat, kann mit dem Angebot überhaupt etwas anfangen.
+    val settledIn = now - Prefs.firstStartAt > PRO_AD_DELAY_MS
+    val proAdDue = now - Prefs.proAdLastShown > PRO_AD_INTERVAL_MS
+    val showProAd = !isPro && proAdEnabled && !proAdClosed && settledIn && proAdDue
 
     val selected = remember { androidx.compose.runtime.mutableStateListOf<Long>() }
     val selectionMode = selected.isNotEmpty()

@@ -11,6 +11,8 @@ class MailApp : Application() {
     override fun onCreate() {
         super.onCreate()
         Prefs.init(this)
+        // Ersten Start merken (steuert, ab wann die Pro-Hinweiskarte darf)
+        if (Prefs.firstStartAt == 0L) Prefs.firstStartAt = System.currentTimeMillis()
         MailRepository.init(this)
         com.jakober.klarmail.data.MailIndex.init(this)
         createChannels()

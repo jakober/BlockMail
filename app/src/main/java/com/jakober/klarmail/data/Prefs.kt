@@ -453,6 +453,16 @@ object Prefs {
             proAdFlow.value = v
         }
 
+    /**
+     * Zeitpunkt des allerersten App-Starts (ms). Dient nur dazu, die
+     * Pro-Hinweiskarte nicht sofort nach der Installation zu zeigen —
+     * erst wer die App eine Weile benutzt hat, versteht überhaupt, wofür
+     * die KI gut wäre.
+     */
+    var firstStartAt: Long
+        get() = sp.getLong("first_start_at", 0L)
+        set(v) = sp.edit().putLong("first_start_at", v).apply()
+
     /** Wann die Pro-Hinweiskarte zuletzt weggetippt wurde (ms). */
     var proAdLastShown: Long
         get() = sp.getLong("pro_ad_last", 0L)
