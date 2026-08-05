@@ -116,6 +116,7 @@
     <string name="editor_send_reply">Als Antwort senden</string>
     <string name="editor_attach">An eine Mail anhängen</string>
     <string name="editor_open_failed">Diese Datei lässt sich nicht anzeigen.</string>
+    <string name="editor_open_protected">Dieses PDF ist geschützt und lässt sich nicht bearbeiten. Viele Banken verschlüsseln ihre Dokumente — dann geht nur Öffnen und Weiterleiten.</string>
     <string name="editor_save_failed">Speichern fehlgeschlagen.</string>
     <string name="editor_signature_title">Deine Unterschrift</string>
     <string name="editor_signature_hint">Mit dem Finger unterschreiben. Sie wird auf dem Gerät gespeichert und steht dann für jedes Dokument bereit.</string>

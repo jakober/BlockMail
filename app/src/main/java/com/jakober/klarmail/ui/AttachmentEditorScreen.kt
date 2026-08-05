@@ -165,12 +165,17 @@ fun AttachmentEditorScreen(
             .resolve("src_${System.currentTimeMillis()}_${source.name}")
             .also { it.writeBytes(source.bytes) }
     }
-    val renderer = remember {
-        if (!isPdf) null
+    // Warum ein PDF nicht aufgeht, muss man dem Nutzer sagen koennen —
+    // geschuetzte Dokumente (Banken verschluesseln ihre Auszuege haeufig)
+    // lehnt PdfRenderer grundsaetzlich ab, auch ohne Passwortabfrage
+    val opened = remember {
+        if (!isPdf) Result.success<PdfRenderer?>(null)
         else runCatching {
             PdfRenderer(ParcelFileDescriptor.open(srcFile, ParcelFileDescriptor.MODE_READ_ONLY))
-        }.getOrNull()
+        }
     }
+    val renderer = opened.getOrNull()
+    val openError = opened.exceptionOrNull()
     // PdfRenderer darf immer nur eine Seite gleichzeitig offen haben
     val renderLock = remember { Mutex() }
     DisposableEffect(Unit) {
@@ -371,10 +376,26 @@ fun AttachmentEditorScreen(
                 val bmp = pageBitmap
                 when {
                     loading -> CircularProgressIndicator()
-                    failed || bmp == null -> Text(
-                        stringResource(R.string.editor_open_failed),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    failed || bmp == null -> Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            if (openError is SecurityException)
+                                stringResource(R.string.editor_open_protected)
+                            else stringResource(R.string.editor_open_failed),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        val detail = openError?.message
+                        if (!detail.isNullOrBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                detail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
 
                     else -> PageCanvas(
                         bitmap = bmp,
@@ -506,6 +527,13 @@ private fun PageCanvas(
     onNeedSignature: () -> Unit
 ) {
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
+    // Zaehler nur fuers Neuzeichnen: Waehrend des Ziehens wird der Strich in
+    // der vorhandenen Liste verlaengert und hier hochgezaehlt. Der Zaehler
+    // wird AUSSCHLIESSLICH im Zeichenblock gelesen — dadurch malt Compose neu,
+    // ohne die ganze Oberflaeche neu aufzubauen. Vorher wurde bei jedem
+    // Fingerpunkt der gesamte Bildschirm neu zusammengesetzt: das war das
+    // Haengen.
+    var version by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val scale = if (boxSize.width == 0 || boxSize.height == 0) 1f else minOf(
         boxSize.width.toFloat() / bitmap.width,
         boxSize.height.toFloat() / bitmap.height
@@ -531,9 +559,9 @@ private fun PageCanvas(
                         },
                         onDrag = { change, _ ->
                             val s = marks.lastOrNull() as? Mark.Stroke ?: return@detectDragGestures
+                            change.consume()
                             s.points.add(toPage(change.position))
-                            // Liste anstoßen, damit Compose neu zeichnet
-                            marks[marks.lastIndex] = s.copy(points = s.points)
+                            version++
                         }
                     )
                 } else {
@@ -559,12 +587,11 @@ private fun PageCanvas(
                         onDrag = { change, drag ->
                             val s = marks.lastOrNull() as? Mark.Sign ?: return@detectDragGestures
                             change.consume()
-                            marks[marks.lastIndex] = s.copy(
-                                center = Offset(
-                                    s.center.x + drag.x / scale,
-                                    s.center.y + drag.y / scale
-                                )
+                            s.center = Offset(
+                                s.center.x + drag.x / scale,
+                                s.center.y + drag.y / scale
                             )
+                            version++
                         }
                     )
                 }
@@ -581,6 +608,8 @@ private fun PageCanvas(
             }
     ) {
         drawIntoCanvas { c ->
+            // Zaehler lesen: haelt das Neuzeichnen am Zustand fest
+            if (version < 0) return@drawIntoCanvas
             val dst = android.graphics.RectF(
                 dx, dy, dx + bitmap.width * scale, dy + bitmap.height * scale
             )
@@ -596,7 +625,13 @@ private fun SignaturePad(
     onCancel: () -> Unit,
     onSave: (Bitmap) -> Unit
 ) {
-    val strokes = remember { mutableStateListOf<MutableList<Offset>>() }
+    // Bewusst KEINE Zustandsliste: Waehrend des Zeichnens wird nur
+    // hochgezaehlt und neu gemalt, nicht der Dialog neu aufgebaut
+    val strokes = remember { mutableListOf<MutableList<Offset>>() }
+    var version by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    // Eigener Schalter fuers Speichern-Knopf: aendert sich genau einmal,
+    // waehrend version bei jedem Fingerpunkt hochzaehlt
+    var hasDrawing by remember { mutableStateOf(false) }
     var padSize by remember { mutableStateOf(IntSize.Zero) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onCancel,
@@ -617,16 +652,22 @@ private fun SignaturePad(
                         .onSizeChanged { padSize = it }
                         .pointerInput(Unit) {
                             detectDragGestures(
-                                onDragStart = { p -> strokes.add(mutableListOf(p)) },
+                                onDragStart = { p ->
+                                    strokes.add(mutableListOf(p))
+                                    version++
+                                    if (!hasDrawing) hasDrawing = true
+                                },
                                 onDrag = { change, _ ->
                                     val s = strokes.lastOrNull() ?: return@detectDragGestures
+                                    change.consume()
                                     s.add(change.position)
-                                    strokes[strokes.lastIndex] = s
+                                    version++
                                 }
                             )
                         }
                 ) {
                     drawIntoCanvas { c ->
+                        if (version < 0) return@drawIntoCanvas
                         val paint = android.graphics.Paint().apply {
                             isAntiAlias = true
                             color = android.graphics.Color.BLACK
@@ -645,14 +686,18 @@ private fun SignaturePad(
                         }
                     }
                 }
-                TextButton(onClick = { strokes.clear() }) {
+                TextButton(onClick = {
+                    strokes.clear()
+                    hasDrawing = false
+                    version++
+                }) {
                     Text(stringResource(R.string.editor_signature_clear))
                 }
             }
         },
         confirmButton = {
             Button(
-                enabled = strokes.any { it.size > 1 },
+                enabled = hasDrawing,
                 onClick = {
                     // In doppelter Auflösung zeichnen: die Unterschrift wird
                     // auf der Seite oft größer dargestellt als hier im Feld
