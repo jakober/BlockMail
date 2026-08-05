@@ -31,8 +31,15 @@ import kotlinx.coroutines.flow.StateFlow
  */
 object ProAccess {
 
-    /** Testphase: Pro für alle — später auf false + Play-Billing-Anbindung. */
+    /**
+     * Testphase: Pro für alle. Zum Verkaufsstart auf false stellen — dann
+     * zählt ausschließlich das über Play gekaufte Abo (siehe
+     * [com.jakober.klarmail.data.BillingManager]).
+     */
     const val TEST_PHASE_UNLOCK = true
+
+    /** Laufendes Play-Abo vorhanden? Wird vom BillingManager gesetzt. */
+    private var subscribed = false
 
     private val _isPro = MutableStateFlow(TEST_PHASE_UNLOCK)
 
@@ -43,12 +50,20 @@ object ProAccess {
     val isPro: Boolean get() = _isPro.value
 
     /**
-     * Aktualisiert den Pro-Status. Platzhalter: Hier kommt später die
-     * Google-Play-Billing-Prüfung hin (aktive „BlockMail Pro“-Berechtigung
-     * abfragen und das Ergebnis in [_isPro] schreiben). In der Testphase
-     * wird schlicht [TEST_PHASE_UNLOCK] gesetzt.
+     * Zeigt an, ob ein echtes Abo läuft — unabhängig von der Testphase.
+     * Die Einstellungen unterscheiden damit „Pro über Abo“ von „Pro, weil
+     * gerade Testphase“.
      */
+    val hasSubscription: Boolean get() = subscribed
+
+    /** Vom BillingManager aufgerufen, sobald der Abo-Status feststeht. */
+    fun setSubscribed(active: Boolean) {
+        subscribed = active
+        _isPro.value = active || TEST_PHASE_UNLOCK
+    }
+
+    /** Setzt den Pro-Status neu aus Testphasen-Schalter und Abo-Status. */
     fun refresh() {
-        _isPro.value = TEST_PHASE_UNLOCK
+        _isPro.value = subscribed || TEST_PHASE_UNLOCK
     }
 }

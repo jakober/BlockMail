@@ -12,8 +12,8 @@ android {
         applicationId = "com.jakober.klarmail"
         minSdk = 26
         targetSdk = 36
-        versionCode = 180
-        versionName = "3.77"
+        versionCode = 181
+        versionName = "3.78"
 
         // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
         manifestPlaceholders["appAuthRedirectScheme"] =
@@ -98,6 +98,9 @@ dependencies {
 
     // Claude API + Google-Token-Refresh
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Google Play Billing: Abo „BlockMail Pro“
+    implementation("com.android.billingclient:billing-ktx:8.0.0")
 
     // On-Device-KI (Gemini Nano über ML Kit Prompt API) als Gratis-Fallback
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")

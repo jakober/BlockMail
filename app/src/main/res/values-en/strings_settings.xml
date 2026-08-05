@@ -302,4 +302,7 @@
     <string name="settings_rate_app">Rate this app</string>
     <string name="settings_tour">View the intro</string>
     <string name="settings_pro_price">BlockMail Pro: try it free for 3 days, then €4.90 per month.</string>
+    <string name="settings_pro_subscribe">Subscribe to BlockMail Pro</string>
+    <string name="settings_pro_manage">Manage subscription</string>
+    <string name="settings_pro_unavailable">Purchasing is not available right now. Check your Play Store connection and try again later.</string>
 </resources>

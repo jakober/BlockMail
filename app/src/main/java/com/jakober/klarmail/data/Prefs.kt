@@ -308,6 +308,15 @@ object Prefs {
         get() = sp.getBoolean("sender_shortcuts_cleaned", false)
         set(v) = sp.edit().putBoolean("sender_shortcuts_cleaned", v).apply()
 
+    /**
+     * Play-Kauf-Token des laufenden „BlockMail Pro“-Abos ("" = kein Abo).
+     * Wird an den BlockMail-Server mitgeschickt, damit dieser das Abo bei
+     * Google gegenprüfen kann. Bewusst NICHT im Backup (gerätegebunden).
+     */
+    var purchaseToken: String
+        get() = sp.getString("purchase_token", "") ?: ""
+        set(v) = sp.edit().putString("purchase_token", v).apply()
+
     var email: String
         get() = sp.getString("email", "") ?: ""
         set(v) = sp.edit().putString("email", v.trim()).apply()

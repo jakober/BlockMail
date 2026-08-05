@@ -95,4 +95,5 @@
     <string name="tour_step_compose_text">Mit dem Stift beginnst du eine neue Mail — auf Wunsch hilft dir die KI beim Formulieren.</string>
     <string name="tour_step_ai_title">Dein KI-Assistent</string>
     <string name="tour_step_ai_text">Der KI-Knopf fasst deinen ganzen Tag oder alle ungelesenen Mails auf einen Blick zusammen. Alle KI-Funktionen sind Teil von BlockMail Pro: 3 Tage kostenlos testen, danach 4,90 € im Monat.</string>
+    <string name="pro_subscribe">Pro abonnieren</string>
 </resources>

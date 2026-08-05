@@ -16,6 +16,9 @@ class MailApp : Application() {
         createChannels()
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)
         cleanupSenderShortcuts()
+        // Play-Abo prüfen: stellt Pro nach einer Neuinstallation von selbst
+        // wieder her (läuft in der Testphase mit, ändert dort aber nichts)
+        runCatching { com.jakober.klarmail.data.BillingManager.init(this) }
     }
 
     /**

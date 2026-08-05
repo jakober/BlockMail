@@ -88,6 +88,12 @@ object ClaudeClient {
                 .header("Authorization", "Bearer ${Prefs.installToken}")
                 .header("X-App-Package", "com.jakober.klarmail")
                 .header("anthropic-version", "2023-06-01")
+                // Play-Kauf-Token des laufenden Abos, damit der Server das
+                // Abo bei Google gegenprüfen kann (leer = kein Abo)
+                .apply {
+                    val token = Prefs.purchaseToken
+                    if (token.isNotBlank()) header("X-Purchase-Token", token)
+                }
                 .post(payload.toString().toRequestBody("application/json".toMediaType()))
                 .build()
             http.newCall(request).execute().use { resp ->

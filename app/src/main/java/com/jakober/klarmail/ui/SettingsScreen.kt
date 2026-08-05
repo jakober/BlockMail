@@ -492,6 +492,27 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+            // Abo abschließen bzw. verwalten (Play-Kaufdialog)
+            Spacer(Modifier.height(8.dp))
+            val hasSub = com.jakober.klarmail.data.ProAccess.hasSubscription
+            if (hasSub) {
+                OutlinedButton(onClick = {
+                    uriHandler.openUri(
+                        com.jakober.klarmail.data.BillingManager.manageSubscriptionUrl()
+                    )
+                }) { Text(stringResource(R.string.settings_pro_manage)) }
+            } else {
+                OutlinedButton(onClick = {
+                    val started = com.jakober.klarmail.data.BillingManager.purchase(context)
+                    if (!started) {
+                        scope.launch {
+                            snackbar.showSnackbar(
+                                context.getString(R.string.settings_pro_unavailable)
+                            )
+                        }
+                    }
+                }) { Text(stringResource(R.string.settings_pro_subscribe)) }
+            }
 
             }
 

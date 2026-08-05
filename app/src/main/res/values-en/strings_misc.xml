@@ -95,4 +95,5 @@
     <string name="tour_step_compose_text">Tap the pen to start a new email — the AI can help you phrase it if you like.</string>
     <string name="tour_step_ai_title">Your AI assistant</string>
     <string name="tour_step_ai_text">The AI button summarizes your whole day or all unread mails at a glance. All AI features are part of BlockMail Pro: try it free for 3 days, then €4.90 per month.</string>
+    <string name="pro_subscribe">Subscribe to Pro</string>
 </resources>
