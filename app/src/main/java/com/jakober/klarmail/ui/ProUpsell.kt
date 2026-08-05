@@ -14,6 +14,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -149,6 +151,69 @@ private fun ProPlanCard(
             } else {
                 Button(onClick = onPick, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.pro_plan_choose))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Werbekarte für BlockMail Pro im Posteingang — nur für Nutzer ohne Abo.
+ *
+ * Bewusst zurückhaltend: Sie steht in der Liste statt als Dialog davor, sie
+ * lässt sich mit einem Tipp für die nächsten Tage wegräumen, und mit
+ * „Nicht mehr anzeigen“ dauerhaft abschalten (wieder einschaltbar in den
+ * Einstellungen).
+ */
+@Composable
+fun ProAdCard(
+    onOpen: () -> Unit,
+    onLater: () -> Unit,
+    onNever: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    stringResource(R.string.pro_ad_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = onLater) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.pro_ad_later)
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.pro_ad_text),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = onOpen) {
+                    Text(stringResource(R.string.pro_ad_open))
+                }
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = onNever) {
+                    Text(stringResource(R.string.pro_ad_never))
                 }
             }
         }

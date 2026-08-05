@@ -279,9 +279,8 @@ fun InboxScreen(
     val context = LocalContext.current
     val configured = Prefs.isConfigured
 
-    // BlockMail Pro: Alle KI-Funktionen hängen an diesem Schalter. In der
-    // Testphase (ProAccess.TEST_PHASE_UNLOCK = true) ist isPro immer true —
-    // die Gates greifen dann nie und das Verhalten bleibt exakt wie bisher.
+    // BlockMail Pro: Alle KI-Funktionen hängen an diesem Schalter. Er ist
+    // genau dann true, wenn ein über Play gekauftes Abo läuft.
     val isPro by com.jakober.klarmail.data.ProAccess.isProFlow.collectAsState()
     var showProUpsell by remember { mutableStateOf(false) }
     if (showProUpsell) {
@@ -296,6 +295,16 @@ fun InboxScreen(
     if (showQuotaOut) {
         AiQuotaExhaustedDialog(onDismiss = { showQuotaOut = false })
     }
+
+    // Hinweiskarte auf Pro: nur ohne Abo, höchstens alle 7 Tage, und mit
+    // „Nicht mehr anzeigen“ dauerhaft abschaltbar. Sie steht in der Liste,
+    // nicht als Dialog davor — Werbung soll nicht im Weg stehen.
+    val proAdEnabled by Prefs.proAdFlow.collectAsState()
+    var proAdClosed by remember { mutableStateOf(false) }
+    val proAdDue = remember(proAdEnabled, proAdClosed) {
+        System.currentTimeMillis() - Prefs.proAdLastShown > 7L * 24 * 60 * 60 * 1000
+    }
+    val showProAd = !isPro && proAdEnabled && !proAdClosed && proAdDue
 
     val selected = remember { androidx.compose.runtime.mutableStateListOf<Long>() }
     val selectionMode = selected.isNotEmpty()
@@ -2429,6 +2438,25 @@ fun InboxScreen(
                 }
             } else {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                if (showProAd) {
+                    item(key = "pro_ad") {
+                        ProAdCard(
+                            onOpen = {
+                                Prefs.proAdLastShown = System.currentTimeMillis()
+                                proAdClosed = true
+                                showProUpsell = true
+                            },
+                            onLater = {
+                                Prefs.proAdLastShown = System.currentTimeMillis()
+                                proAdClosed = true
+                            },
+                            onNever = {
+                                Prefs.proAdEnabled = false
+                                proAdClosed = true
+                            }
+                        )
+                    }
+                }
                 if (focusMode) {
                     // Fokus-Blöcke: nach Wichtigkeit gruppiert statt nach Zeit
                     item(key = "focus_toolbar") {

@@ -297,6 +297,8 @@
     <string name="settings_pro_quota_unknown">Noch kein Kontingent abrufbar — es erscheint hier, sobald ein Abo aktiv ist.</string>
     <string name="settings_pro_quota_refresh">Kontingent aktualisieren</string>
     <string name="settings_pro_quota_local">Auf diesem Gerät gezählt — sobald der BlockMail-Server erreichbar ist, gilt dessen Stand.</string>
+    <string name="settings_pro_ad">Hinweis im Posteingang</string>
+    <string name="settings_pro_ad_desc">Zeigt gelegentlich eine Karte zu BlockMail Pro. Mit Abo erscheint sie nie.</string>
     <string name="settings_pro_plans_title">Tarife</string>
     <string name="settings_pro_unavailable">Der Kauf ist gerade nicht möglich. Prüfe deine Play-Store-Verbindung und versuche es später erneut.</string>
     <string name="settings_more_folders">Weitere Ordner vom Server</string>

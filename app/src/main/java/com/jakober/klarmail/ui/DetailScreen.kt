@@ -202,9 +202,8 @@ fun DetailScreen(
     var summary by remember(uid) { mutableStateOf<String?>(null) }
     var summarizing by remember(uid) { mutableStateOf(false) }
 
-    // BlockMail Pro: „Mit KI zusammenfassen“ ist eine Pro-Funktion. In der
-    // Testphase (ProAccess.TEST_PHASE_UNLOCK = true) ist isPro immer true —
-    // das Gate greift dann nie und das Verhalten bleibt exakt wie bisher.
+    // BlockMail Pro: „Mit KI zusammenfassen“ ist eine Pro-Funktion und
+    // damit genau dann verfügbar, wenn ein Play-Abo läuft.
     val isPro by com.jakober.klarmail.data.ProAccess.isProFlow.collectAsState()
     var showProUpsell by remember { mutableStateOf(false) }
     if (showProUpsell) {

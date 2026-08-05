@@ -49,6 +49,9 @@ object Prefs {
     /** Schriftgröße der App in Prozent (80–120, Standard 100). */
     val fontScaleFlow = MutableStateFlow(100)
 
+    /** Hinweiskarte zu BlockMail Pro im Posteingang zeigen? */
+    val proAdFlow = MutableStateFlow(true)
+
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
@@ -108,6 +111,7 @@ object Prefs {
         indexYearsFlow.value = indexYears
         plainDesignFlow.value = plainDesign
         fontScaleFlow.value = fontScalePercent
+        proAdFlow.value = proAdEnabled
     }
 
     // ---- Backup & Umzug: Einstellungen als JSON sichern/wiederherstellen ----
@@ -436,6 +440,23 @@ object Prefs {
             sp.edit().putInt("index_years", v).apply()
             indexYearsFlow.value = v
         }
+
+    /**
+     * Hinweiskarte zu BlockMail Pro im Posteingang. Der Nutzer kann sie
+     * dauerhaft abschalten („Nicht mehr anzeigen“) und in den Einstellungen
+     * wieder einschalten.
+     */
+    var proAdEnabled: Boolean
+        get() = sp.getBoolean("pro_ad_enabled", true)
+        set(v) {
+            sp.edit().putBoolean("pro_ad_enabled", v).apply()
+            proAdFlow.value = v
+        }
+
+    /** Wann die Pro-Hinweiskarte zuletzt weggetippt wurde (ms). */
+    var proAdLastShown: Long
+        get() = sp.getLong("pro_ad_last", 0L)
+        set(v) = sp.edit().putLong("pro_ad_last", v).apply()
 
     /** Schlichtes Design: keine Verläufe/Hintergründe in den Mail-Listen (Standard: an). */
     var plainDesign: Boolean

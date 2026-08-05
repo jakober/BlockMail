@@ -22,20 +22,20 @@ import kotlinx.coroutines.flow.StateFlow
  * Phishing-Wächter sind bewusst KEINE Pro-Funktionen — das sind lokale
  * Heuristiken ohne KI und bleiben immer frei.
  *
- * Testphase: Solange [TEST_PHASE_UNLOCK] auf true steht, ist Pro für ALLE
- * Nutzer freigeschaltet — alle Gates prüfen nur [isPro]/[isProFlow] und
- * verhalten sich damit exakt wie vor der Einführung von Pro. Für den echten
- * Verkauf wird TEST_PHASE_UNLOCK auf false gestellt und [refresh] an die
- * Google-Play-Billing-Prüfung angebunden.
+ * [TEST_PHASE_UNLOCK] schaltet Pro pauschal für alle frei. Der Schalter
+ * steht seit v3.87 auf false: Ab jetzt zählt ausschließlich das über Google
+ * Play gekaufte Abo, das der [BillingManager] meldet. Tester kaufen über
+ * die Lizenztests der Play Console kostenlos.
  */
 object ProAccess {
 
     /**
-     * Testphase: Pro für alle. Zum Verkaufsstart auf false stellen — dann
-     * zählt ausschließlich das über Play gekaufte Abo (siehe
-     * [com.jakober.klarmail.data.BillingManager]).
+     * Pro pauschal für alle freischalten. Steht auf false — es zählt
+     * ausschließlich das über Play gekaufte Abo (siehe
+     * [com.jakober.klarmail.data.BillingManager]). Nur wieder auf true
+     * stellen, wenn Pro absichtlich verschenkt werden soll.
      */
-    const val TEST_PHASE_UNLOCK = true
+    const val TEST_PHASE_UNLOCK = false
 
     /** Laufendes Play-Abo vorhanden? Wird vom BillingManager gesetzt. */
     private var subscribed = false

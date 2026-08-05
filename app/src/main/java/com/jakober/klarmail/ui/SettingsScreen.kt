@@ -266,8 +266,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
-    // BlockMail Pro: In der Testphase (ProAccess.TEST_PHASE_UNLOCK = true)
-    // ist isPro immer true — die Gates greifen dann nie.
+    // BlockMail Pro: seit v3.87 zählt allein das über Play gekaufte Abo.
     val isPro by com.jakober.klarmail.data.ProAccess.isProFlow.collectAsState()
     var showProUpsell by remember { mutableStateOf(false) }
     if (showProUpsell) {
@@ -580,6 +579,31 @@ fun SettingsScreen(
                     }
                 }
             )
+            // Hinweiskarte im Posteingang — wer sie weggeklickt hat, kann sie
+            // hier wieder einschalten
+            val proAdEnabled by Prefs.proAdFlow.collectAsState()
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_pro_ad),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        stringResource(R.string.settings_pro_ad_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = proAdEnabled,
+                    onCheckedChange = { Prefs.proAdEnabled = it }
+                )
+            }
+
             // Abo verwalten (Kündigen, Zahlungsweise) läuft über Play
             if (com.jakober.klarmail.data.ProAccess.hasSubscription) {
                 Spacer(Modifier.height(10.dp))

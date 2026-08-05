@@ -68,6 +68,11 @@
     <string name="pro_plan_choose">Choose this plan</string>
     <string name="pro_plan_switch">Switch to this plan</string>
     <string name="pro_what_counts">Every AI action counts as one request: asking your mailbox, summarizing a mail, the daily overview, drafting a reply, writing a mail with AI, and proofreading.</string>
+    <string name="pro_ad_title">Get more out of your mailbox</string>
+    <string name="pro_ad_text">With BlockMail Pro you can ask your mailbox anything (\"How much did I spend at Amazon?\"), summarize long emails and draft replies. Free for 3 days.</string>
+    <string name="pro_ad_open">Take a look</string>
+    <string name="pro_ad_later">Later</string>
+    <string name="pro_ad_never">Don\'t show again</string>
     <string name="quota_out_title">AI quota used up</string>
     <string name="quota_out_text">You have used all %1$d AI requests for this month. Everything else in the app keeps working — until then the search bar acts as a plain text search.</string>
     <string name="quota_out_reset">New quota on %1$s</string>

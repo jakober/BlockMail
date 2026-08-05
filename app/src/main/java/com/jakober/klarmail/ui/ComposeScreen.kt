@@ -259,8 +259,7 @@ fun ComposeScreen(
 
     // BlockMail Pro: Das komplette KI-Menü (Antwort entwerfen, Mail
     // formulieren, Rechtschreibung prüfen) ist eine Pro-Funktion. In der
-    // Testphase (ProAccess.TEST_PHASE_UNLOCK = true) ist isPro immer true —
-    // das Gate greift dann nie und das Verhalten bleibt exakt wie bisher.
+    // Pro liegt genau dann vor, wenn ein über Play gekauftes Abo läuft.
     val isPro by com.jakober.klarmail.data.ProAccess.isProFlow.collectAsState()
     var showProUpsell by remember { mutableStateOf(false) }
     if (showProUpsell) {
