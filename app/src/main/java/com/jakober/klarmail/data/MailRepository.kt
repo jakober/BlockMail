@@ -46,6 +46,15 @@ object MailRepository {
     private val _currentFolder = MutableStateFlow(MailFolder.INBOX)
     val currentFolder = _currentFolder.asStateFlow()
 
+    /**
+     * Zusätzlich eingeblendeter Server-Ordner (voller IMAP-Pfad) oder null,
+     * wenn einer der Standard-Ordner aus [MailFolder] offen ist. Alle
+     * Ordner-Zugriffe laufen über [openCurrentFolder] und berücksichtigen
+     * diesen Merker damit automatisch.
+     */
+    private val _customFolder = MutableStateFlow<String?>(null)
+    val customFolder = _customFolder.asStateFlow()
+
     /** Sammel-Posteingang: Mails aller gespeicherten Konten in einer Liste. */
     private val _unified = MutableStateFlow(false)
     val unified = _unified.asStateFlow()
@@ -123,13 +132,68 @@ object MailRepository {
     }
 
     suspend fun switchFolder(folder: MailFolder) {
-        if (_currentFolder.value == folder) return
+        if (_currentFolder.value == folder && _customFolder.value == null) return
+        _customFolder.value = null
         _currentFolder.value = folder
         _messages.value = emptyList()
         loadLimit = MAX_MESSAGES
         _canLoadMore.value = false
         refresh()
     }
+
+    /**
+     * Öffnet einen beliebigen Server-Ordner (Pfad wie von [listServerFolders]
+     * geliefert). Lesen, Öffnen von Mails, Wischgesten und Verschieben in die
+     * Standard-Ordner funktionieren dort wie gewohnt.
+     */
+    suspend fun switchCustomFolder(path: String) {
+        if (_customFolder.value == path) return
+        _customFolder.value = path
+        _messages.value = emptyList()
+        loadLimit = MAX_MESSAGES
+        _canLoadMore.value = false
+        refresh()
+    }
+
+    /**
+     * Alle Ordner des Servers, die Mails enthalten können (voller Pfad,
+     * alphabetisch). Für die Ordner-Auswahl in den Einstellungen.
+     */
+    suspend fun listServerFolders(accountEmail: String): List<String> =
+        withContext(Dispatchers.IO) {
+            val store = openStoreFor(accountEmail)
+            try {
+                store.defaultFolder.list("*")
+                    .filter { (it.type and Folder.HOLDS_MESSAGES) != 0 }
+                    .map { it.fullName }
+                    .filter { it.isNotBlank() }
+                    .sortedBy { it.lowercase() }
+            } finally {
+                runCatching { store.close() }
+            }
+        }
+
+    /**
+     * Server-Namen, die bereits durch die Standard-Ordner abgedeckt sind —
+     * damit die Ordner-Auswahl sie nicht doppelt anbietet.
+     */
+    private val standardFolderNames: Set<String> = setOf(
+        "inbox",
+        "[gmail]/gesendet", "[gmail]/sent mail", "[google mail]/gesendet",
+        "[google mail]/sent mail", "gesendet", "sent", "sent items",
+        "gesendete objekte", "gesendete elemente",
+        "[gmail]/entwürfe", "[gmail]/drafts", "[google mail]/entwürfe",
+        "[google mail]/drafts", "entwürfe", "drafts", "entwurf",
+        "[gmail]/alle nachrichten", "[gmail]/all mail",
+        "[google mail]/alle nachrichten", "[google mail]/all mail",
+        "archiv", "archive",
+        "[gmail]/papierkorb", "[gmail]/trash", "[google mail]/papierkorb",
+        "[google mail]/trash", "papierkorb", "trash", "deleted items",
+        "gelöschte elemente", "gelöscht"
+    )
+
+    fun isStandardFolderName(fullName: String): Boolean =
+        fullName.lowercase() in standardFolderNames
 
     /** Findet einen Gmail-Spezialordner sprachunabhängig (Kandidaten + IMAP-Attribut). */
     private fun gmailSpecial(store: Store, attribute: String, candidates: List<String>): Folder? {
@@ -183,8 +247,14 @@ object MailRepository {
     }
 
     private fun openCurrentFolder(store: Store, mode: Int): IMAPFolder {
-        val folder = resolveFolder(store, _currentFolder.value)
-            ?: throw IllegalStateException("Ordner „${_currentFolder.value.label}“ nicht gefunden")
+        val custom = _customFolder.value
+        val folder = if (custom != null) {
+            store.getFolder(custom)
+                ?: throw IllegalStateException("Ordner „$custom“ nicht gefunden")
+        } else {
+            resolveFolder(store, _currentFolder.value)
+                ?: throw IllegalStateException("Ordner „${_currentFolder.value.label}“ nicht gefunden")
+        }
         (folder as IMAPFolder).open(mode)
         return folder
     }

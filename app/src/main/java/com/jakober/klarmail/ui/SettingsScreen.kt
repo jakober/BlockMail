@@ -819,7 +819,12 @@ fun SettingsScreen(
                     onDismissRequest = { folderPickerFor = null },
                     title = { Text(stringResource(R.string.settings_visible_folders)) },
                     text = {
-                        Column {
+                        // Kann bei vielen Server-Ordnern lang werden → scrollbar
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 460.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
                             Text(
                                 accEmail,
                                 style = MaterialTheme.typography.bodySmall,
@@ -862,6 +867,89 @@ fun SettingsScreen(
                                         Text(f.label, style = MaterialTheme.typography.bodyLarge)
                                     }
                                 }
+
+                            // Weitere Ordner direkt vom Server: einmal beim
+                            // Öffnen des Dialogs abfragen, danach ankreuzbar
+                            var serverFolders by remember(accEmail) {
+                                mutableStateOf<List<String>?>(null)
+                            }
+                            var serverError by remember(accEmail) {
+                                mutableStateOf<String?>(null)
+                            }
+                            LaunchedEffect(accEmail) {
+                                serverFolders = try {
+                                    MailRepository.listServerFolders(accEmail)
+                                        .filter { !MailRepository.isStandardFolderName(it) }
+                                } catch (e: Exception) {
+                                    serverError = e.message ?: e.javaClass.simpleName
+                                    emptyList()
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            SectionTitle(stringResource(R.string.settings_more_folders))
+                            Text(
+                                stringResource(R.string.settings_more_folders_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            val extra = remember(hiddenVersion, accEmail) {
+                                Prefs.extraFolders(accEmail)
+                            }
+                            when {
+                                serverFolders == null -> Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    androidx.compose.material3.CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        stringResource(R.string.settings_more_folders_loading),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                serverError != null -> Text(
+                                    stringResource(
+                                        R.string.settings_more_folders_failed, serverError ?: ""
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                serverFolders!!.isEmpty() -> Text(
+                                    stringResource(R.string.settings_more_folders_none),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                else -> serverFolders!!.forEach { path ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        androidx.compose.material3.Checkbox(
+                                            checked = path in extra,
+                                            onCheckedChange = { show ->
+                                                val next =
+                                                    if (show) extra + path else extra - path
+                                                Prefs.setExtraFolders(accEmail, next)
+                                                // Ausgeblendeter offener Ordner → zurück
+                                                if (!show &&
+                                                    accEmail.equals(Prefs.email, ignoreCase = true) &&
+                                                    MailRepository.customFolder.value == path
+                                                ) {
+                                                    scope.launch {
+                                                        MailRepository.switchFolder(
+                                                            MailRepository.MailFolder.INBOX
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        )
+                                        Text(path, style = MaterialTheme.typography.bodyLarge)
+                                    }
+                                }
+                            }
                         }
                     },
                     confirmButton = {

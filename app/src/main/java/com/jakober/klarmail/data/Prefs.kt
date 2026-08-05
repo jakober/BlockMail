@@ -905,6 +905,27 @@ object Prefs {
      * Im Ordner-Menü ausgeblendete Ordner eines Kontos (MailFolder-Namen,
      * z. B. "ARCHIVE"). Standard: leer — alle Ordner sichtbar wie bisher.
      */
+    /**
+     * Zusätzlich eingeblendete Server-Ordner je Konto (voller IMAP-Pfad).
+     * Standard: leer — nur die Standard-Ordner sind sichtbar.
+     */
+    fun extraFolders(accountEmail: String): Set<String> = try {
+        val a = org.json.JSONArray(
+            sp.getString("extra_folders_${accountEmail.lowercase()}", "[]") ?: "[]"
+        )
+        (0 until a.length()).map { a.getString(it) }.toSet()
+    } catch (e: Exception) {
+        emptySet()
+    }
+
+    fun setExtraFolders(accountEmail: String, folders: Set<String>) {
+        sp.edit().putString(
+            "extra_folders_${accountEmail.lowercase()}",
+            org.json.JSONArray(folders.toList()).toString()
+        ).apply()
+        hiddenFoldersFlow.value++
+    }
+
     fun hiddenFolders(accountEmail: String): Set<String> = try {
         val a = org.json.JSONArray(
             sp.getString("hidden_folders_" + accountEmail.trim().lowercase(), "[]") ?: "[]"

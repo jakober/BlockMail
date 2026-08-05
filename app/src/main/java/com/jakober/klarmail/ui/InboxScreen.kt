@@ -62,6 +62,7 @@ import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.LightMode
@@ -951,6 +952,7 @@ fun InboxScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         val currentFolder by MailRepository.currentFolder.collectAsState()
+                        val customFolder by MailRepository.customFolder.collectAsState()
                         var folderMenuOpen by remember { mutableStateOf(false) }
                         Box {
                             Row(
@@ -960,9 +962,15 @@ fun InboxScreen(
                                 }
                             ) {
                                 Text(
-                                    if (unified) stringResource(R.string.inbox_all_accounts)
-                                    else currentFolder.label,
-                                    fontWeight = FontWeight.SemiBold
+                                    when {
+                                        unified -> stringResource(R.string.inbox_all_accounts)
+                                        customFolder != null ->
+                                            customFolder.substringAfterLast('/')
+                                        else -> currentFolder.label
+                                    },
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 if (configured) {
                                     Icon(
@@ -987,7 +995,8 @@ fun InboxScreen(
                                 MailRepository.MailFolder.entries
                                     .filter { it.name !in hiddenFolders }
                                     .forEach { f ->
-                                        val active = !unified && f == currentFolder
+                                        val active = !unified && customFolder == null &&
+                                            f == currentFolder
                                         DropdownMenuItem(
                                             text = {
                                                 Text(
@@ -1027,6 +1036,46 @@ fun InboxScreen(
                                             }
                                         )
                                     }
+                                // Zusätzlich eingeblendete Server-Ordner
+                                // (Einstellungen → Konten → Sichtbare Ordner)
+                                val extraFolders = remember(hiddenVersion, folderMenuOpen) {
+                                    Prefs.extraFolders(Prefs.email).sortedBy { it.lowercase() }
+                                }
+                                extraFolders.forEach { path ->
+                                    val active = !unified && customFolder == path
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                path.substringAfterLast('/'),
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = if (active) FontWeight.SemiBold
+                                                else FontWeight.Normal
+                                            )
+                                        },
+                                        leadingIcon = { Icon(Icons.Filled.FolderOpen, null) },
+                                        trailingIcon = if (active) {
+                                            { Icon(Icons.Filled.Check, null) }
+                                        } else null,
+                                        colors = if (active) {
+                                            androidx.compose.material3.MenuDefaults.itemColors(
+                                                textColor = MaterialTheme.colorScheme.primary,
+                                                leadingIconColor = MaterialTheme.colorScheme.primary,
+                                                trailingIconColor = MaterialTheme.colorScheme.primary
+                                            )
+                                        } else {
+                                            androidx.compose.material3.MenuDefaults.itemColors()
+                                        },
+                                        onClick = {
+                                            folderMenuOpen = false
+                                            scope.launch {
+                                                if (MailRepository.unified.value) {
+                                                    MailRepository.setUnified(false, reload = false)
+                                                }
+                                                MailRepository.switchCustomFolder(path)
+                                            }
+                                        }
+                                    )
+                                }
                                 // Lokale Entwürfe (automatisch beim Verlassen des
                                 // Verfassen-Fensters gespeichert)
                                 val draftList by Prefs.draftsFlow.collectAsState()

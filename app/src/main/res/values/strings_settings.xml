@@ -292,4 +292,9 @@
     <string name="settings_pro_subscribe">BlockMail Pro abonnieren</string>
     <string name="settings_pro_manage">Abo verwalten</string>
     <string name="settings_pro_unavailable">Der Kauf ist gerade nicht möglich. Prüfe deine Play-Store-Verbindung und versuche es später erneut.</string>
+    <string name="settings_more_folders">Weitere Ordner vom Server</string>
+    <string name="settings_more_folders_desc">Ordner, die dein Anbieter zusätzlich anbietet — angekreuzte erscheinen im Ordner-Menü des Posteingangs.</string>
+    <string name="settings_more_folders_loading">Ordner werden geladen …</string>
+    <string name="settings_more_folders_none">Keine weiteren Ordner gefunden.</string>
+    <string name="settings_more_folders_failed">Ordner konnten nicht geladen werden: %1$s</string>
 </resources>

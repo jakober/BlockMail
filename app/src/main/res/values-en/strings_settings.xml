@@ -292,4 +292,9 @@
     <string name="settings_pro_subscribe">Subscribe to BlockMail Pro</string>
     <string name="settings_pro_manage">Manage subscription</string>
     <string name="settings_pro_unavailable">Purchasing is not available right now. Check your Play Store connection and try again later.</string>
+    <string name="settings_more_folders">More folders from the server</string>
+    <string name="settings_more_folders_desc">Folders your provider offers in addition — checked ones appear in the inbox folder menu.</string>
+    <string name="settings_more_folders_loading">Loading folders …</string>
+    <string name="settings_more_folders_none">No additional folders found.</string>
+    <string name="settings_more_folders_failed">Could not load folders: %1$s</string>
 </resources>
