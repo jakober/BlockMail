@@ -1227,22 +1227,40 @@ fun AttachmentEditorScreen(
                                     else stringResource(R.string.editor_new_signature)
                                 )
                             }
-                            // Groesse aendert immer die ZULETZT angefasste
-                            // Unterschrift — nicht die auf der gerade obersten
-                            // sichtbaren Seite. Angefasste wandern ans
-                            // Listenende (siehe PageCanvas), deshalb genuegt
-                            // hier der letzte Eintrag.
-                            val touched = lastTouched?.let { marks[it] }
-                            val last = touched?.lastOrNull() as? Mark.Sign
-                            if (touched != null && last != null) {
-                                OutlinedButton(onClick = {
-                                    val i = touched.lastIndex
-                                    if (i >= 0) touched[i] = last.copy(width = last.width * 0.8f)
-                                }) { Text("−") }
-                                OutlinedButton(onClick = {
-                                    val i = touched.lastIndex
-                                    if (i >= 0) touched[i] = last.copy(width = last.width * 1.25f)
-                                }) { Text("+") }
+                        }
+                    }
+                    // Groesse aendern — fuer Unterschrift, Haekchen, Kreuz und
+                    // Datum gleichermassen. Wirkt immer auf das ZULETZT
+                    // angefasste Element (Angefasste wandern ans Listenende,
+                    // siehe PageCanvas), egal auf welcher Seite es liegt.
+                    if (mode == "sign" || mode == "check" || mode == "cross" || mode == "date") {
+                        val touched = lastTouched?.let { marks[it] }
+                        val last = touched?.lastOrNull()
+                        val resizable = last is Mark.Sign || last is Mark.Stamp ||
+                            last is Mark.Label
+                        if (touched != null && resizable) {
+                            fun resize(f: Float) {
+                                val i = touched.lastIndex
+                                if (i < 0) return
+                                when (val m = touched[i]) {
+                                    is Mark.Sign -> touched[i] = m.copy(width = m.width * f)
+                                    is Mark.Stamp -> touched[i] = m.copy(size = m.size * f)
+                                    is Mark.Label -> touched[i] = m.copy(sizePx = m.sizePx * f)
+                                    else -> Unit
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    stringResource(R.string.editor_size),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                OutlinedButton(onClick = { resize(0.8f) }) { Text("−") }
+                                OutlinedButton(onClick = { resize(1.25f) }) { Text("+") }
                             }
                         }
                     }
@@ -1499,6 +1517,50 @@ private fun PageCanvas(
                                 s.center.y + drag.y / scale
                             )
                             version++
+                        }
+                    )
+                    // Haekchen, Kreuz und Datum lassen sich wie die
+                    // Unterschrift anfassen und verschieben
+                    "check", "cross", "date" -> detectDragGestures(
+                        onDragStart = { p ->
+                            val page = toPage(p)
+                            val hit = marks.indexOfLast { m ->
+                                (m is Mark.Stamp &&
+                                    kotlin.math.abs(m.center.x - page.x) < m.size &&
+                                    kotlin.math.abs(m.center.y - page.y) < m.size) ||
+                                    (m is Mark.Label &&
+                                        kotlin.math.abs(m.center.x - page.x) <
+                                        m.sizePx * m.text.length * 0.4f &&
+                                        kotlin.math.abs(m.center.y - page.y) < m.sizePx * 1.5f)
+                            }
+                            if (hit >= 0) {
+                                onTouched()
+                                if (hit != marks.lastIndex) {
+                                    val m = marks.removeAt(hit)
+                                    marks.add(m)
+                                }
+                            }
+                        },
+                        onDrag = { change, drag ->
+                            when (val m = marks.lastOrNull()) {
+                                is Mark.Stamp -> {
+                                    change.consume()
+                                    m.center = Offset(
+                                        m.center.x + drag.x / scale,
+                                        m.center.y + drag.y / scale
+                                    )
+                                    version++
+                                }
+                                is Mark.Label -> {
+                                    change.consume()
+                                    m.center = Offset(
+                                        m.center.x + drag.x / scale,
+                                        m.center.y + drag.y / scale
+                                    )
+                                    version++
+                                }
+                                else -> Unit
+                            }
                         }
                     )
                     else -> Unit

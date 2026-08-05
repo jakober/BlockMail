@@ -149,8 +149,8 @@
     <string name="editor_hint_highlight">Ziehe über den Text, um ihn zu markieren.</string>
     <string name="editor_hint_eraser">Tippe ein Element an, um es zu entfernen.</string>
     <string name="editor_hint_redact">Ziehe ein Rechteck über die Stelle, die geschwärzt werden soll.</string>
-    <string name="editor_hint_stamp">Tippe dorthin, wo das Zeichen sitzen soll.</string>
-    <string name="editor_hint_date">Tippe dorthin, wo das Datum stehen soll.</string>
+    <string name="editor_hint_stamp">Tippe dorthin, wo das Zeichen sitzen soll. Ziehen verschiebt es, − und + ändern die Größe.</string>
+    <string name="editor_hint_date">Tippe dorthin, wo das Datum stehen soll. Ziehen verschiebt es, − und + ändern die Größe.</string>
     <string name="editor_menu_save_as">Speichern unter …</string>
     <string name="editor_menu_share">Teilen</string>
     <string name="editor_menu_print">Drucken</string>
@@ -162,6 +162,7 @@
     <string name="editor_menu_append_images">Fotos anhängen …</string>
     <string name="editor_save_overwrite">Speichern</string>
     <string name="editor_saved">Gespeichert.</string>
+    <string name="editor_size">Größe</string>
     <string name="editor_redact_warn_title">Schwärzen ist endgültig</string>
     <string name="editor_redact_warn_text">Geschwärzte Seiten werden beim Speichern in Bilder umgewandelt, damit der Text darunter wirklich verschwindet. Auf diesen Seiten lässt sich Text danach nicht mehr markieren.</string>
     <string name="editor_redact_continue">Weiter</string>

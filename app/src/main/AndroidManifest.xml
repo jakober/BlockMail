@@ -22,10 +22,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.KlarMail">
 
+        <!-- configChanges: Drehen baut die Activity NICHT neu auf — sonst
+             verloere der Dokument-Editor beim Drehen alle Aufsaetze und
+             fragte das PDF-Passwort erneut ab. Compose liest die neue
+             Ausrichtung ueber LocalConfiguration von selbst. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -45,6 +50,7 @@
             android:label="@string/viewer_label"
             android:taskAffinity=""
             android:documentLaunchMode="intoExisting"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
             <!-- Teilen-Blatt und „Bearbeiten mit …" -->
             <intent-filter android:label="@string/viewer_label">
