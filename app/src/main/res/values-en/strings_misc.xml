@@ -101,4 +101,25 @@
     <string name="welcome_feature_attachments_text">Images, PDFs and documents from every email gathered in one gallery — find, open and share them without hunting for the email.</string>
     <string name="tour_step_attachments_title">All attachments in one place</string>
     <string name="tour_step_attachments_text">Tap the folder name: this is where you switch folders and accounts — and find “Attachments”. Images, PDFs and documents from every email are gathered there in one gallery.</string>
+    <!-- Attachment editor (sign &amp; draw) -->
+    <string name="detail_attachment_sign">Sign &amp; send back</string>
+    <string name="editor_back">Back</string>
+    <string name="editor_undo">Undo</string>
+    <string name="editor_mode_sign">Signature</string>
+    <string name="editor_mode_draw">Draw</string>
+    <string name="editor_prev_page">Previous page</string>
+    <string name="editor_next_page">Next page</string>
+    <string name="editor_hint_sign">Tap where the signature should go. Drag to move it, − and + change its size.</string>
+    <string name="editor_hint_no_signature">Draw your signature once — after that it stays saved on your device.</string>
+    <string name="editor_create_signature">Draw signature</string>
+    <string name="editor_new_signature">Draw again</string>
+    <string name="editor_send_reply">Send as reply</string>
+    <string name="editor_attach">Attach to an email</string>
+    <string name="editor_open_failed">This file cannot be displayed.</string>
+    <string name="editor_save_failed">Saving failed.</string>
+    <string name="editor_signature_title">Your signature</string>
+    <string name="editor_signature_hint">Sign with your finger. It is stored on your device and ready for every document from then on.</string>
+    <string name="editor_signature_clear">Again</string>
+    <string name="editor_signature_save">Save</string>
+    <string name="editor_cancel">Cancel</string>
 </resources>

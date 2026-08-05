@@ -280,7 +280,16 @@ fun ComposeScreen(
     val aiAvailable = isPro
     val plainText = editorState.annotatedString.text
 
-    val pickedFiles = remember { mutableStateListOf<PickedFile>() }
+    // Aus dem Anhang-Editor zurueck: das unterschriebene Dokument haengt
+    // sofort dran, ohne dass man es im Dateiwaehler suchen muss
+    val pickedFiles = remember {
+        mutableStateListOf<PickedFile>().also { list ->
+            com.jakober.klarmail.data.AttachmentEditing.pendingResult?.let { r ->
+                list.add(PickedFile(r.uri, r.name, r.size))
+                com.jakober.klarmail.data.AttachmentEditing.pendingResult = null
+            }
+        }
+    }
     val filePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetMultipleContents()
     ) { uris ->

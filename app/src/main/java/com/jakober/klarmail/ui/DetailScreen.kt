@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
@@ -160,7 +161,9 @@ fun DetailScreen(
     onReply: () -> Unit,
     folder: MailRepository.MailFolder? = null,
     fallbackMail: com.jakober.klarmail.data.MailMessage? = null,
-    onForward: (() -> Unit)? = null
+    onForward: (() -> Unit)? = null,
+    /** Öffnet den Anhang-Editor (Unterschreiben/Zeichnen). */
+    onEditAttachment: (() -> Unit)? = null
 ) {
     val messages by MailRepository.messages.collectAsState()
     val mail = fallbackMail ?: messages.find { it.uid == uid }
@@ -669,6 +672,15 @@ fun DetailScreen(
                         }
                         val bytes = MailRepository.getAttachmentData(uid, att, mailAccount)
                         when (action) {
+                            // Unterschreiben: Anhang an den Editor uebergeben,
+                            // der schickt ihn danach direkt als Antwort raus
+                            "sign" -> {
+                                com.jakober.klarmail.data.AttachmentEditing.pending =
+                                    com.jakober.klarmail.data.AttachmentEditing.Source(
+                                        att.name, att.mime, bytes, uid
+                                    )
+                                onEditAttachment?.invoke()
+                            }
                             "open" -> withContext(Dispatchers.IO) {
                                 MailRepository.openAttachment(context, att.name, att.mime, bytes)
                             }
@@ -758,6 +770,37 @@ fun DetailScreen(
                             )
                             Spacer(Modifier.width(16.dp))
                             Text(label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    // Ganz oben, weil es der Weg ist, der Zeit spart:
+                    // Vertrag oeffnen, unterschreiben, zurueckschicken
+                    if (onEditAttachment != null &&
+                        com.jakober.klarmail.data.AttachmentEditing.isEditable(att.mime, att.name)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    attachmentDialog = null
+                                    // Pro-Funktion, aber ohne KI: das
+                                    // Kontingent spielt hier keine Rolle
+                                    if (!isPro) showProUpsell = true
+                                    else attachmentAction(att, "sign")
+                                }
+                                .padding(horizontal = 24.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Gesture,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(16.dp))
+                            Text(
+                                stringResource(R.string.detail_attachment_sign),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                     actionRow(

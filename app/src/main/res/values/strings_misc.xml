@@ -101,4 +101,25 @@
     <string name="welcome_feature_attachments_text">Bilder, PDFs und Dokumente aus allen Mails gebündelt in einer Galerie — suchen, öffnen, teilen, ohne die Mail zu finden.</string>
     <string name="tour_step_attachments_title">Alle Anhänge an einem Ort</string>
     <string name="tour_step_attachments_text">Tippe auf den Ordner-Namen: Hier wechselst du Ordner und Konten — und findest „Anhänge“. Dort liegen Bilder, PDFs und Dokumente aus allen Mails gebündelt in einer Galerie.</string>
+    <!-- Anhang-Editor (unterschreiben & zeichnen) -->
+    <string name="detail_attachment_sign">Unterschreiben &amp; zurückschicken</string>
+    <string name="editor_back">Zurück</string>
+    <string name="editor_undo">Rückgängig</string>
+    <string name="editor_mode_sign">Unterschrift</string>
+    <string name="editor_mode_draw">Zeichnen</string>
+    <string name="editor_prev_page">Vorherige Seite</string>
+    <string name="editor_next_page">Nächste Seite</string>
+    <string name="editor_hint_sign">Tippe auf die Stelle, an der die Unterschrift stehen soll. Ziehen verschiebt sie, − und + ändern die Größe.</string>
+    <string name="editor_hint_no_signature">Zeichne zuerst einmal deine Unterschrift — danach ist sie dauerhaft gespeichert.</string>
+    <string name="editor_create_signature">Unterschrift zeichnen</string>
+    <string name="editor_new_signature">Neu zeichnen</string>
+    <string name="editor_send_reply">Als Antwort senden</string>
+    <string name="editor_attach">An eine Mail anhängen</string>
+    <string name="editor_open_failed">Diese Datei lässt sich nicht anzeigen.</string>
+    <string name="editor_save_failed">Speichern fehlgeschlagen.</string>
+    <string name="editor_signature_title">Deine Unterschrift</string>
+    <string name="editor_signature_hint">Mit dem Finger unterschreiben. Sie wird auf dem Gerät gespeichert und steht dann für jedes Dokument bereit.</string>
+    <string name="editor_signature_clear">Nochmal</string>
+    <string name="editor_signature_save">Speichern</string>
+    <string name="editor_cancel">Abbrechen</string>
 </resources>

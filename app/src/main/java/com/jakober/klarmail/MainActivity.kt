@@ -127,7 +127,20 @@ class MainActivity : ComponentActivity() {
                             onBack = { nav.popBackStack() },
                             onReply = { nav.navigate("compose?replyTo=$uid") },
                             onForward = { nav.navigate("compose?forward=$uid") },
-                            fallbackMail = fallback
+                            fallbackMail = fallback,
+                            onEditAttachment = { nav.navigate("editor") }
+                        )
+                    }
+                    composable("editor") {
+                        com.jakober.klarmail.ui.AttachmentEditorScreen(
+                            onBack = { nav.popBackStack() },
+                            onSend = { replyUid ->
+                                // Editor aus dem Verlauf nehmen: Zurueck aus
+                                // dem Verfassen-Fenster soll zur Mail fuehren
+                                nav.popBackStack()
+                                if (replyUid != null) nav.navigate("compose?replyTo=$replyUid")
+                                else nav.navigate("compose")
+                            }
                         )
                     }
                     composable(
