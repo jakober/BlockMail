@@ -15,7 +15,7 @@ Zeichen-Limits: Titel 30, Kurzbeschreibung 80, Beschreibung 4000.
 BlockMail – E-Mail mit KI
 
 **Kurzbeschreibung (max. 80):**
-E-Mail-App mit KI-Suche, PDF unterschreiben, Anhang-Galerie & Echtzeit-Push.
+E-Mail-App mit KI-Suche & PDF-Editor: unterschreiben, schwärzen, drucken.
 
 **Beschreibung:**
 
@@ -63,7 +63,7 @@ Hol dir Ordnung, Tempo und KI in dein Postfach — mit BlockMail.
 BlockMail – Email with AI
 
 **Short description (max. 80):**
-Email app with AI search, PDF signing, attachment gallery & real-time push.
+Email app with AI search & a PDF editor: sign, redact, print documents.
 
 **Description:**
 

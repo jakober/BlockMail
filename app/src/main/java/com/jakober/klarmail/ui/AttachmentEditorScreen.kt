@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -153,7 +155,10 @@ private fun printPdf(context: android.content.Context, file: java.io.File, name:
     pm.print(name, adapter, null)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+)
 @Composable
 fun AttachmentEditorScreen(
     source: AttachmentEditing.Source,
@@ -864,15 +869,14 @@ fun AttachmentEditorScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+        // Tablet und Querformat: Werkzeuge links, Dokument rechts —
+        // Hochformat wie bisher: Dokument oben, Werkzeuge unten. Dieselben
+        // Bausteine, nur anders angeordnet.
+        val wide = androidx.compose.ui.platform.LocalConfiguration
+            .current.screenWidthDp >= 600
+        val docArea: @Composable (Modifier) -> Unit = { areaModifier ->
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                modifier = areaModifier
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clipToBounds()
                     .onSizeChanged { viewport = it },
@@ -1005,20 +1009,18 @@ fun AttachmentEditorScreen(
                     }
                 }
             }
+        }
 
-            Surface(tonalElevation = 3.dp) {
-                Column(Modifier.padding(12.dp)) {
+        val toolPanel: @Composable () -> Unit = {
+            Column {
                     // Werkzeuge und Seitenzahl in ZWEI Zeilen: In einer Zeile
                     // blieb fuer die Seitenzahl nur eine schmale Spalte, in der
                     // sie zeichenweise umbrach. Die Chips lassen sich schieben,
                     // damit auch spaetere Werkzeuge nichts quetschen.
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    // In der Seitenleiste (Tablet/Querformat) brechen die
+                    // Werkzeuge um und sind alle gleichzeitig sichtbar; in
+                    // der unteren Leiste bleiben sie eine schiebbare Zeile
+                    val toolChipItems: @Composable () -> Unit = {
                         // Reihenfolge = Haeufigkeit: Erst die Klassiker,
                         // hinten die Spezialwerkzeuge
                         val tools = listOf(
@@ -1059,6 +1061,19 @@ fun AttachmentEditorScreen(
                                 leadingIcon = { Icon(icon, contentDescription = null) }
                             )
                         }
+                    }
+                    if (wide) {
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) { toolChipItems() }
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) { toolChipItems() }
                     }
                     // Unterwerkzeuge: Farbe (und Strichstaerke) fuer Stift,
                     // Haekchen, Kreuz und Datum
@@ -1276,6 +1291,46 @@ fun AttachmentEditorScreen(
                             }
                         )
                     }
+                }
+            }
+
+        if (wide) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                Surface(
+                    tonalElevation = 3.dp,
+                    modifier = Modifier
+                        .width(340.dp)
+                        .fillMaxHeight()
+                ) {
+                    Column(
+                        Modifier
+                            .verticalScroll(rememberScrollState())
+                            .padding(12.dp)
+                    ) { toolPanel() }
+                }
+                docArea(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                docArea(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
+                Surface(tonalElevation = 3.dp) {
+                    Column(Modifier.padding(12.dp)) { toolPanel() }
                 }
             }
         }

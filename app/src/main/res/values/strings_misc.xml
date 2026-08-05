@@ -15,7 +15,7 @@
     <string name="welcome_feature_accounts_text">Mehrere Postfächer mit eigenen Farben — einzeln oder gemeinsam.</string>
     <string name="welcome_feature_ai_title">KI-Assistent (BlockMail Pro)</string>
     <string name="welcome_feature_ai_text">Zusammenfassen, Antworten entwerfen und Tages-Überblick. Läuft über den BlockMail-Server — Inhalte werden dort nicht gespeichert. 3 Tage kostenlos testen, danach 4,90 € im Monat mit 150 KI-Anfragen oder 9 € mit 300 Anfragen.</string>
-    <string name="welcome_feature_sign_title">Unterschreiben und zurückschicken</string>
+    <string name="welcome_feature_sign_title">Dein PDF-Editor: unterschreiben &amp; bearbeiten</string>
     <string name="welcome_feature_sign_text">Vertrag als PDF bekommen? Öffnen, mit dem Finger unterschreiben, direkt als Antwort zurück — ohne Drucker, Scanner oder zweite App. Dazu ein voller PDF-Editor: markieren, schwärzen, Häkchen, Datum, Seiten drehen. BlockMail lässt sich sogar als Standard-PDF-Programm festlegen. Teil von BlockMail Pro.</string>
     <string name="welcome_setup">Konto einrichten</string>
     <string name="welcome_skip">Später erkunden</string>
@@ -71,7 +71,7 @@
     <string name="pro_plan_switch">Zu diesem Tarif wechseln</string>
     <string name="pro_what_counts">Als eine Anfrage zählt jede KI-Aktion: Frage an dein Postfach, Mail zusammenfassen, Tages-Überblick, Antwort entwerfen, Mail mit KI verfassen und Rechtschreibprüfung.</string>
     <string name="pro_ad_title">Mehr aus deinem Postfach holen</string>
-    <string name="pro_ad_text">Mit BlockMail Pro fragst du dein Postfach alles („Wie viel habe ich bei Amazon ausgegeben?“), lässt Mails zusammenfassen — und unterschreibst PDFs direkt in der App. 3 Tage kostenlos testen.</string>
+    <string name="pro_ad_text">Mit BlockMail Pro fragst du dein Postfach alles („Wie viel habe ich bei Amazon ausgegeben?“) — und bekommst einen vollen PDF-Editor: unterschreiben, markieren, schwärzen, drucken. Sogar als Standard-App für alle PDFs auf deinem Handy. 3 Tage kostenlos testen.</string>
     <string name="pro_ad_open">Ansehen</string>
     <string name="pro_ad_later">Später</string>
     <string name="pro_ad_never">Nicht mehr anzeigen</string>
@@ -93,7 +93,7 @@
     <string name="tour_step_menu_title">Ansicht &amp; Menü</string>
     <string name="tour_step_menu_text">Mit dem linken Symbol wechselst du direkt zwischen Liste und Kacheln. Daneben das Menü — hier geöffnet: Hell/Dunkel, Ansicht, schlichtes Design, Schriftgröße und die Einstellungen.</string>
     <string name="tour_step_extras_title">Noch mehr drin</string>
-    <string name="tour_step_extras_text">BlockMail warnt vor Phishing, erinnert mit dem Antwort-Radar an unbeantwortete Mails, zeigt Statistiken — und unterschreibt PDFs direkt in der App. Alle Zusatzfunktionen findest du in den Einstellungen.</string>
+    <string name="tour_step_extras_text">BlockMail warnt vor Phishing, erinnert mit dem Antwort-Radar an unbeantwortete Mails, zeigt Statistiken — und ist ein kompletter PDF-Editor: unterschreiben, markieren, schwärzen, Seiten ordnen. Du kannst BlockMail sogar als Standard-PDF-App festlegen. Alle Zusatzfunktionen findest du in den Einstellungen.</string>
     <string name="tour_step_compose_title">Neue Mail schreiben</string>
     <string name="tour_step_compose_text">Mit dem Stift beginnst du eine neue Mail — auf Wunsch hilft dir die KI beim Formulieren.</string>
     <string name="tour_step_ai_title">Dein KI-Assistent</string>
