@@ -278,10 +278,40 @@ fun AttachmentEditorScreen(
         lastTouched = id
     }
 
+    // Auswahl: (Seite, Index) des angetippten Aufsatzes. Gesetzt durch
+    // Antippen im Ansehen-Modus; erlaubt Verschieben, Groesse und Loeschen
+    // fuer JEDES Element — auch laengst gesetzte.
+    var selected by remember { mutableStateOf<Pair<PageId, Int>?>(null) }
+
+    fun selectedEntry(): Pair<MutableList<Mark>, Int>? {
+        val (pid, idx) = selected ?: return null
+        val list = marks[pid] ?: return null
+        if (idx !in list.indices) return null
+        return list to idx
+    }
+
+    fun resizeSelected(f: Float) {
+        val (list, i) = selectedEntry() ?: return
+        list[i] = com.jakober.klarmail.data.scaleMark(list[i], f)
+    }
+
+    fun deleteSelected() {
+        val (pid, _) = selected ?: return
+        val (list, i) = selectedEntry() ?: run { selected = null; return }
+        list.removeAt(i)
+        // Verlauf kuerzen wie beim Radierer, sonst nimmt Rueckgaengig
+        // danach den falschen Aufsatz
+        val li = history.lastIndexOf(pid)
+        if (li >= 0) history.removeAt(li)
+        selected = null
+    }
+
     fun undo() {
         val id = history.removeLastOrNull() ?: return
         marks[id]?.removeLastOrNull()
         lastTouched = history.lastOrNull()
+        // Die Auswahl koennte jetzt auf einen anderen Eintrag zeigen
+        selected = null
     }
 
     var signature by remember { mutableStateOf(AttachmentEditing.loadSignature(context, 0)) }
@@ -635,6 +665,7 @@ fun AttachmentEditorScreen(
                 marks.remove(id)
                 history.removeAll { it == id }
                 if (lastTouched == id) lastTouched = null
+                if (selected?.first == id) selected = null
             }
         ) { s, o -> com.jakober.klarmail.data.PdfPageOps.delete(s, o, idx) }
     }
@@ -1002,6 +1033,15 @@ fun AttachmentEditorScreen(
                                         val id = idFor(index)
                                         val li = history.lastIndexOf(id)
                                         if (li >= 0) history.removeAt(li)
+                                        selected = null
+                                    },
+                                    selectedIndex = selected
+                                        ?.takeIf { it.first == idFor(index) }
+                                        ?.second ?: -1,
+                                    onSelect = { hit ->
+                                        selected =
+                                            if (hit >= 0) idFor(index) to hit else null
+                                        if (hit >= 0) lastTouched = idFor(index)
                                     }
                                 )
                             }
@@ -1229,6 +1269,35 @@ fun AttachmentEditorScreen(
                             }
                         }
                     }
+                    // Auswahl-Aktionen: erscheinen, sobald im Ansehen-Modus
+                    // ein Element angetippt wurde — fuer JEDES Element
+                    if (selectedEntry() != null) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                stringResource(R.string.editor_selection),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedButton(onClick = { resizeSelected(0.8f) }) { Text("−") }
+                            OutlinedButton(onClick = { resizeSelected(1.25f) }) { Text("+") }
+                            TextButton(onClick = { deleteSelected() }) {
+                                Text(
+                                    stringResource(R.string.editor_delete),
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            TextButton(onClick = { selected = null }) {
+                                Text(stringResource(R.string.editor_deselect))
+                            }
+                        }
+                    }
                     // Groesse aendern — fuer Unterschrift, Haekchen, Kreuz und
                     // Datum gleichermassen. Wirkt immer auf das ZULETZT
                     // angefasste Element (Angefasste wandern ans Listenende,
@@ -1377,7 +1446,9 @@ private fun PageItem(
     onNeeded: () -> Unit,
     onMarkAdded: () -> Unit,
     onTouched: () -> Unit,
-    onErased: () -> Unit
+    onErased: () -> Unit,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit
 ) {
     LaunchedEffect(Unit) { onNeeded() }
     Box(
@@ -1403,7 +1474,9 @@ private fun PageItem(
                 onNeedSignature = onNeedSignature,
                 onMarkAdded = onMarkAdded,
                 onTouched = onTouched,
-                onErased = onErased
+                onErased = onErased,
+                selectedIndex = selectedIndex,
+                onSelect = onSelect
             )
         }
     }
@@ -1427,7 +1500,9 @@ private fun PageCanvas(
     onNeedSignature: () -> Unit,
     onMarkAdded: () -> Unit,
     onTouched: () -> Unit,
-    onErased: () -> Unit
+    onErased: () -> Unit,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit
 ) {
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
     // Zaehler nur fuers Neuzeichnen: Waehrend des Ziehens wird der Strich in
@@ -1452,6 +1527,59 @@ private fun PageCanvas(
         modifier = Modifier
             .fillMaxSize()
             .onSizeChanged { boxSize = it }
+            .pointerInput(mode, selectedIndex, signature, initials, bitmap) {
+                // Ansehen-Modus: Antippen waehlt ein Element aus, Ziehen
+                // verschiebt das ausgewaehlte. Von Hand gebaut, damit der
+                // Bildlauf der Liste nur dann angehalten wird, wenn der
+                // Finger wirklich auf dem ausgewaehlten Element liegt.
+                if (mode != "view") return@pointerInput
+                val sigAspect = signature?.let { it.height.toFloat() / it.width }
+                val iniAspect = initials?.let { it.height.toFloat() / it.width }
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val start = toPage(down.position)
+                    val selMark = marks.getOrNull(selectedIndex)
+                    val tol = bitmap.width / 40f
+                    val onSelected = selMark != null &&
+                        com.jakober.klarmail.data.markBounds(selMark, sigAspect, iniAspect)
+                            .inflate(tol).contains(start)
+                    if (onSelected && selMark != null) {
+                        // Ziehen: Element mitnehmen, Bildlauf anhalten
+                        down.consume()
+                        var prev = down.position
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                                ?: break
+                            if (!change.pressed) break
+                            val d = change.position - prev
+                            prev = change.position
+                            com.jakober.klarmail.data.moveMark(
+                                selMark,
+                                Offset(d.x / scale, d.y / scale)
+                            )
+                            change.consume()
+                            version++
+                        }
+                    } else {
+                        // Kein Ziehen abfangen — nur ein ruhiger Tipp waehlt
+                        // aus (oder hebt die Auswahl auf)
+                        var moved = false
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                                ?: return@awaitEachGesture
+                            if ((change.position - down.position).getDistance() >
+                                viewConfiguration.touchSlop
+                            ) moved = true
+                            if (!change.pressed) {
+                                if (!moved) onSelect(hitMark(marks, start, tol))
+                                return@awaitEachGesture
+                            }
+                        }
+                    }
+                }
+            }
             .pointerInput(mode, signature, initials, signSlot, drawColor, widthFactor, bitmap) {
                 when (mode) {
                     "draw", "highlight" -> detectDragGestures(
@@ -1615,6 +1743,28 @@ private fun PageCanvas(
             )
             c.nativeCanvas.drawBitmap(bitmap, null, dst, null)
             drawMarks(c.nativeCanvas, marks, signature, scale, dx, dy, initials)
+            // Auswahlrahmen: gestrichelt um das angetippte Element
+            marks.getOrNull(selectedIndex)?.let { sel ->
+                val sigAspect = signature?.let { it.height.toFloat() / it.width }
+                val iniAspect = initials?.let { it.height.toFloat() / it.width }
+                val b = com.jakober.klarmail.data.markBounds(sel, sigAspect, iniAspect)
+                val paint = android.graphics.Paint().apply {
+                    isAntiAlias = true
+                    style = android.graphics.Paint.Style.STROKE
+                    color = 0xFF1565C0.toInt()
+                    strokeWidth = 2.5f
+                    pathEffect = android.graphics.DashPathEffect(
+                        floatArrayOf(10f, 8f), 0f
+                    )
+                }
+                c.nativeCanvas.drawRect(
+                    b.left * scale + dx - 6f,
+                    b.top * scale + dy - 6f,
+                    b.right * scale + dx + 6f,
+                    b.bottom * scale + dy + 6f,
+                    paint
+                )
+            }
         }
     }
 }

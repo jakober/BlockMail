@@ -178,6 +178,99 @@ fun drawMarks(
 }
 
 /**
+ * Umgrenzung eines Aufsatzes in Seitenpixeln — für Auswahlrahmen und
+ * Treffertest. [sigAspect]/[iniAspect] sind Höhe/Breite der hinterlegten
+ * Unterschrift bzw. des Kürzels (null, wenn keine vorhanden).
+ */
+fun markBounds(
+    m: Mark,
+    sigAspect: Float? = null,
+    iniAspect: Float? = null
+): androidx.compose.ui.geometry.Rect {
+    return when (m) {
+        is Mark.Stroke -> {
+            var l = Float.MAX_VALUE; var t = Float.MAX_VALUE
+            var r = -Float.MAX_VALUE; var b = -Float.MAX_VALUE
+            m.points.forEach { p ->
+                if (p.x < l) l = p.x
+                if (p.y < t) t = p.y
+                if (p.x > r) r = p.x
+                if (p.y > b) b = p.y
+            }
+            if (l > r) return androidx.compose.ui.geometry.Rect(0f, 0f, 0f, 0f)
+            val pad = m.width
+            androidx.compose.ui.geometry.Rect(l - pad, t - pad, r + pad, b + pad)
+        }
+        is Mark.Sign -> {
+            val aspect = (if (m.slot == 1) iniAspect else sigAspect) ?: 0.4f
+            val h = m.width * aspect
+            androidx.compose.ui.geometry.Rect(
+                m.center.x - m.width / 2, m.center.y - h / 2,
+                m.center.x + m.width / 2, m.center.y + h / 2
+            )
+        }
+        is Mark.Stamp -> androidx.compose.ui.geometry.Rect(
+            m.center.x - m.size / 2, m.center.y - m.size / 2,
+            m.center.x + m.size / 2, m.center.y + m.size / 2
+        )
+        is Mark.Label -> {
+            val w = m.sizePx * m.text.length * 0.6f
+            val h = m.sizePx * 1.4f
+            androidx.compose.ui.geometry.Rect(
+                m.center.x - w / 2, m.center.y - h / 2,
+                m.center.x + w / 2, m.center.y + h / 2
+            )
+        }
+        is Mark.Redact -> androidx.compose.ui.geometry.Rect(
+            minOf(m.a.x, m.b.x), minOf(m.a.y, m.b.y),
+            maxOf(m.a.x, m.b.x), maxOf(m.a.y, m.b.y)
+        )
+    }
+}
+
+/** Verschiebt einen Aufsatz um [d] (Seitenpixel) — durch Feldänderung. */
+fun moveMark(m: Mark, d: Offset) {
+    when (m) {
+        is Mark.Sign -> m.center += d
+        is Mark.Stamp -> m.center += d
+        is Mark.Label -> m.center += d
+        is Mark.Stroke -> for (j in m.points.indices) m.points[j] = m.points[j] + d
+        is Mark.Redact -> { m.a += d; m.b += d }
+    }
+}
+
+/**
+ * Skaliert einen Aufsatz um [f] um seinen Mittelpunkt und gibt die NEUE
+ * Instanz zurück — der Aufrufer ersetzt damit den Listeneintrag, sonst
+ * bekäme Compose die Änderung nicht mit.
+ */
+fun scaleMark(m: Mark, f: Float): Mark = when (m) {
+    is Mark.Sign -> m.copy(width = m.width * f)
+    is Mark.Stamp -> m.copy(size = m.size * f)
+    is Mark.Label -> m.copy(sizePx = m.sizePx * f)
+    is Mark.Stroke -> {
+        var cx = 0f; var cy = 0f
+        m.points.forEach { cx += it.x; cy += it.y }
+        val n = m.points.size.coerceAtLeast(1)
+        cx /= n; cy /= n
+        m.copy(
+            points = m.points.map {
+                Offset(cx + (it.x - cx) * f, cy + (it.y - cy) * f)
+            }.toMutableList(),
+            width = m.width * f
+        )
+    }
+    is Mark.Redact -> {
+        val cx = (m.a.x + m.b.x) / 2f
+        val cy = (m.a.y + m.b.y) / 2f
+        m.copy(
+            a = Offset(cx + (m.a.x - cx) * f, cy + (m.a.y - cy) * f),
+            b = Offset(cx + (m.b.x - cx) * f, cy + (m.b.y - cy) * f)
+        )
+    }
+}
+
+/**
  * Findet den obersten Aufsatz nahe [p] (Seitenpixel) — für den Radierer.
  * @return Index in [marks] oder -1
  */

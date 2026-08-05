@@ -112,7 +112,7 @@
     <string name="editor_mode_draw">Zeichnen</string>
     <string name="editor_prev_page">Vorherige Seite</string>
     <string name="editor_next_page">Nächste Seite</string>
-    <string name="editor_hint_view">Blättern und mit zwei Fingern zoomen. Zum Unterschreiben oder Zeichnen oben das Werkzeug wählen.</string>
+    <string name="editor_hint_view">Blättern und mit zwei Fingern zoomen. Tippe ein Element an, um es auszuwählen — dann kannst du es verschieben, in der Größe ändern oder löschen.</string>
     <string name="editor_hint_sign">Tippe auf die Stelle, an der die Unterschrift stehen soll. Ziehen verschiebt sie, − und + ändern die Größe.</string>
     <string name="editor_hint_no_signature">Zeichne zuerst einmal deine Unterschrift — danach ist sie dauerhaft gespeichert.</string>
     <string name="editor_create_signature">Unterschrift zeichnen</string>
@@ -163,6 +163,9 @@
     <string name="editor_save_overwrite">Speichern</string>
     <string name="editor_saved">Gespeichert.</string>
     <string name="editor_size">Größe</string>
+    <string name="editor_selection">Auswahl</string>
+    <string name="editor_delete">Löschen</string>
+    <string name="editor_deselect">Fertig</string>
     <string name="editor_redact_warn_title">Schwärzen ist endgültig</string>
     <string name="editor_redact_warn_text">Geschwärzte Seiten werden beim Speichern in Bilder umgewandelt, damit der Text darunter wirklich verschwindet. Auf diesen Seiten lässt sich Text danach nicht mehr markieren.</string>
     <string name="editor_redact_continue">Weiter</string>
