@@ -49,7 +49,18 @@ jobs:
           BLOB=$(git hash-object -w app/build/outputs/apk/debug/app-debug.apk)
           TREE=$(printf '100644 blob %s\tBlockMail-latest.apk\n' "$BLOB" | git mktree)
           COMMIT=$(git commit-tree "$TREE" -m "APK v${{ steps.version.outputs.name }} aus ${{ github.sha }}")
-          git push --force origin "$COMMIT:refs/heads/apk-latest"
+          # GitHub lehnt den Force-Push gelegentlich mit
+          # "fatal error in commit_refs" ab — das ist ein Aussetzer auf
+          # deren Seite, kein Fehler am Build. Deshalb bis zu viermal
+          # wiederholen, statt den ganzen Lauf rot zu faerben.
+          for i in 1 2 3 4; do
+            if git push --force origin "$COMMIT:refs/heads/apk-latest"; then
+              exit 0
+            fi
+            echo "Push fehlgeschlagen (Versuch $i) — neuer Versuch in $((i*5))s"
+            sleep $((i*5))
+          done
+          exit 1
 
       - name: APK an "latest"-Release anhängen
         if: github.ref_name == 'main' || startsWith(github.ref_name, 'claude/')
@@ -148,7 +159,18 @@ jobs:
           BLOB=$(git hash-object -w app/build/outputs/bundle/release/app-release.aab)
           TREE=$(printf '100644 blob %s\tBlockMail-store.aab\n' "$BLOB" | git mktree)
           COMMIT=$(git commit-tree "$TREE" -m "AAB v${{ steps.version.outputs.name }} aus ${{ github.sha }}")
-          git push --force origin "$COMMIT:refs/heads/aab-latest"
+          # GitHub lehnt den Force-Push gelegentlich mit
+          # "fatal error in commit_refs" ab — das ist ein Aussetzer auf
+          # deren Seite, kein Fehler am Build. Deshalb bis zu viermal
+          # wiederholen, statt den ganzen Lauf rot zu faerben.
+          for i in 1 2 3 4; do
+            if git push --force origin "$COMMIT:refs/heads/aab-latest"; then
+              exit 0
+            fi
+            echo "Push fehlgeschlagen (Versuch $i) — neuer Versuch in $((i*5))s"
+            sleep $((i*5))
+          done
+          exit 1
 
       - name: Bundle an Store-Release anhängen
         if: steps.check.outputs.vorhanden == 'true'
