@@ -12,8 +12,8 @@ android {
         applicationId = "com.jakober.klarmail"
         minSdk = 26
         targetSdk = 36
-        versionCode = 194
-        versionName = "3.91"
+        versionCode = 195
+        versionName = "3.92"
 
         // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
         manifestPlaceholders["appAuthRedirectScheme"] =
@@ -71,6 +71,14 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/NOTICE.md"
             excludes += "/META-INF/LICENSE.md"
+            // PDFBox bringt eigene Metadaten mit, die sonst mit denen
+            // anderer Bibliotheken kollidieren
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/INDEX.LIST"
+            excludes += "/META-INF/LICENSE"
+            excludes += "/META-INF/LICENSE.txt"
+            excludes += "/META-INF/NOTICE"
+            excludes += "/META-INF/NOTICE.txt"
         }
     }
 }
@@ -113,6 +121,11 @@ dependencies {
 
     // Absender-Logos laden
     implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // PDF-Bibliothek: NUR zum Aufschliessen geschuetzter Dokumente. Anzeigen
+    // und Speichern laeuft weiter ueber Androids eingebauten PdfRenderer —
+    // der ist schneller, kann aber prinzipiell keine verschluesselten PDFs.
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
     // Rich-Text-Editor fuer das Verfassen-Fenster
     implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc13")

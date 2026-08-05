@@ -165,31 +165,71 @@ fun AttachmentEditorScreen(
             .resolve("src_${System.currentTimeMillis()}_${source.name}")
             .also { it.writeBytes(source.bytes) }
     }
-    // Warum ein PDF nicht aufgeht, muss man dem Nutzer sagen koennen —
-    // geschuetzte Dokumente (Banken verschluesseln ihre Auszuege haeufig)
-    // lehnt PdfRenderer grundsaetzlich ab, auch ohne Passwortabfrage
-    val opened = remember {
-        if (!isPdf) Result.success<PdfRenderer?>(null)
-        else runCatching {
-            PdfRenderer(ParcelFileDescriptor.open(srcFile, ParcelFileDescriptor.MODE_READ_ONLY))
-        }
-    }
-    val renderer = opened.getOrNull()
-    val openError = opened.exceptionOrNull()
+    // Geschuetzte PDFs: Der eingebaute Leser lehnt sie grundsaetzlich ab.
+    // Dann wird mit PDFBox eine entschluesselte Kopie erzeugt (siehe
+    // PdfUnlock) und ab da ganz normal weitergearbeitet.
+    var pdfFile by remember { mutableStateOf(srcFile) }
+    var renderer by remember { mutableStateOf<PdfRenderer?>(null) }
+    var openError by remember { mutableStateOf<Throwable?>(null) }
+    var askPassword by remember { mutableStateOf(false) }
+    var passwordWrong by remember { mutableStateOf(false) }
+    var unlocking by remember { mutableStateOf(false) }
+    var pageCount by remember { mutableStateOf(if (isPdf) 0 else 1) }
     // PdfRenderer darf immer nur eine Seite gleichzeitig offen haben
     val renderLock = remember { Mutex() }
     DisposableEffect(Unit) {
         onDispose {
             runCatching { renderer?.close() }
             runCatching { srcFile.delete() }
+            runCatching { if (pdfFile != srcFile) pdfFile.delete() }
         }
     }
 
-    val pageCount = remember { if (isPdf) (renderer?.pageCount ?: 0) else 1 }
     var pageIndex by remember { mutableStateOf(0) }
     var pageBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var loading by remember { mutableStateOf(true) }
     var failed by remember { mutableStateOf(false) }
+
+    /** Entschluesselte Kopie anlegen und den Leser darauf umstellen. */
+    suspend fun tryUnlock(password: String): Boolean {
+        val out = File(context.cacheDir, "editor").resolve("open_${source.name}")
+        val ok = com.jakober.klarmail.data.PdfUnlock.unlock(srcFile, password, out)
+        if (ok) pdfFile = out
+        return ok
+    }
+
+    // PDF oeffnen — laeuft erneut, sobald eine entschluesselte Kopie vorliegt
+    LaunchedEffect(pdfFile) {
+        if (!isPdf) return@LaunchedEffect
+        val result = withContext(Dispatchers.IO) {
+            runCatching {
+                PdfRenderer(
+                    ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY)
+                )
+            }
+        }
+        val r = result.getOrNull()
+        if (r != null) {
+            renderer = r
+            pageCount = r.pageCount
+            openError = null
+            askPassword = false
+            return@LaunchedEffect
+        }
+        // Fehlgeschlagen: erst ohne Passwort aufschliessen versuchen — viele
+        // Dokumente sind nur gegen Bearbeiten geschuetzt, nicht gegen Lesen
+        if (pdfFile == srcFile) {
+            unlocking = true
+            val opened = tryUnlock("")
+            unlocking = false
+            if (opened) return@LaunchedEffect
+            askPassword = true
+        }
+        openError = result.exceptionOrNull()
+        loading = false
+        failed = true
+    }
+
 
     // Aufsätze je Seite — bleiben erhalten, während man blättert
     val marks = remember { androidx.compose.runtime.mutableStateMapOf<Int, MutableList<Mark>>() }
@@ -240,7 +280,8 @@ fun AttachmentEditorScreen(
         }
     }
 
-    LaunchedEffect(pageIndex) {
+    LaunchedEffect(pageIndex, renderer) {
+        if (isPdf && renderer == null) return@LaunchedEffect
         loading = true
         val bmp = renderPage(pageIndex)
         pageBitmap = bmp
@@ -316,6 +357,28 @@ fun AttachmentEditorScreen(
         }
     }
 
+    if (askPassword) {
+        PasswordDialog(
+            wrong = passwordWrong,
+            busy = unlocking,
+            onCancel = { askPassword = false },
+            onSubmit = { pw ->
+                scope.launch {
+                    unlocking = true
+                    passwordWrong = false
+                    val ok = tryUnlock(pw)
+                    unlocking = false
+                    if (ok) {
+                        askPassword = false
+                        failed = false
+                    } else {
+                        passwordWrong = true
+                    }
+                }
+            }
+        )
+    }
+
     if (showSignaturePad) {
         SignaturePad(
             onCancel = { showSignaturePad = false },
@@ -386,6 +449,13 @@ fun AttachmentEditorScreen(
                             else stringResource(R.string.editor_open_failed),
                             style = MaterialTheme.typography.bodyMedium
                         )
+                        if (openError is SecurityException) {
+                            Spacer(Modifier.height(12.dp))
+                            Button(onClick = {
+                                passwordWrong = false
+                                askPassword = true
+                            }) { Text(stringResource(R.string.editor_password_enter)) }
+                        }
                         val detail = openError?.message
                         if (!detail.isNullOrBlank()) {
                             Spacer(Modifier.height(8.dp))
@@ -731,6 +801,69 @@ private fun SignaturePad(
         },
         dismissButton = {
             TextButton(onClick = onCancel) {
+                Text(stringResource(R.string.editor_cancel))
+            }
+        }
+    )
+}
+
+/** Fragt das Passwort eines geschützten PDFs ab. */
+@Composable
+private fun PasswordDialog(
+    wrong: Boolean,
+    busy: Boolean,
+    onCancel: () -> Unit,
+    onSubmit: (String) -> Unit
+) {
+    var password by remember { mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { if (!busy) onCancel() },
+        title = { Text(stringResource(R.string.editor_password_title)) },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.editor_password_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(10.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.editor_password_label)) },
+                    visualTransformation =
+                        androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    isError = wrong,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (wrong) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        stringResource(R.string.editor_password_wrong),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !busy && password.isNotEmpty(),
+                onClick = { onSubmit(password) }
+            ) {
+                if (busy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(stringResource(R.string.editor_password_open))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel, enabled = !busy) {
                 Text(stringResource(R.string.editor_cancel))
             }
         }

@@ -14,6 +14,11 @@ class MailApp : Application() {
         // Ersten Start merken (steuert, ab wann die Pro-Hinweiskarte darf)
         if (Prefs.firstStartAt == 0L) Prefs.firstStartAt = System.currentTimeMillis()
         MailRepository.init(this)
+        // PDFBox braucht seine Schriftdaten aus den App-Ressourcen, bevor
+        // ein geschuetztes PDF aufgeschlossen werden kann
+        runCatching {
+            com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(applicationContext)
+        }
         com.jakober.klarmail.data.MailIndex.init(this)
         createChannels()
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)

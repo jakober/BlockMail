@@ -117,6 +117,12 @@
     <string name="editor_attach">An eine Mail anhängen</string>
     <string name="editor_open_failed">Diese Datei lässt sich nicht anzeigen.</string>
     <string name="editor_open_protected">Dieses PDF ist geschützt und lässt sich nicht bearbeiten. Viele Banken verschlüsseln ihre Dokumente — dann geht nur Öffnen und Weiterleiten.</string>
+    <string name="editor_password_title">PDF ist passwortgeschützt</string>
+    <string name="editor_password_hint">Gib das Passwort ein, mit dem du das Dokument öffnest. Es wird nur zum Aufschließen benutzt und nicht gespeichert.</string>
+    <string name="editor_password_label">Passwort</string>
+    <string name="editor_password_open">Öffnen</string>
+    <string name="editor_password_wrong">Passwort passt nicht.</string>
+    <string name="editor_password_enter">Passwort eingeben</string>
     <string name="editor_save_failed">Speichern fehlgeschlagen.</string>
     <string name="editor_signature_title">Deine Unterschrift</string>
     <string name="editor_signature_hint">Mit dem Finger unterschreiben. Sie wird auf dem Gerät gespeichert und steht dann für jedes Dokument bereit.</string>

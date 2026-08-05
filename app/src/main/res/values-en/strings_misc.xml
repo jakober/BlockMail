@@ -117,6 +117,12 @@
     <string name="editor_attach">Attach to an email</string>
     <string name="editor_open_failed">This file cannot be displayed.</string>
     <string name="editor_open_protected">This PDF is protected and cannot be edited. Many banks encrypt their documents — then only opening and forwarding works.</string>
+    <string name="editor_password_title">PDF is password protected</string>
+    <string name="editor_password_hint">Enter the password you use to open this document. It is only used to unlock it and is not stored.</string>
+    <string name="editor_password_label">Password</string>
+    <string name="editor_password_open">Open</string>
+    <string name="editor_password_wrong">That password does not fit.</string>
+    <string name="editor_password_enter">Enter password</string>
     <string name="editor_save_failed">Saving failed.</string>
     <string name="editor_signature_title">Your signature</string>
     <string name="editor_signature_hint">Sign with your finger. It is stored on your device and ready for every document from then on.</string>
