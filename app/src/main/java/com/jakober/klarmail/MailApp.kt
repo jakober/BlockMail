@@ -19,6 +19,9 @@ class MailApp : Application() {
         // Play-Abo prüfen: stellt Pro nach einer Neuinstallation von selbst
         // wieder her (läuft in der Testphase mit, ändert dort aber nichts)
         runCatching { com.jakober.klarmail.data.BillingManager.init(this) }
+        // Kontingent-Stand aus dem Gerät laden (setzt bei Monatswechsel
+        // zurück), damit die Gates von Anfang an den richtigen Wert sehen
+        runCatching { com.jakober.klarmail.data.AiQuota.ensureLoaded() }
     }
 
     /**

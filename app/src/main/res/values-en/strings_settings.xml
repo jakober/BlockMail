@@ -296,6 +296,7 @@
     <string name="settings_pro_quota_loading">Loading quota …</string>
     <string name="settings_pro_quota_unknown">No quota available yet — it appears here as soon as a subscription is active.</string>
     <string name="settings_pro_quota_refresh">Refresh quota</string>
+    <string name="settings_pro_quota_local">Counted on this device — once the BlockMail server is reachable, its count applies.</string>
     <string name="settings_pro_plans_title">Plans</string>
     <string name="settings_pro_unavailable">Purchasing is not available right now. Check your Play Store connection and try again later.</string>
     <string name="settings_more_folders">More folders from the server</string>

@@ -68,6 +68,10 @@
     <string name="pro_plan_choose">Choose this plan</string>
     <string name="pro_plan_switch">Switch to this plan</string>
     <string name="pro_what_counts">Every AI action counts as one request: asking your mailbox, summarizing a mail, the daily overview, drafting a reply, writing a mail with AI, and proofreading.</string>
+    <string name="quota_out_title">AI quota used up</string>
+    <string name="quota_out_text">You have used all %1$d AI requests for this month. Everything else in the app keeps working — until then the search bar acts as a plain text search.</string>
+    <string name="quota_out_reset">New quota on %1$s</string>
+    <string name="quota_out_chip">AI quota used up</string>
     <string name="pro_billing_note">Free for 3 days, then billed monthly through your Google Play account — cancel anytime. Unused requests expire at the end of the month.</string>
     <!-- Intro tour -->
     <string name="tour_skip">Skip</string>

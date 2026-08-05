@@ -488,7 +488,10 @@ fun SettingsScreen(
             // Einstellungen wird einmal frisch abgefragt.
             val quota by com.jakober.klarmail.data.AiQuota.info.collectAsState()
             val quotaLoading by com.jakober.klarmail.data.AiQuota.loading.collectAsState()
-            LaunchedEffect(Unit) { com.jakober.klarmail.data.AiQuota.refresh() }
+            LaunchedEffect(Unit) {
+                com.jakober.klarmail.data.AiQuota.ensureLoaded()
+                com.jakober.klarmail.data.AiQuota.refresh()
+            }
             Spacer(Modifier.height(12.dp))
             HorizontalDivider()
             Spacer(Modifier.height(12.dp))
@@ -525,6 +528,14 @@ fun SettingsScreen(
                     Spacer(Modifier.height(6.dp))
                     Text(
                         stringResource(R.string.settings_pro_quota_reset, resetText),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (!q.fromServer) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.settings_pro_quota_local),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

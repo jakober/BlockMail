@@ -210,6 +210,13 @@ fun DetailScreen(
     if (showProUpsell) {
         ProUpsellDialog(onDismiss = { showProUpsell = false })
     }
+    // Aufgebrauchtes Monatskontingent sperrt die KI genauso wie fehlendes Pro
+    val quota by com.jakober.klarmail.data.AiQuota.info.collectAsState()
+    val quotaLeft = (quota?.remaining ?: 1) > 0
+    var showQuotaOut by remember { mutableStateOf(false) }
+    if (showQuotaOut) {
+        AiQuotaExhaustedDialog(onDismiss = { showQuotaOut = false })
+    }
 
     if (showSnoozeDialog && mail != null) {
         androidx.compose.material3.AlertDialog(
@@ -613,6 +620,9 @@ fun DetailScreen(
 
             // Einziger KI-Weg: Pro-KI über den BlockMail-Proxy —
             // verfügbar genau dann, wenn Pro freigeschaltet ist
+            // Sichtbar bleibt der KI-Knopf mit Pro immer — ist das
+            // Kontingent leer, wird er nur blass und erklärt beim Tippen,
+            // wann es neues gibt (siehe [runSummarize])
             val aiAvailable = isPro
 
             fun runSummarize() {
@@ -620,6 +630,10 @@ fun DetailScreen(
                 // HTML-Mail-Seite (onAppLink "blockmail://summarize")
                 if (!isPro) {
                     showProUpsell = true
+                    return
+                }
+                if (!quotaLeft) {
+                    showQuotaOut = true
                     return
                 }
                 val b = body ?: return
@@ -975,10 +989,19 @@ fun DetailScreen(
                                 if (sum == null) {
                                     AssistChip(
                                         onClick = { runSummarize() },
+                                        colors = if (quotaLeft) AssistChipDefaults.assistChipColors()
+                                        else AssistChipDefaults.assistChipColors(
+                                            labelColor = MaterialTheme.colorScheme
+                                                .onSurfaceVariant.copy(alpha = 0.55f),
+                                            leadingIconContentColor = MaterialTheme.colorScheme
+                                                .onSurfaceVariant.copy(alpha = 0.55f)
+                                        ),
                                         label = {
                                             Text(
                                                 if (summarizing) {
                                                     stringResource(R.string.detail_summarizing)
+                                                } else if (!quotaLeft) {
+                                                    stringResource(R.string.quota_out_chip)
                                                 } else {
                                                     stringResource(R.string.detail_summarize_ai)
                                                 }

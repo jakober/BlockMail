@@ -75,6 +75,14 @@ object ClaudeClient {
      */
     private suspend fun complete(system: String, user: String): String =
         withContext(Dispatchers.IO) {
+            // Monatskontingent: Diese eine Stelle deckelt ALLE KI-Wege der
+            // App — auch die, die nicht über die Oberfläche laufen.
+            if (!com.jakober.klarmail.data.AiQuota.hasRequestsLeft()) {
+                throw IOException(
+                    if (deviceIsGerman) "Monatliches KI-Kontingent aufgebraucht"
+                    else "Monthly AI quota used up"
+                )
+            }
             val payload = JSONObject().apply {
                 put("model", MODEL)
                 put("max_tokens", 4096)

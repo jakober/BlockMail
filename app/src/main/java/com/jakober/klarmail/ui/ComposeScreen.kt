@@ -267,8 +267,17 @@ fun ComposeScreen(
         ProUpsellDialog(onDismiss = { showProUpsell = false })
     }
 
+    // Aufgebrauchtes Monatskontingent sperrt die KI genauso wie fehlendes Pro
+    val quota by com.jakober.klarmail.data.AiQuota.info.collectAsState()
+    val quotaLeft = (quota?.remaining ?: 1) > 0
+    var showQuotaOut by remember { mutableStateOf(false) }
+    if (showQuotaOut) {
+        AiQuotaExhaustedDialog(onDismiss = { showQuotaOut = false })
+    }
+
     // Einziger KI-Weg: Pro-KI über den BlockMail-Proxy —
-    // verfügbar genau dann, wenn Pro freigeschaltet ist
+    // verfügbar genau dann, wenn Pro freigeschaltet ist. Der Knopf bleibt
+    // auch bei leerem Kontingent sichtbar und erklärt sich beim Tippen.
     val aiAvailable = isPro
     val plainText = editorState.annotatedString.text
 
@@ -696,9 +705,19 @@ fun ComposeScreen(
                     // Pro-Gate: Ohne Pro öffnet der KI-FAB statt des Menüs
                     // den Hinweis-Dialog — das Menü (und damit alle
                     // KI-Aktionen) bleibt Pro vorbehalten
-                    FloatingActionButton(onClick = {
-                        if (isPro) aiMenuOpen = true else showProUpsell = true
-                    }) {
+                    FloatingActionButton(
+                        onClick = {
+                            if (!isPro) showProUpsell = true
+                            else if (!quotaLeft) showQuotaOut = true
+                            else aiMenuOpen = true
+                        },
+                        containerColor = if (quotaLeft)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (quotaLeft)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                    ) {
                         Icon(
                             Icons.Filled.AutoAwesome,
                             contentDescription = stringResource(R.string.compose_ai_functions)

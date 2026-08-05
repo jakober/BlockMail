@@ -34,6 +34,13 @@ Bei jeder KI-Anfrage schickt die App zusätzlich:
 - `X-Purchase-Token: <play_kauf_token>` — nur vorhanden, wenn ein Abo
   gekauft wurde. Fehlt die Kopfzeile, hat der Nutzer kein Abo.
 
+**Die App zählt bereits selbst mit** und sperrt ihre KI-Funktionen, sobald
+das Monatskontingent leer ist. Das ist die erste Schutzschicht und wirkt
+sofort. Der Server wird die zweite: Ein Zähler im Gerät ließe sich durch
+Löschen der App-Daten zurücksetzen, und wer den Endpunkt aus der APK
+ausliest, kann ihn ganz ohne App aufrufen. Nur der Server kann das
+abfangen — deshalb muss dort trotzdem gezählt werden.
+
 ## Aufgabe
 
 Baue eine serverseitige Abo-Prüfung ein:

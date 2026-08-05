@@ -156,6 +156,64 @@ private fun ProPlanCard(
 }
 
 /**
+ * Hinweis, wenn das Monatskontingent aufgebraucht ist: sagt, wann es neues
+ * gibt, und bietet den größeren Tarif an. Die KI-Funktionen bleiben bis
+ * dahin gesperrt, alles andere in der App läuft normal weiter.
+ */
+@Composable
+fun AiQuotaExhaustedDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val quota by com.jakober.klarmail.data.AiQuota.info.collectAsState()
+    val plan by BillingManager.activePlan.collectAsState()
+    val resetText = com.jakober.klarmail.data.AiQuota
+        .formatReset(quota?.resetsAt ?: 0L)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                Icons.Filled.AutoAwesome,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = { Text(stringResource(R.string.quota_out_title)) },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    stringResource(
+                        R.string.quota_out_text, quota?.limit
+                            ?: BillingManager.REQUESTS_PRO
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (resetText.isNotBlank()) {
+                    Text(
+                        stringResource(R.string.quota_out_reset, resetText),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                ProPlanChooser(
+                    currentPlan = plan,
+                    onPick = { basePlan ->
+                        BillingManager.purchase(context, basePlan)
+                        onDismiss()
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.pro_ok))
+            }
+        }
+    )
+}
+
+/**
  * Wiederverwendbarer Hinweis-Dialog für „BlockMail Pro“: erscheint überall
  * dort, wo eine KI-Funktion ohne Pro angestoßen wird (siehe
  * [com.jakober.klarmail.data.ProAccess]) — mit beiden Tarifen zur Auswahl,

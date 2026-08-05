@@ -68,6 +68,10 @@
     <string name="pro_plan_choose">Diesen Tarif wählen</string>
     <string name="pro_plan_switch">Zu diesem Tarif wechseln</string>
     <string name="pro_what_counts">Als eine Anfrage zählt jede KI-Aktion: Frage an dein Postfach, Mail zusammenfassen, Tages-Überblick, Antwort entwerfen, Mail mit KI verfassen und Rechtschreibprüfung.</string>
+    <string name="quota_out_title">KI-Kontingent aufgebraucht</string>
+    <string name="quota_out_text">Du hast alle %1$d KI-Anfragen dieses Monats genutzt. Alles andere in der App läuft normal weiter — die Suchleiste arbeitet bis dahin als reine Textsuche.</string>
+    <string name="quota_out_reset">Neues Kontingent am %1$s</string>
+    <string name="quota_out_chip">KI-Kontingent aufgebraucht</string>
     <string name="pro_billing_note">3 Tage kostenlos testen, danach monatliche Abrechnung über deinen Google-Play-Account — jederzeit kündbar. Nicht genutzte Anfragen verfallen am Monatsende.</string>
     <!-- Einführungs-Tour -->
     <string name="tour_skip">Überspringen</string>

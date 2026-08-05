@@ -323,6 +323,21 @@ object Prefs {
         get() = sp.getString("pro_plan", "") ?: ""
         set(v) = sp.edit().putString("pro_plan", v).apply()
 
+    /**
+     * Auf dem Gerät mitgezählte KI-Anfragen des laufenden Monats. Damit
+     * kennt die App das Kontingent auch ohne Server-Auskunft (siehe
+     * [com.jakober.klarmail.data.AiQuota]) — meldet der Server einen Stand,
+     * gewinnt dieser.
+     */
+    var aiUsedLocal: Int
+        get() = sp.getInt("ai_used_local", 0)
+        set(v) = sp.edit().putInt("ai_used_local", v.coerceAtLeast(0)).apply()
+
+    /** Monat, auf den sich [aiUsedLocal] bezieht (Format "yyyy-MM"). */
+    var aiQuotaPeriod: String
+        get() = sp.getString("ai_quota_period", "") ?: ""
+        set(v) = sp.edit().putString("ai_quota_period", v).apply()
+
     var email: String
         get() = sp.getString("email", "") ?: ""
         set(v) = sp.edit().putString("email", v.trim()).apply()

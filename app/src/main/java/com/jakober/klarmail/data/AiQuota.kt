@@ -15,9 +15,17 @@ import java.util.concurrent.TimeUnit
 /**
  * Monatliches KI-Kontingent des laufenden „BlockMail Pro“-Abos.
  *
- * Gezählt wird ausschließlich auf dem BlockMail-Server — nur der weiß, wie
- * viele Anfragen wirklich durchgelaufen sind (auch von einem zweiten Gerät).
- * Die App fragt den Stand über `GET /v1/quota` ab; die Antwort sieht so aus:
+ * Gezählt wird an ZWEI Stellen, und das mit Absicht:
+ *
+ *  1. **Auf dem Gerät** ([Prefs.aiUsedLocal]) — sofort, ohne Netz, und die
+ *     App sperrt die KI-Funktionen selbst, sobald das Kontingent leer ist.
+ *     Damit funktioniert die Deckelung auch, bevor der Server sie kann.
+ *  2. **Auf dem BlockMail-Server** — der zählt verbindlich, weil nur er
+ *     alle Geräte eines Abos sieht und weil ein Zähler im Gerät sich durch
+ *     Löschen der App-Daten zurücksetzen ließe. Antwortet der Server, gilt
+ *     sein Stand und der lokale Zähler wird darauf nachgeführt.
+ *
+ * Der Stand kommt über `GET /v1/quota`; die Antwort sieht so aus:
  *
  * ```json
  * { "plan": "pro-150", "limit": 150, "used": 37,
@@ -26,8 +34,8 @@ import java.util.concurrent.TimeUnit
  *
  * Auth wie beim KI-Aufruf selbst (Bearer-Installations-Token, X-App-Package,
  * X-Purchase-Token). Antwortet der Server nicht oder kennt er den Endpunkt
- * noch nicht, bleibt [info] leer und die Anzeige blendet die Zeile aus —
- * die App funktioniert dann unverändert weiter.
+ * noch nicht, gilt einfach der Zähler im Gerät — die App funktioniert dann
+ * unverändert weiter, nur eben ohne geräteübergreifende Zählung.
  */
 object AiQuota {
 
@@ -40,7 +48,9 @@ object AiQuota {
         val used: Int,
         val remaining: Int,
         /** Zeitpunkt des nächsten Kontingents (ms seit 1970), 0 = unbekannt. */
-        val resetsAt: Long
+        val resetsAt: Long,
+        /** true = vom Server gemeldet, false = im Gerät mitgezählt. */
+        val fromServer: Boolean
     )
 
     private val _info = MutableStateFlow<Info?>(null)
@@ -56,17 +66,83 @@ object AiQuota {
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
 
-    /** Löscht den Stand (Abo beendet). */
+    /** Setzt den Stand auf den lokalen Zähler zurück (Abo beendet). */
     fun clear() {
-        _info.value = null
+        _info.value = localInfo()
+    }
+
+    /** Laufender Abrechnungsmonat als "yyyy-MM". */
+    private fun currentPeriod(): String {
+        val c = java.util.Calendar.getInstance()
+        return "%04d-%02d".format(
+            c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH) + 1
+        )
+    }
+
+    /** Erster Tag des Folgemonats, 0 Uhr — dann gibt es neues Kontingent. */
+    private fun nextMonthStart(): Long {
+        val c = java.util.Calendar.getInstance()
+        c.add(java.util.Calendar.MONTH, 1)
+        c.set(java.util.Calendar.DAY_OF_MONTH, 1)
+        c.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        c.set(java.util.Calendar.MINUTE, 0)
+        c.set(java.util.Calendar.SECOND, 0)
+        c.set(java.util.Calendar.MILLISECOND, 0)
+        return c.timeInMillis
     }
 
     /**
-     * Eine Anfrage ist durchgelaufen: Zähler sofort lokal weiterdrehen,
-     * damit die Anzeige nicht bis zur nächsten Server-Abfrage nachhinkt.
+     * Stand aus dem Zähler im Gerät. Ist ein neuer Monat angebrochen, wird
+     * dabei zurückgesetzt — das ist die einzige Stelle, an der das passiert.
+     */
+    private fun localInfo(): Info {
+        val period = currentPeriod()
+        if (Prefs.aiQuotaPeriod != period) {
+            Prefs.aiQuotaPeriod = period
+            Prefs.aiUsedLocal = 0
+        }
+        val plan = Prefs.proPlan
+        val limit = BillingManager.requestsFor(plan)
+        val used = Prefs.aiUsedLocal.coerceAtMost(limit)
+        return Info(
+            plan = plan,
+            limit = limit,
+            used = used,
+            remaining = (limit - used).coerceAtLeast(0),
+            resetsAt = nextMonthStart(),
+            fromServer = false
+        )
+    }
+
+    /**
+     * Sorgt dafür, dass ein Stand vorliegt (lokal, falls der Server noch
+     * nichts geliefert hat) — und dass ein Monatswechsel greift.
+     */
+    fun ensureLoaded(): Info {
+        val cur = _info.value
+        val local = localInfo()
+        // Server-Stand behalten, solange er zum laufenden Monat passt
+        if (cur != null && cur.resetsAt > System.currentTimeMillis() &&
+            Prefs.aiQuotaPeriod == currentPeriod() && cur.limit == local.limit
+        ) return cur
+        _info.value = local
+        return local
+    }
+
+    /**
+     * Sind im laufenden Monat noch Anfragen übrig? Die Gates in der
+     * Oberfläche fragen hier, bevor sie eine KI-Aktion starten.
+     */
+    fun hasRequestsLeft(): Boolean = ensureLoaded().remaining > 0
+
+    /**
+     * Eine Anfrage ist durchgelaufen: Zähler im Gerät hochsetzen und die
+     * Anzeige sofort mitdrehen, damit sie nicht bis zur nächsten
+     * Server-Abfrage nachhinkt.
      */
     fun noteUsed() {
-        val cur = _info.value ?: return
+        val cur = ensureLoaded()
+        Prefs.aiUsedLocal = Prefs.aiUsedLocal + 1
         _info.value = cur.copy(
             used = cur.used + 1,
             remaining = (cur.remaining - 1).coerceAtLeast(0)
@@ -109,11 +185,19 @@ object AiQuota {
                         limit = limit,
                         used = used,
                         remaining = json.optInt("remaining", (limit - used).coerceAtLeast(0)),
-                        resetsAt = parseReset(json.optString("resets_at"))
+                        resetsAt = parseReset(json.optString("resets_at")),
+                        fromServer = true
                     )
                 }
-            }.getOrNull() ?: return@withContext false
+            }.getOrNull() ?: run {
+                // Kein Server-Stand: der Zähler im Gerät gilt weiter
+                ensureLoaded()
+                return@withContext false
+            }
             _info.value = parsed
+            // Server gewinnt: den Zähler im Gerät auf seinen Stand ziehen
+            Prefs.aiQuotaPeriod = currentPeriod()
+            Prefs.aiUsedLocal = parsed.used
             if (parsed.plan.isNotBlank()) BillingManager.planFromServer(parsed.plan)
             true
         } finally {

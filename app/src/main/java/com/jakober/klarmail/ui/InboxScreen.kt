@@ -287,6 +287,15 @@ fun InboxScreen(
     if (showProUpsell) {
         ProUpsellDialog(onDismiss = { showProUpsell = false })
     }
+    // Monatskontingent: Ist es aufgebraucht, sind die KI-Funktionen bis zum
+    // nächsten Monat gesperrt — die Suche arbeitet dann als reine Textsuche.
+    val quota by com.jakober.klarmail.data.AiQuota.info.collectAsState()
+    LaunchedEffect(Unit) { com.jakober.klarmail.data.AiQuota.ensureLoaded() }
+    val aiUsable = isPro && (quota?.remaining ?: 1) > 0
+    var showQuotaOut by remember { mutableStateOf(false) }
+    if (showQuotaOut) {
+        AiQuotaExhaustedDialog(onDismiss = { showQuotaOut = false })
+    }
 
     val selected = remember { androidx.compose.runtime.mutableStateListOf<Long>() }
     val selectionMode = selected.isNotEmpty()
@@ -1811,9 +1820,10 @@ fun InboxScreen(
                     // Pro-Gate: Mit Pro stellt Enter die Frage der KI, ohne
                     // Pro bleibt die Leiste eine reine Textsuche und Enter
                     // löst die bestehende Server-Volltextsuche aus (derselbe
-                    // Pfad wie der Chip „Volltext (Server)“)
+                    // Pfad wie der Chip „Volltext (Server)“). Genauso, wenn
+                    // das Monatskontingent aufgebraucht ist.
                     keyboardActions = KeyboardActions(onSearch = {
-                        if (isPro) askAi(query) else runServerSearch()
+                        if (aiUsable) askAi(query) else runServerSearch()
                     }),
                     modifier = Modifier.weight(1f),
                     decorationBox = { inner ->
@@ -1822,7 +1832,7 @@ fun InboxScreen(
                                 Text(
                                     // KI-Anmutung des Platzhalters nur mit Pro
                                     stringResource(
-                                        if (isPro) R.string.inbox_ai_ask_placeholder
+                                        if (aiUsable) R.string.inbox_ai_ask_placeholder
                                         else R.string.inbox_search
                                     ),
                                     style = MaterialTheme.typography.bodyLarge,
@@ -2618,14 +2628,20 @@ fun InboxScreen(
             ) {
                 androidx.compose.material3.SmallFloatingActionButton(
                     // Pro-Gate: Tages-Überblick & Co. (KI-Zusammenfassungen)
-                    // nur mit Pro — sonst der Hinweis-Dialog
+                    // nur mit Pro und nur solange Kontingent da ist — sonst
+                    // der jeweils passende Hinweis-Dialog
                     onClick = {
                         if (!isPro) showProUpsell = true
+                        else if (!aiUsable) showQuotaOut = true
                         else if (!aiBusy) aiMenuOpen = true
                     },
                     modifier = Modifier.tourTarget("aiFab"),
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    containerColor = if (aiUsable)
+                        MaterialTheme.colorScheme.secondaryContainer
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (aiUsable)
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
                 ) {
                     if (aiBusy) {
                         CircularProgressIndicator(
