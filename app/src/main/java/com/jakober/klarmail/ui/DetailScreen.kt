@@ -677,7 +677,9 @@ fun DetailScreen(
                             "sign" -> {
                                 com.jakober.klarmail.data.AttachmentEditing.pending =
                                     com.jakober.klarmail.data.AttachmentEditing.Source(
-                                        att.name, att.mime, bytes, uid
+                                        att.name,
+                                        MailRepository.effectiveMime(att.name, att.mime),
+                                        bytes, uid
                                     )
                                 onEditAttachment?.invoke()
                             }
@@ -726,7 +728,7 @@ fun DetailScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                attachmentIcon(att.mime),
+                                attachmentIcon(MailRepository.effectiveMime(att.name, att.mime)),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer
                             )
@@ -1090,7 +1092,7 @@ fun DetailScreen(
                                         label = { Text("${att.name} (${formatSize(att.size)})") },
                                         leadingIcon = {
                                             Icon(
-                                                attachmentIcon(att.mime),
+                                                attachmentIcon(MailRepository.effectiveMime(att.name, att.mime)),
                                                 contentDescription = null,
                                                 modifier = Modifier.size(AssistChipDefaults.IconSize)
                                             )

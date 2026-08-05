@@ -127,8 +127,10 @@ fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
                 else -> {
                     val shown = all.filter { e ->
                         when (filter) {
-                            "images" -> e.att.mime.startsWith("image/")
-                            "docs" -> !e.att.mime.startsWith("image/")
+                            "images" -> com.jakober.klarmail.data.MailRepository
+                                .effectiveMime(e.att.name, e.att.mime).startsWith("image/")
+                            "docs" -> !com.jakober.klarmail.data.MailRepository
+                                .effectiveMime(e.att.name, e.att.mime).startsWith("image/")
                             else -> true
                         }
                     }.sortedByDescending { it.mail.date }
@@ -247,8 +249,12 @@ private fun AttachmentRow(
         ) {
             Icon(
                 when {
-                    att.mime.startsWith("image/") -> Icons.Filled.Image
-                    att.mime == "application/pdf" -> Icons.Filled.PictureAsPdf
+                    com.jakober.klarmail.data.MailRepository
+                        .effectiveMime(att.name, att.mime)
+                        .startsWith("image/") -> Icons.Filled.Image
+                    com.jakober.klarmail.data.MailRepository
+                        .effectiveMime(att.name, att.mime) ==
+                        "application/pdf" -> Icons.Filled.PictureAsPdf
                     else -> Icons.Filled.AttachFile
                 },
                 contentDescription = null,

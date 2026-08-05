@@ -1957,6 +1957,55 @@ object MailRepository {
         return html
     }
 
+    /**
+     * Verlässlicher Dateityp für einen Anhang.
+     *
+     * Mailserver deklarieren Anhänge sehr oft als "application/octet-stream"
+     * (oder gar nicht) — Android bietet dann nur Apps an, die diesen
+     * Sammeltyp beanspruchen (etwa OpenVPN), während der PDF-Betrachter
+     * fehlt. Deshalb wird bei einem solchen Sammeltyp die Dateiendung
+     * ausgewertet und der echte Typ eingesetzt.
+     */
+    fun effectiveMime(name: String, mime: String): String {
+        val declared = mime.trim().lowercase().substringBefore(';')
+        val vague = declared.isBlank() ||
+            declared == "application/octet-stream" ||
+            declared == "application/unknown" ||
+            declared == "binary/octet-stream" ||
+            declared == "*/*"
+        if (!vague) return declared
+        val ext = name.substringAfterLast('.', "").lowercase()
+        if (ext.isBlank()) return "application/octet-stream"
+        val fromSystem = android.webkit.MimeTypeMap.getSingleton()
+            .getMimeTypeFromExtension(ext)
+        if (!fromSystem.isNullOrBlank()) return fromSystem
+        // Was die Systemtabelle nicht kennt — die Typen, die in Mails
+        // tatsächlich vorkommen
+        return when (ext) {
+            "pdf" -> "application/pdf"
+            "doc" -> "application/msword"
+            "docx" ->
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            "xls" -> "application/vnd.ms-excel"
+            "xlsx" ->
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "ppt" -> "application/vnd.ms-powerpoint"
+            "pptx" ->
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            "csv" -> "text/csv"
+            "txt" -> "text/plain"
+            "rtf" -> "application/rtf"
+            "odt" -> "application/vnd.oasis.opendocument.text"
+            "ods" -> "application/vnd.oasis.opendocument.spreadsheet"
+            "zip" -> "application/zip"
+            "ics" -> "text/calendar"
+            "eml" -> "message/rfc822"
+            "heic", "heif" -> "image/heic"
+            "webp" -> "image/webp"
+            else -> "application/octet-stream"
+        }
+    }
+
     /** Anhang in den App-Cache schreiben und mit der Standard-App öffnen. */
     fun openAttachment(context: Context, name: String, mime: String, data: ByteArray) {
         val dir = File(context.cacheDir, "attachments").apply { mkdirs() }
@@ -1967,7 +2016,7 @@ object MailRepository {
             context, "com.jakober.klarmail.fileprovider", f
         )
         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, mime.ifBlank { "*/*" })
+            setDataAndType(uri, effectiveMime(name, mime))
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(
@@ -2015,7 +2064,7 @@ object MailRepository {
             context, "com.jakober.klarmail.fileprovider", f
         )
         val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = mime.ifBlank { "*/*" }
+            type = effectiveMime(name, mime)
             putExtra(android.content.Intent.EXTRA_STREAM, uri)
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
@@ -2036,7 +2085,7 @@ object MailRepository {
                 put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name)
                 put(
                     android.provider.MediaStore.Downloads.MIME_TYPE,
-                    mime.ifBlank { "application/octet-stream" }
+                    effectiveMime(name, mime)
                 )
                 put(android.provider.MediaStore.Downloads.IS_PENDING, 1)
             }
