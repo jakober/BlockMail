@@ -75,6 +75,7 @@ import androidx.compose.material.icons.filled.Tonality
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.Button
@@ -318,6 +319,7 @@ fun InboxScreen(
     val selectionMode = selected.isNotEmpty()
     val conversationView by Prefs.conversationViewFlow.collectAsState()
     val unified by MailRepository.unified.collectAsState()
+    val starredFolder by MailRepository.starred.collectAsState()
     val inboxLayout by Prefs.inboxLayoutFlow.collectAsState()
 
     // KI-Menü unten links: Tages-Überblick & Co.
@@ -999,6 +1001,7 @@ fun InboxScreen(
                                 val customName = customFolder?.substringAfterLast('/')
                                 Text(
                                     when {
+                                        starredFolder -> stringResource(R.string.inbox_starred)
                                         unified -> stringResource(R.string.inbox_all_accounts)
                                         customName != null -> customName
                                         else -> currentFolder.label
@@ -1033,8 +1036,8 @@ fun InboxScreen(
                                 MailRepository.MailFolder.entries
                                     .filter { it.name !in hiddenFolders }
                                     .forEach { f ->
-                                        val active = !unified && customFolder == null &&
-                                            f == currentFolder
+                                        val active = !unified && !starredFolder &&
+                                            customFolder == null && f == currentFolder
                                         DropdownMenuItem(
                                             text = {
                                                 Text(
@@ -1074,6 +1077,40 @@ fun InboxScreen(
                                             }
                                         )
                                     }
+                                // Virtueller Ordner: alle mit Stern markierten
+                                // Mails, kontoübergreifend
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            stringResource(R.string.inbox_starred),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = if (starredFolder) FontWeight.SemiBold
+                                            else FontWeight.Normal
+                                        )
+                                    },
+                                    leadingIcon = { Icon(Icons.Filled.Star, null) },
+                                    trailingIcon = if (starredFolder) {
+                                        { Icon(Icons.Filled.Check, null) }
+                                    } else null,
+                                    colors = if (starredFolder) {
+                                        androidx.compose.material3.MenuDefaults.itemColors(
+                                            textColor = MaterialTheme.colorScheme.primary,
+                                            leadingIconColor = MaterialTheme.colorScheme.primary,
+                                            trailingIconColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else {
+                                        androidx.compose.material3.MenuDefaults.itemColors()
+                                    },
+                                    onClick = {
+                                        folderMenuOpen = false
+                                        scope.launch {
+                                            if (MailRepository.unified.value) {
+                                                MailRepository.setUnified(false, reload = false)
+                                            }
+                                            MailRepository.switchStarred()
+                                        }
+                                    }
+                                )
                                 // Zusätzlich eingeblendete Server-Ordner
                                 // (Einstellungen → Konten → Sichtbare Ordner)
                                 val extraFolders = remember(hiddenVersion, folderMenuOpen) {
@@ -3452,6 +3489,15 @@ private fun MailRowContent(
                     )
                     Spacer(Modifier.width(3.dp))
                 }
+                if (mail.flagged) {
+                    Icon(
+                        Icons.Filled.Star,
+                        contentDescription = stringResource(R.string.inbox_starred_mail),
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.width(3.dp))
+                }
                 if (mail.hasAttachments) {
                     Icon(
                         Icons.Filled.AttachFile,
@@ -3757,6 +3803,15 @@ private fun MailBlock(
                             )
                             Spacer(Modifier.width(4.dp))
                         }
+                        if (mail.flagged) {
+                            Icon(
+                                Icons.Filled.Star,
+                                contentDescription = stringResource(R.string.inbox_starred_mail),
+                                modifier = Modifier.size(12.dp),
+                                tint = scheme.primary
+                            )
+                            Spacer(Modifier.width(3.dp))
+                        }
                         if (mail.hasAttachments) {
                             Icon(
                                 Icons.Filled.AttachFile,
@@ -3792,6 +3847,15 @@ private fun MailBlock(
                         contentDescription = stringResource(R.string.inbox_phishing_warning),
                         modifier = Modifier.size(15.dp),
                         tint = scheme.error
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                if (mail.flagged) {
+                    Icon(
+                        Icons.Filled.Star,
+                        contentDescription = stringResource(R.string.inbox_starred_mail),
+                        modifier = Modifier.size(15.dp),
+                        tint = scheme.primary
                     )
                     Spacer(Modifier.width(6.dp))
                 }

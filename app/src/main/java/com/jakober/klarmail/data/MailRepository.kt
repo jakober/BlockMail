@@ -59,6 +59,14 @@ object MailRepository {
     private val _unified = MutableStateFlow(false)
     val unified = _unified.asStateFlow()
 
+    /**
+     * Virtueller Ordner „Wichtig“: alle mit Stern markierten Mails aus ALLEN
+     * Konten. Kein Server-Ordner, sondern eine Suche über das IMAP-Kennzeichen
+     * \Flagged — deshalb ein eigener Schalter statt eines [MailFolder]-Werts.
+     */
+    private val _starred = MutableStateFlow(false)
+    val starred = _starred.asStateFlow()
+
     /** Wie viele der neuesten Mails je Konto der Sammel-Posteingang lädt. */
     private const val UNIFIED_PER_ACCOUNT = 50
 
@@ -131,8 +139,21 @@ object MailRepository {
         refresh()
     }
 
+    /** Zeigt alle mit Stern markierten Mails aller Konten. */
+    suspend fun switchStarred() {
+        if (_starred.value) return
+        _starred.value = true
+        _customFolder.value = null
+        _currentFolder.value = MailFolder.INBOX
+        _messages.value = emptyList()
+        loadLimit = MAX_MESSAGES
+        _canLoadMore.value = false
+        refresh()
+    }
+
     suspend fun switchFolder(folder: MailFolder) {
-        if (_currentFolder.value == folder && _customFolder.value == null) return
+        if (_currentFolder.value == folder && _customFolder.value == null && !_starred.value) return
+        _starred.value = false
         _customFolder.value = null
         _currentFolder.value = folder
         _messages.value = emptyList()
@@ -147,7 +168,8 @@ object MailRepository {
      * Standard-Ordner funktionieren dort wie gewohnt.
      */
     suspend fun switchCustomFolder(path: String) {
-        if (_customFolder.value == path) return
+        if (_customFolder.value == path && !_starred.value) return
+        _starred.value = false
         _customFolder.value = path
         _messages.value = emptyList()
         loadLimit = MAX_MESSAGES
@@ -402,6 +424,7 @@ object MailRepository {
      */
     private fun updateSnippet(uid: Long, body: MailBody) {
         if (_currentFolder.value != MailFolder.INBOX) return
+        if (_starred.value) return
         // Im Sammel-Posteingang könnten gleiche UIDs verschiedener Konten
         // kollidieren — Vorschauen dort nicht nachtragen
         if (_unified.value) return
@@ -488,6 +511,7 @@ object MailRepository {
     /** Ergänzt fehlende Vorschauen aus bereits auf der Platte gecachten Inhalten. */
     private fun backfillSnippets() {
         if (_currentFolder.value != MailFolder.INBOX) return
+        if (_starred.value) return
         if (_unified.value) return
         ruleScope.launch {
             val missing = _messages.value.filter { it.snippet == null }
@@ -509,6 +533,7 @@ object MailRepository {
 
     private fun persist() {
         if (_currentFolder.value != MailFolder.INBOX) return
+        if (_starred.value) return
         // Sammel-Ansicht nie in den Konto-Cache schreiben: Er gehört dem
         // aktiven Konto und würde sonst Mails fremder Konten enthalten
         if (_unified.value) return
@@ -614,6 +639,10 @@ object MailRepository {
 
     suspend fun refresh() = withContext(Dispatchers.IO) {
         if (!Prefs.isConfigured) return@withContext
+        if (_starred.value) {
+            refreshStarred()
+            return@withContext
+        }
         if (_unified.value) {
             refreshUnified()
             return@withContext
@@ -691,6 +720,69 @@ object MailRepository {
     private val unifiedLoaded = mutableMapOf<String, Int>()
 
     /** Frischer Abruf des Sammel-Posteingangs: alle Konten nacheinander. */
+    /**
+     * Lädt den virtuellen Ordner „Wichtig“: sucht in jedem Konto nach Mails
+     * mit dem IMAP-Kennzeichen \Flagged.
+     *
+     * Bewusst NUR im Posteingang: Beim Öffnen einer Mail wird der Inhalt aus
+     * dem gerade offenen Ordner geholt, und der ist hier der Posteingang.
+     * Würden hier auch archivierte Mails auftauchen, ließen sie sich nicht
+     * öffnen („Nachricht nicht gefunden“). Das Archiv kommt dazu, sobald das
+     * Laden ordnerübergreifend funktioniert.
+     */
+    private suspend fun refreshStarred() = withContext(Dispatchers.IO) {
+        refreshMutex.withLock {
+            if (!_starred.value) return@withLock
+            _loading.value = true
+            _error.value = null
+            val all = mutableListOf<MailMessage>()
+            var firstError: String? = null
+            val term = javax.mail.search.FlagTerm(Flags(Flags.Flag.FLAGGED), true)
+            for (acc in Prefs.accounts()) {
+                try {
+                    val store = openStoreFor(acc.email)
+                    try {
+                        val folders = listOfNotNull(
+                            runCatching { store.getFolder("INBOX") as IMAPFolder }.getOrNull()
+                        )
+                        for (folder in folders) {
+                            try {
+                                folder.open(Folder.READ_ONLY)
+                                val hits = folder.search(term)
+                                if (hits.isNotEmpty()) {
+                                    val fp = FetchProfile().apply {
+                                        add(FetchProfile.Item.ENVELOPE)
+                                        add(FetchProfile.Item.FLAGS)
+                                        add(FetchProfile.Item.CONTENT_INFO)
+                                        add(UIDFolder.FetchProfileItem.UID)
+                                    }
+                                    folder.fetch(hits, fp)
+                                    all += hits.mapNotNull { m ->
+                                        runCatching { toMailMessage(folder.getUID(m), m) }
+                                            .getOrNull()
+                                    }.map { it.copy(account = acc.email.lowercase()) }
+                                }
+                            } catch (e: Exception) {
+                                // Ein fehlendes Archiv ist kein Fehler
+                            } finally {
+                                runCatching { if (folder.isOpen) folder.close(false) }
+                            }
+                        }
+                    } finally {
+                        runCatching { store.close() }
+                    }
+                } catch (e: Exception) {
+                    if (firstError == null) firstError = "${acc.email}: ${friendlyError(e)}"
+                }
+            }
+            // Dieselbe Mail kann in mehreren Ordnern auftauchen (Kopien)
+            _messages.value = sort(all.distinctBy { "${it.account}:${it.uid}" })
+            _canLoadMore.value = false
+            _error.value = firstError
+            _loading.value = false
+        }
+    }
+
     private suspend fun refreshUnified() = withContext(Dispatchers.IO) {
         refreshMutex.withLock {
             if (!_unified.value) return@withLock
@@ -889,6 +981,7 @@ object MailRepository {
             fromAddress = fromAddr?.address ?: "",
             date = (m.receivedDate ?: m.sentDate)?.time ?: System.currentTimeMillis(),
             seen = m.flags.contains(Flags.Flag.SEEN),
+            flagged = m.flags.contains(Flags.Flag.FLAGGED),
             hasAttachments = try { containsAttachment(m) } catch (e: Exception) { false }
         )
     }
@@ -1440,6 +1533,58 @@ object MailRepository {
     }
 
     /** Mehrere Mails auf einmal als gelesen/ungelesen markieren. */
+    /**
+     * Markiert eine Mail als wichtig (Stern) oder nimmt die Markierung
+     * zurück. Gesetzt wird das IMAP-Kennzeichen \Flagged, damit die
+     * Markierung auf allen Geräten und in anderen Mail-Programmen gilt.
+     */
+    suspend fun setFlagged(uid: Long, flagged: Boolean, account: String = "") =
+        withContext(Dispatchers.IO) {
+            // Sofort lokal umschalten, damit der Stern ohne Warten reagiert
+            _messages.update { list ->
+                list.map {
+                    if (it.uid == uid && (account.isBlank() || it.account == account.lowercase())) {
+                        it.copy(flagged = flagged)
+                    } else it
+                }
+            }
+            persist()
+            try {
+                val store = openStoreFor(account)
+                try {
+                    // Im Ordner „Wichtig“ liegen Mails aus verschiedenen
+                    // Ordnern — dort im Posteingang und Archiv nachsehen
+                    val folders = if (_starred.value) {
+                        listOfNotNull(
+                            runCatching { store.getFolder("INBOX") as IMAPFolder }.getOrNull()
+                        )
+                    } else if (isActiveAccount(account)) {
+                        listOf(openCurrentFolder(store, Folder.READ_WRITE))
+                    } else {
+                        listOf((store.getFolder("INBOX") as IMAPFolder))
+                    }
+                    for (folder in folders) {
+                        try {
+                            if (!folder.isOpen) folder.open(Folder.READ_WRITE)
+                            val m = folder.getMessageByUID(uid)
+                            if (m != null) {
+                                m.setFlag(Flags.Flag.FLAGGED, flagged)
+                                break
+                            }
+                        } catch (e: Exception) {
+                            // nächsten Ordner versuchen
+                        } finally {
+                            runCatching { if (folder.isOpen) folder.close(false) }
+                        }
+                    }
+                } finally {
+                    runCatching { store.close() }
+                }
+            } catch (e: Exception) {
+                if (isConnectivityError(e)) _error.value = friendlyError(e)
+            }
+        }
+
     suspend fun setSeenBatch(uids: List<Long>, seen: Boolean) = withContext(Dispatchers.IO) {
         if (uids.isEmpty()) return@withContext
         val set = uids.toSet()

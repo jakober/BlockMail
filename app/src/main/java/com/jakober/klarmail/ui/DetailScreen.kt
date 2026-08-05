@@ -279,6 +279,24 @@ fun DetailScreen(
                     }
                 },
                 actions = {
+                    // Stern: als wichtig markieren. Setzt das IMAP-Kennzeichen,
+                    // gilt also auch in anderen Mail-Programmen.
+                    mail?.let { m ->
+                        IconButton(onClick = {
+                            scope.launch {
+                                MailRepository.setFlagged(m.uid, !m.flagged, m.account)
+                            }
+                        }) {
+                            Icon(
+                                if (m.flagged) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDescription = stringResource(
+                                    if (m.flagged) R.string.detail_unstar else R.string.detail_star
+                                ),
+                                tint = if (m.flagged) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     // Menü nur in der normalen Mailansicht
                     if (folder == null && mail != null) {
                         Box {

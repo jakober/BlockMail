@@ -131,4 +131,8 @@
     <string name="editor_signature_clear">Again</string>
     <string name="editor_signature_save">Save</string>
     <string name="editor_cancel">Cancel</string>
+    <string name="inbox_starred">Important</string>
+    <string name="inbox_starred_mail">Marked as important</string>
+    <string name="detail_star">Mark as important</string>
+    <string name="detail_unstar">Remove mark</string>
 </resources>

@@ -131,4 +131,8 @@
     <string name="editor_signature_clear">Nochmal</string>
     <string name="editor_signature_save">Speichern</string>
     <string name="editor_cancel">Abbrechen</string>
+    <string name="inbox_starred">Wichtig</string>
+    <string name="inbox_starred_mail">Als wichtig markiert</string>
+    <string name="detail_star">Als wichtig markieren</string>
+    <string name="detail_unstar">Markierung entfernen</string>
 </resources>

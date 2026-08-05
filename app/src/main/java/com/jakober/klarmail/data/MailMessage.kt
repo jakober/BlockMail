@@ -11,6 +11,12 @@ data class MailMessage(
     val date: Long,
     val seen: Boolean,
     val hasAttachments: Boolean = false,
+    /**
+     * Als wichtig markiert. Entspricht dem IMAP-Kennzeichen \Flagged, also
+     * demselben Stern, den Gmail, Thunderbird und Outlook benutzen — die
+     * Markierung ist damit auf allen Geräten und Programmen dieselbe.
+     */
+    val flagged: Boolean = false,
     val snippet: String? = null,
     /** Konto-Zuordnung im Sammel-Posteingang ("" = aktives Konto). */
     val account: String = ""
@@ -23,6 +29,7 @@ data class MailMessage(
         put("date", date)
         put("seen", seen)
         put("hasAttachments", hasAttachments)
+        if (flagged) put("flagged", true)
         snippet?.let { put("snippet", it) }
         if (account.isNotBlank()) put("account", account)
     }
@@ -36,6 +43,7 @@ data class MailMessage(
             date = o.optLong("date"),
             seen = o.optBoolean("seen", true),
             hasAttachments = o.optBoolean("hasAttachments", false),
+            flagged = o.optBoolean("flagged", false),
             // has()-Check statt optString: "" würde als "Vorschau vorhanden" gelten
             snippet = if (o.has("snippet")) o.getString("snippet") else null,
             account = o.optString("account")
