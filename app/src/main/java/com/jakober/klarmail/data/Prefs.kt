@@ -328,6 +328,16 @@ object Prefs {
         set(v) = sp.edit().putString("pro_plan", v).apply()
 
     /**
+     * Wann Google Play das Abo zuletzt bestätigt hat. Bleibt die
+     * Bestätigung zu lange aus (siehe BillingManager.VERIFY_GRACE_MS),
+     * erlischt Pro — sonst liefe ein längst abgelaufenes Abo einfach
+     * weiter, nur weil die Abfrage scheitert.
+     */
+    var proVerifiedAt: Long
+        get() = sp.getLong("pro_verified_at", 0L)
+        set(v) = sp.edit().putLong("pro_verified_at", v).apply()
+
+    /**
      * Auf dem Gerät mitgezählte KI-Anfragen des laufenden Monats. Damit
      * kennt die App das Kontingent auch ohne Server-Auskunft (siehe
      * [com.jakober.klarmail.data.AiQuota]) — meldet der Server einen Stand,

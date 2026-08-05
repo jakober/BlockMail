@@ -51,6 +51,22 @@ object BillingManager {
     /** Tarif, für den gerade der Play-Kaufdialog geöffnet wurde. */
     private var pendingPlan = ""
 
+    /** Läuft gerade ein Verbindungsaufbau? Verhindert Doppelversuche. */
+    @Volatile
+    private var connecting = false
+
+    /**
+     * Wie lange Pro OHNE frische Play-Bestätigung weiterlaufen darf.
+     *
+     * Der Normalfall bestätigt bei jedem App-Start und jeder Rückkehr in
+     * den Vordergrund. Die Frist greift nur, wenn die Abfrage dauerhaft
+     * scheitert — dann ist ein längst abgelaufenes Abo der wahrscheinlichere
+     * Fall als eine wochenlange Play-Störung. 3 Tage sind großzügig genug
+     * für Urlaub ohne Netz, aber zu kurz, um ein gekündigtes Abo dauerhaft
+     * kostenlos weiterzunutzen.
+     */
+    private const val VERIFY_GRACE_MS = 3 * 24 * 60 * 60 * 1000L
+
     private val _productDetails = MutableStateFlow<ProductDetails?>(null)
     val productDetails: StateFlow<ProductDetails?> = _productDetails
 
@@ -76,20 +92,52 @@ object BillingManager {
 
     private fun connect() {
         val c = client ?: return
+        if (connecting) return
+        connecting = true
         runCatching {
             c.startConnection(object : BillingClientStateListener {
                 override fun onBillingSetupFinished(billingResult: BillingResult) {
+                    connecting = false
                     if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                         queryProduct()
                         refreshPurchases()
+                    } else {
+                        // Play nicht erreichbar: Pro nur weiterlaufen lassen,
+                        // solange die letzte Bestätigung frisch genug ist
+                        enforceVerifyGrace()
                     }
                 }
 
                 override fun onBillingServiceDisconnected() {
+                    connecting = false
                     // Beim nächsten Bedarf wird neu verbunden
                 }
             })
+        }.onFailure {
+            connecting = false
+            enforceVerifyGrace()
         }
+    }
+
+    /**
+     * Lässt Pro erlöschen, wenn Play das Abo zu lange nicht bestätigt hat.
+     *
+     * Bewusst wird NUR der Schalter umgelegt und weder Tarif noch Kauf-Token
+     * gelöscht: Bestätigt Play das Abo später doch (Netz wieder da), stellt
+     * [handlePurchase] alles unverändert wieder her.
+     */
+    private fun enforceVerifyGrace() {
+        if (!ProAccess.hasSubscription) return
+        val verified = Prefs.proVerifiedAt
+        if (verified == 0L) {
+            // Bestandsinstallation ohne Zeitstempel: Uhr jetzt starten
+            // statt sofort abzuschalten
+            Prefs.proVerifiedAt = System.currentTimeMillis()
+            return
+        }
+        if (System.currentTimeMillis() - verified <= VERIFY_GRACE_MS) return
+        _activePlan.value = ""
+        ProAccess.setSubscribed(false)
     }
 
     private fun queryProduct() {
@@ -137,6 +185,10 @@ object BillingManager {
     fun refreshPurchases() {
         val c = client ?: return
         if (!c.isReady) {
+            // connect() fragt nach erfolgreichem Aufbau von selbst nach —
+            // und lässt bei dauerhaftem Scheitern die Frist greifen. Der
+            // frühere stille Abbruch hier war der Grund, warum ein
+            // abgelaufenes Abo einfach weiterlief.
             connect()
             return
         }
@@ -146,6 +198,7 @@ object BillingManager {
         runCatching {
             c.queryPurchasesAsync(params) { result, purchases ->
                 if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                    enforceVerifyGrace()
                     return@queryPurchasesAsync
                 }
                 val active = purchases.filter {
@@ -153,8 +206,10 @@ object BillingManager {
                 }
                 active.forEach { handlePurchase(it) }
                 if (active.isEmpty()) {
+                    // Play hat verbindlich geantwortet: kein laufendes Abo
                     Prefs.purchaseToken = ""
                     Prefs.proPlan = ""
+                    Prefs.proVerifiedAt = 0L
                     _activePlan.value = ""
                     ProAccess.setSubscribed(false)
                     AiQuota.clear()
@@ -163,7 +218,7 @@ object BillingManager {
                     AiQuota.refreshSoon()
                 }
             }
-        }
+        }.onFailure { enforceVerifyGrace() }
     }
 
     private fun handlePurchase(purchase: Purchase) {
@@ -176,6 +231,8 @@ object BillingManager {
         val plan = pendingPlan.ifBlank { Prefs.proPlan }.ifBlank { BASE_PLAN_PRO }
         pendingPlan = ""
         Prefs.proPlan = plan
+        // Frische Bestätigung von Play: Die Verifikations-Frist beginnt neu
+        Prefs.proVerifiedAt = System.currentTimeMillis()
         _activePlan.value = plan
         ProAccess.setSubscribed(true)
         AiQuota.refreshSoon()

@@ -173,6 +173,17 @@ object AiQuota {
                 .build()
             val parsed = runCatching {
                 http.newCall(request).execute().use { resp ->
+                    if (resp.code == 403) {
+                        // Der Server hat das Abo geprüft und lehnt ab
+                        // (subscription_required). Nicht selbst abschalten —
+                        // massgeblich bleibt Google Play —, aber SOFORT dort
+                        // gegenprüfen: Ist das Abo wirklich weg, räumt
+                        // refreshPurchases() Pro verbindlich ab. So fliegt
+                        // ein gekündigtes Abo spätestens mit der ersten
+                        // KI-Anfrage raus, auch wenn die App tagelang lief.
+                        BillingManager.refreshPurchases()
+                        return@use null
+                    }
                     if (!resp.isSuccessful) return@use null
                     val body = resp.body?.string().orEmpty()
                     if (body.isBlank()) return@use null
