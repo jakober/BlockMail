@@ -14,6 +14,17 @@ import androidx.compose.ui.graphics.toArgb
 import com.jakober.klarmail.R
 import com.jakober.klarmail.data.Prefs
 
+/**
+ * Gold für den Wichtig-Stern.
+ *
+ * Bewusst ausserhalb des Farbschemas: Der Stern lief frueher auf
+ * `colorScheme.primary` und war damit je nach gewaehltem Schema ein blasses
+ * Blau oder Gruen — man sah beim Antippen kaum, ob die Markierung sass. Gold
+ * ist die Farbe, die jeder mit „wichtig" verbindet, und sie bleibt in allen
+ * Schemata und in hell wie dunkel gleich erkennbar.
+ */
+val StarGold = Color(0xFFF5A623)
+
 data class SchemeDef(
     val id: String,
     /** Anzeigename als String-Ressource (uebersetzbar de/en). */

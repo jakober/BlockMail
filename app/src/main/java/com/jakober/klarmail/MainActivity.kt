@@ -149,7 +149,13 @@ class MainActivity : ComponentActivity() {
                         // Die Quelle kommt ueber den Merker herein und wird
                         // dem Bildschirm als Parameter gereicht — er soll
                         // spaeter auch von aussen benutzbar sein
-                        val src = com.jakober.klarmail.data.AttachmentEditing.pending
+                        // remember: Der Editor gibt den Merker beim Verlassen
+                        // frei. Wuerde hier bei jedem Zusammenbau neu gelesen,
+                        // koennte der Waechter unten das gerade geoeffnete
+                        // Verfassen-Fenster wieder wegraeumen.
+                        val src = androidx.compose.runtime.remember {
+                            com.jakober.klarmail.data.AttachmentEditing.pending
+                        }
                         if (src == null) {
                             androidx.compose.runtime.LaunchedEffect(Unit) { nav.popBackStack() }
                             return@composable

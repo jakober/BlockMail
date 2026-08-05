@@ -166,7 +166,12 @@ fun DetailScreen(
     onEditAttachment: (() -> Unit)? = null
 ) {
     val messages by MailRepository.messages.collectAsState()
-    val mail = fallbackMail ?: messages.find { it.uid == uid }
+    // Die Live-Liste hat Vorrang: Der Rueckfall ist eine eingefrorene Kopie
+    // (Treffer aus Suche/KI). Stand er vorn, sah dieser Bildschirm spaetere
+    // Aenderungen nie — der Stern blieb beim Antippen einfach stehen. Der
+    // Rueckfall greift jetzt nur noch dafuer, wofuer er gedacht war: Die Mail
+    // liegt ausserhalb des geladenen Fensters.
+    val mail = messages.find { it.uid == uid } ?: fallbackMail
 
     // remember(uid): In der Zweispalten-Ansicht wechselt die uid im selben
     // Composable — der Zustand muss dann zurückgesetzt werden
@@ -202,6 +207,9 @@ fun DetailScreen(
 
     var menuOpen by remember { mutableStateOf(false) }
     var showSnoozeDialog by remember { mutableStateOf(false) }
+    // Sofortige Antwort auf das Antippen des Sterns, unabhaengig davon, ob die
+    // Mail aus der Live-Liste oder aus der eingefrorenen Kopie stammt
+    var starOverride by remember(uid) { mutableStateOf<Boolean?>(null) }
     var summary by remember(uid) { mutableStateOf<String?>(null) }
     var summarizing by remember(uid) { mutableStateOf(false) }
 
@@ -282,17 +290,30 @@ fun DetailScreen(
                     // Stern: als wichtig markieren. Setzt das IMAP-Kennzeichen,
                     // gilt also auch in anderen Mail-Programmen.
                     mail?.let { m ->
+                        // starOverride: Liegt die Mail ausserhalb des geladenen
+                        // Fensters, kommt sie aus der eingefrorenen Kopie und
+                        // aendert sich nie. Der Merker sorgt dafuer, dass der
+                        // Stern trotzdem in JEDEM Fall sofort reagiert.
+                        val starred = starOverride ?: m.flagged
                         IconButton(onClick = {
+                            val next = !starred
+                            starOverride = next
                             scope.launch {
-                                MailRepository.setFlagged(m.uid, !m.flagged, m.account)
+                                MailRepository.setFlagged(m.uid, next, m.account)
+                                snackbar.showSnackbar(
+                                    context.getString(
+                                        if (next) R.string.detail_starred
+                                        else R.string.detail_unstarred
+                                    )
+                                )
                             }
                         }) {
                             Icon(
-                                if (m.flagged) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                if (starred) Icons.Filled.Star else Icons.Filled.StarBorder,
                                 contentDescription = stringResource(
-                                    if (m.flagged) R.string.detail_unstar else R.string.detail_star
+                                    if (starred) R.string.detail_unstar else R.string.detail_star
                                 ),
-                                tint = if (m.flagged) MaterialTheme.colorScheme.primary
+                                tint = if (starred) StarGold
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }

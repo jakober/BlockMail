@@ -3494,7 +3494,7 @@ private fun MailRowContent(
                         Icons.Filled.Star,
                         contentDescription = stringResource(R.string.inbox_starred_mail),
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = StarGold
                     )
                     Spacer(Modifier.width(3.dp))
                 }
@@ -3808,7 +3808,7 @@ private fun MailBlock(
                                 Icons.Filled.Star,
                                 contentDescription = stringResource(R.string.inbox_starred_mail),
                                 modifier = Modifier.size(12.dp),
-                                tint = scheme.primary
+                                tint = StarGold
                             )
                             Spacer(Modifier.width(3.dp))
                         }
@@ -3855,7 +3855,7 @@ private fun MailBlock(
                         Icons.Filled.Star,
                         contentDescription = stringResource(R.string.inbox_starred_mail),
                         modifier = Modifier.size(15.dp),
-                        tint = scheme.primary
+                        tint = StarGold
                     )
                     Spacer(Modifier.width(6.dp))
                 }

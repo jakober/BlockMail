@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfDocument
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -81,12 +83,20 @@ import com.jakober.klarmail.R
 import com.jakober.klarmail.data.AttachmentEditing
 import com.jakober.klarmail.data.Mark
 import com.jakober.klarmail.data.PageId
+import com.jakober.klarmail.data.PdfOverlay
 import com.jakober.klarmail.data.PdfSession
 import com.jakober.klarmail.data.drawMarks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+
+/**
+ * Bis zu wie vielen Seiten der alte Rasterweg als Rueckfall dienen darf.
+ * Darueber waere er selbst der Fehler: Er haelt alle Seitenbilder gleichzeitig
+ * im Speicher (siehe [PdfOverlay]).
+ */
+private const val RASTER_FALLBACK_MAX_PAGES = 5
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,7 +122,14 @@ fun AttachmentEditorScreen(
     var unlocking by remember { mutableStateOf(false) }
     var pageIds by remember { mutableStateOf<List<PageId>>(emptyList()) }
     DisposableEffect(Unit) {
-        onDispose { session.close() }
+        onDispose {
+            session.close()
+            // Erst hier den Merker leeren, nicht schon vor dem Weiterblaettern:
+            // Die Editor-Route liest ihn beim Zusammenbau, und ein zu frueh
+            // geleerter Merker liesse sie das gerade geoeffnete
+            // Verfassen-Fenster wieder wegraeumen.
+            AttachmentEditing.pending = null
+        }
     }
 
     var loading by remember { mutableStateOf(true) }
@@ -127,7 +144,20 @@ fun AttachmentEditorScreen(
     val pageBitmaps = remember { androidx.compose.runtime.mutableStateMapOf<Int, Bitmap>() }
     var zoom by remember { mutableFloatStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }
+    // Sichtbare Groesse des Dokumentbereichs: Grundlage der Pan-Grenzen
+    var viewport by remember { mutableStateOf(IntSize.Zero) }
     val pageIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
+
+    /**
+     * Haelt den Ausschnitt im Bild. `graphicsLayer` skaliert um die Mitte,
+     * deshalb reicht die Seite genau um die halbe Ueberbreite ueber den Rand.
+     * Ohne das laesst sich die Seite komplett aus dem Bild schieben.
+     */
+    fun clampPan(p: Offset, z: Float): Offset {
+        val mx = (viewport.width * (z - 1f) / 2f).coerceAtLeast(0f)
+        val my = (viewport.height * (z - 1f) / 2f).coerceAtLeast(0f)
+        return Offset(p.x.coerceIn(-mx, mx), p.y.coerceIn(-my, my))
+    }
 
     /** Uebernimmt das Ergebnis eines Oeffnungsversuchs in den Zustand. */
     fun applyOpen(result: PdfSession.OpenResult) {
@@ -171,14 +201,28 @@ fun AttachmentEditorScreen(
         androidx.compose.runtime.mutableStateMapOf<PageId, MutableList<Mark>>()
     }
     fun idFor(index: Int): PageId = pageIds.getOrElse(index) { PageId(index.toLong()) }
-    // Stabile Liste je Seite: einmal beim Seitenwechsel geholt, nicht bei
-    // jeder Neuzeichnung — sonst schreibt die Anzeige in ihren eigenen
-    // Zustand und loest laufend Neuzeichnungen aus
-    val currentMarks = remember(pageIndex, pageIds) {
-        marks.getOrPut(idFor(pageIndex)) { mutableStateListOf() }
-    }
     fun marksFor(index: Int): MutableList<Mark> =
         marks.getOrPut(idFor(index)) { mutableStateListOf() }
+
+    // Verlauf ueber ALLE Seiten. Frueher zeigte „Rueckgaengig" auf die gerade
+    // oberste sichtbare Seite — wer auf der zweiten sichtbaren Seite
+    // unterschrieb, konnte das nicht zuruecknehmen, weil der Knopf in eine
+    // leere Liste sah. Gemerkt wird nur, WO etwas entstand; entfernt wird
+    // dort jeweils das zuletzt Hinzugefuegte.
+    val history = remember { mutableStateListOf<PageId>() }
+    var lastTouched by remember { mutableStateOf<PageId?>(null) }
+
+    fun noteAdded(index: Int) {
+        val id = idFor(index)
+        history.add(id)
+        lastTouched = id
+    }
+
+    fun undo() {
+        val id = history.removeLastOrNull() ?: return
+        marks[id]?.removeLastOrNull()
+        lastTouched = history.lastOrNull()
+    }
 
     var signature by remember { mutableStateOf(AttachmentEditing.loadSignature(context)) }
     var showSignaturePad by remember { mutableStateOf(false) }
@@ -188,7 +232,7 @@ fun AttachmentEditorScreen(
     /** Rendert eine Seite (PDF) bzw. dekodiert das Bild — immer im Hintergrund. */
     suspend fun renderPage(index: Int): Bitmap? {
         val file = workFile ?: return null
-        return if (isPdf) session.renderPage(index, PdfSession.MAX_PAGE_PX)
+        return if (isPdf) session.renderPage(index, PdfSession.DISPLAY_PAGE_PX)
         else PdfSession.decodeImage(file)
     }
 
@@ -224,40 +268,89 @@ fun AttachmentEditorScreen(
         pageBitmaps.keys.filter { it !in keep }.forEach { pageBitmaps.remove(it) }
     }
 
+    /**
+     * Schreibt das PDF neu, indem jede Seite gerastert wird.
+     *
+     * Nur noch Rueckfall: `PdfDocument` haelt alle Seitenbilder bis zum
+     * Schliessen im Speicher, das sprengt jedes laengere Dokument. Behalten,
+     * weil PDFBox und der eingebaute Leser bei beschaedigten Dateien
+     * unterschiedlich streng sind — was der eine ablehnt, oeffnet der andere.
+     */
+    suspend fun writeRasterPdf(out: File, pageMarks: Map<Int, List<Mark>>, sig: Bitmap?) {
+        val doc = PdfDocument()
+        try {
+            for (i in 0 until session.pageCount) {
+                val bmp = renderPage(i) ?: continue
+                val (wPt, hPt) = session.pageSize(i) ?: continue
+                val info = PdfDocument.PageInfo.Builder(wPt, hPt, i + 1).create()
+                val page = doc.startPage(info)
+                page.canvas.drawBitmap(
+                    bmp, null,
+                    android.graphics.Rect(0, 0, wPt, hPt), null
+                )
+                pageMarks[i]?.let {
+                    drawMarks(page.canvas, it, sig, wPt.toFloat() / bmp.width)
+                }
+                doc.finishPage(page)
+            }
+            out.outputStream().use { doc.writeTo(it) }
+        } finally {
+            runCatching { doc.close() }
+        }
+    }
+
     /** Baut das Ergebnis und übergibt es dem Verfassen-Fenster. */
     fun saveAndSend() {
         if (saving) return
         saving = true
+        // Abzug ziehen, bevor der Hintergrund losläuft: Die Listen gehören
+        // der Oberfläche und dürfen sich beim Schreiben nicht mehr ändern
+        val snapshot = marks.mapNotNull { (id, list) ->
+            // Bilder haben keine Seitenkennungen — dort steckt der Index in
+            // der Kennung selbst (siehe idFor)
+            val index = pageIds.indexOf(id).let { if (it >= 0) it else id.value.toInt() }
+            if (index < 0 || list.isEmpty()) null else index to list.toList()
+        }.toMap()
+        val sig = signature
         scope.launch {
-            val ok = runCatching {
+            val error = runCatching {
                 withContext(Dispatchers.IO) {
                     val outDir = File(context.cacheDir, "attachments").apply { mkdirs() }
                     val outName = AttachmentEditing.signedName(source.name)
                     val out = File(outDir, outName)
                     if (isPdf) {
-                        val doc = PdfDocument()
-                        for (i in 0 until session.pageCount) {
-                            val bmp = renderPage(i) ?: continue
-                            val (wPt, hPt) = session.pageSize(i) ?: continue
-                            val info = PdfDocument.PageInfo.Builder(wPt, hPt, i + 1).create()
-                            val page = doc.startPage(info)
-                            page.canvas.drawBitmap(
-                                bmp, null,
-                                android.graphics.Rect(0, 0, wPt, hPt), null
-                            )
-                            marks[idFor(i)]?.let {
-                                drawMarks(page.canvas, it, signature, wPt.toFloat() / bmp.width)
-                            }
-                            doc.finishPage(page)
-                            bmp.recycle()
+                        // Regelweg: Aufsätze in das vorhandene Dokument
+                        // schreiben. Text bleibt markierbar, die Datei klein,
+                        // und es wird keine einzige Seite gerastert.
+                        val work = session.file
+                        // Die Maßstäbe VORHER holen: pageSize() ist eine
+                        // Suspend-Funktion und hat in einem gewöhnlichen
+                        // Lambda nichts verloren
+                        val factors = snapshot.keys.associateWith { index ->
+                            val (wPt, hPt) = session.pageSize(index) ?: (595 to 842)
+                            1f / PdfSession.scaleFor(wPt, hPt, PdfSession.DISPLAY_PAGE_PX)
                         }
-                        out.outputStream().use { doc.writeTo(it) }
-                        doc.close()
+                        val done = work != null && PdfOverlay.write(
+                            src = work,
+                            out = out,
+                            marks = snapshot,
+                            signature = sig,
+                            pointsPerMarkPixel = { index -> factors[index] ?: 1f }
+                        )
+                        if (!done) {
+                            // Rückfall nur bei kurzen Dokumenten — bei langen
+                            // wäre er genau der Speicherüberlauf, den der
+                            // Overlay-Weg gerade abstellt
+                            if (session.pageCount > RASTER_FALLBACK_MAX_PAGES) {
+                                error("PDF konnte nicht geschrieben werden")
+                            }
+                            writeRasterPdf(out, snapshot, sig)
+                        }
                     } else {
                         val base = pageBitmaps[0] ?: error("Bild nicht lesbar")
                         val result = base.copy(Bitmap.Config.ARGB_8888, true)
-                        marks[idFor(0)]?.let {
-                            drawMarks(android.graphics.Canvas(result), it, signature, 1f)
+                        snapshot[0]?.let {
+                            drawMarks(android.graphics.Canvas(result), it, sig, 1f)
                         }
                         out.outputStream().use { s ->
                             if (source.name.lowercase().endsWith(".png")) {
@@ -268,20 +361,23 @@ fun AttachmentEditorScreen(
                         }
                         result.recycle()
                     }
+                    if (out.length() <= 0L) error("Datei ist leer")
                     val uri = androidx.core.content.FileProvider.getUriForFile(
                         context, "com.jakober.klarmail.fileprovider", out
                     )
                     AttachmentEditing.pendingResult =
                         AttachmentEditing.Result(uri, out.name, out.length())
                 }
-                true
-            }.getOrElse { false }
+            }.exceptionOrNull()
             saving = false
-            if (ok) {
-                AttachmentEditing.pending = null
+            if (error == null) {
                 onSend(source.replyUid)
             } else {
-                snackbar.showSnackbar(context.getString(R.string.editor_save_failed))
+                // Grund mitgeben: Frueher verschwand er still, und fuer den
+                // Nutzer sah es aus, als passiere gar nichts
+                val reason = error.message?.take(120).orEmpty()
+                val text = context.getString(R.string.editor_save_failed)
+                snackbar.showSnackbar(if (reason.isBlank()) text else "$text ($reason)")
             }
         }
     }
@@ -337,8 +433,8 @@ fun AttachmentEditorScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { currentMarks.removeLastOrNull() },
-                        enabled = currentMarks.isNotEmpty()
+                        onClick = { undo() },
+                        enabled = history.isNotEmpty()
                     ) {
                         Icon(
                             Icons.Filled.Undo,
@@ -360,7 +456,8 @@ fun AttachmentEditorScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clipToBounds(),
+                    .clipToBounds()
+                    .onSizeChanged { viewport = it },
                 contentAlignment = Alignment.Center
             ) {
                 when {
@@ -414,9 +511,14 @@ fun AttachmentEditorScreen(
                                 }
                                 .then(
                                     if (viewing) Modifier.pointerInput(Unit) {
-                                        // Nur bei ZWEI Fingern eingreifen: Ein
-                                        // fertiger Zoom-Erkenner wuerde auch
-                                        // den einfingrigen Bildlauf schlucken
+                                        // Von Hand, weil kein fertiger Erkenner
+                                        // beides kann: Zwei Finger zoomen, ein
+                                        // Finger schiebt den vergroesserten
+                                        // Ausschnitt zur Seite — laesst aber
+                                        // den senkrechten Bildlauf der Liste
+                                        // durch, sonst kaeme man in einem
+                                        // 30-seitigen Dokument nicht mehr vom
+                                        // Fleck.
                                         awaitEachGesture {
                                             awaitFirstDown(requireUnconsumed = false)
                                             var event: PointerEvent
@@ -429,8 +531,26 @@ fun AttachmentEditorScreen(
                                                     // Bei Normalgroesse sitzt
                                                     // die Seite wieder mittig
                                                     pan = if (next <= 1.01f) Offset.Zero
-                                                    else pan + event.calculatePan()
+                                                    else clampPan(pan + event.calculatePan(), next)
                                                     event.changes.forEach { it.consume() }
+                                                } else if (zoom > 1.01f) {
+                                                    val change = event.changes.firstOrNull()
+                                                    val d = change?.let {
+                                                        it.position - it.previousPosition
+                                                    } ?: Offset.Zero
+                                                    // Nur waagerechte Bewegung
+                                                    // abfangen. Senkrechte NICHT
+                                                    // verbrauchen — die gehoert
+                                                    // weiter dem Bildlauf.
+                                                    if (kotlin.math.abs(d.x) >
+                                                        kotlin.math.abs(d.y) &&
+                                                        kotlin.math.abs(d.x) > 0.5f
+                                                    ) {
+                                                        pan = clampPan(
+                                                            Offset(pan.x + d.x, pan.y), zoom
+                                                        )
+                                                        change?.consume()
+                                                    }
                                                 }
                                             } while (event.changes.any { it.pressed })
                                         }
@@ -446,7 +566,9 @@ fun AttachmentEditorScreen(
                                     signature = signature,
                                     mode = mode,
                                     onNeedSignature = { showSignaturePad = true },
-                                    onNeeded = { ensurePage(index) }
+                                    onNeeded = { ensurePage(index) },
+                                    onMarkAdded = { noteAdded(index) },
+                                    onTouched = { lastTouched = idFor(index) }
                                 )
                             }
                         }
@@ -456,8 +578,14 @@ fun AttachmentEditorScreen(
 
             Surface(tonalElevation = 3.dp) {
                 Column(Modifier.padding(12.dp)) {
+                    // Werkzeuge und Seitenzahl in ZWEI Zeilen: In einer Zeile
+                    // blieb fuer die Seitenzahl nur eine schmale Spalte, in der
+                    // sie zeichenweise umbrach. Die Chips lassen sich schieben,
+                    // damit auch spaetere Werkzeuge nichts quetschen.
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -482,8 +610,13 @@ fun AttachmentEditorScreen(
                             label = { Text(stringResource(R.string.editor_mode_draw)) },
                             leadingIcon = { Icon(Icons.Filled.Draw, contentDescription = null) }
                         )
-                        Spacer(Modifier.weight(1f))
-                        if (pageSizes.size > 1) {
+                    }
+                    if (pageSizes.size > 1) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
                             IconButton(
                                 onClick = {
                                     scope.launch {
@@ -497,7 +630,16 @@ fun AttachmentEditorScreen(
                                     contentDescription = stringResource(R.string.editor_prev_page)
                                 )
                             }
-                            Text("${pageIndex + 1}/${pageSizes.size}")
+                            Text(
+                                stringResource(
+                                    R.string.editor_page_of,
+                                    pageIndex + 1,
+                                    pageSizes.size
+                                ),
+                                maxLines = 1,
+                                softWrap = false,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                             IconButton(
                                 onClick = {
                                     scope.launch {
@@ -539,19 +681,21 @@ fun AttachmentEditorScreen(
                                     else stringResource(R.string.editor_new_signature)
                                 )
                             }
-                            val last = currentMarks.lastOrNull() as? Mark.Sign
-                            if (last != null) {
+                            // Groesse aendert immer die ZULETZT angefasste
+                            // Unterschrift — nicht die auf der gerade obersten
+                            // sichtbaren Seite. Angefasste wandern ans
+                            // Listenende (siehe PageCanvas), deshalb genuegt
+                            // hier der letzte Eintrag.
+                            val touched = lastTouched?.let { marks[it] }
+                            val last = touched?.lastOrNull() as? Mark.Sign
+                            if (touched != null && last != null) {
                                 OutlinedButton(onClick = {
-                                    val i = currentMarks.lastIndex
-                                    if (i >= 0) {
-                                        currentMarks[i] = last.copy(width = last.width * 0.8f)
-                                    }
+                                    val i = touched.lastIndex
+                                    if (i >= 0) touched[i] = last.copy(width = last.width * 0.8f)
                                 }) { Text("−") }
                                 OutlinedButton(onClick = {
-                                    val i = currentMarks.lastIndex
-                                    if (i >= 0) {
-                                        currentMarks[i] = last.copy(width = last.width * 1.25f)
-                                    }
+                                    val i = touched.lastIndex
+                                    if (i >= 0) touched[i] = last.copy(width = last.width * 1.25f)
                                 }) { Text("+") }
                             }
                         }
@@ -573,9 +717,15 @@ fun AttachmentEditorScreen(
                             Spacer(Modifier.width(8.dp))
                         }
                         Text(
-                            if (source.replyUid != null)
-                                stringResource(R.string.editor_send_reply)
-                            else stringResource(R.string.editor_attach)
+                            when {
+                                // Sichtbar machen, dass gearbeitet wird: Der
+                                // stumme Spinner sah bei langen Dokumenten aus,
+                                // als sei nichts passiert
+                                saving -> stringResource(R.string.editor_saving)
+                                source.replyUid != null ->
+                                    stringResource(R.string.editor_send_reply)
+                                else -> stringResource(R.string.editor_attach)
+                            }
                         )
                     }
                 }
@@ -599,7 +749,9 @@ private fun PageItem(
     signature: Bitmap?,
     mode: String,
     onNeedSignature: () -> Unit,
-    onNeeded: () -> Unit
+    onNeeded: () -> Unit,
+    onMarkAdded: () -> Unit,
+    onTouched: () -> Unit
 ) {
     LaunchedEffect(Unit) { onNeeded() }
     Box(
@@ -618,7 +770,9 @@ private fun PageItem(
                 marks = marks,
                 signature = signature,
                 mode = mode,
-                onNeedSignature = onNeedSignature
+                onNeedSignature = onNeedSignature,
+                onMarkAdded = onMarkAdded,
+                onTouched = onTouched
             )
         }
     }
@@ -635,7 +789,9 @@ private fun PageCanvas(
     marks: MutableList<Mark>,
     signature: Bitmap?,
     mode: String,
-    onNeedSignature: () -> Unit
+    onNeedSignature: () -> Unit,
+    onMarkAdded: () -> Unit,
+    onTouched: () -> Unit
 ) {
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
     // Zaehler nur fuers Neuzeichnen: Waehrend des Ziehens wird der Strich in
@@ -668,6 +824,7 @@ private fun PageCanvas(
                             marks.add(
                                 Mark.Stroke(mutableListOf(toPage(p)), strokeWidth)
                             )
+                            onMarkAdded()
                         },
                         onDrag = { change, _ ->
                             val s = marks.lastOrNull() as? Mark.Stroke ?: return@detectDragGestures
@@ -689,11 +846,14 @@ private fun PageCanvas(
                                     kotlin.math.abs(m.center.y - page.y) <
                                     m.width * sig.height / sig.width / 2
                             }
-                            if (hit >= 0 && hit != marks.lastIndex) {
-                                // Angefasste nach hinten holen — dann wirken
-                                // −/+ und das Ziehen darauf
-                                val m = marks.removeAt(hit)
-                                marks.add(m)
+                            if (hit >= 0) {
+                                onTouched()
+                                if (hit != marks.lastIndex) {
+                                    // Angefasste nach hinten holen — dann wirken
+                                    // −/+ und das Ziehen darauf
+                                    val m = marks.removeAt(hit)
+                                    marks.add(m)
+                                }
                             }
                         },
                         onDrag = { change, drag ->
@@ -716,6 +876,7 @@ private fun PageCanvas(
                         return@detectTapGestures
                     }
                     marks.add(Mark.Sign(toPage(p), bitmap.width / 3f))
+                    onMarkAdded()
                 }
             }
     ) {

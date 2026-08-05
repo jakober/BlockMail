@@ -42,8 +42,13 @@ class PdfSession {
 
     private var renderer: PdfRenderer? = null
 
-    /** Die Datei, mit der gerade gearbeitet wird (ggf. die entschlüsselte). */
-    private var workFile: File? = null
+    /**
+     * Die Datei, mit der gerade gearbeitet wird (ggf. die entschlüsselte).
+     * Genau diese muss auch [PdfOverlay] laden — das Original ist womöglich
+     * noch verschlüsselt und liesse sich gar nicht beschreiben.
+     */
+    var file: File? = null
+        private set
 
     /** Vom Aufrufer übergebene Ausgangsdatei. */
     private var srcFile: File? = null
@@ -112,7 +117,7 @@ class PdfSession {
 
     private fun adopt(r: PdfRenderer, file: File) {
         renderer = r
-        workFile = file
+        this.file = file
         pageCount = r.pageCount
         pageIds = List(r.pageCount) { PageId(it.toLong()) }
         lastError = null
@@ -143,8 +148,7 @@ class PdfSession {
             runCatching {
                 val page = r.openPage(index)
                 try {
-                    val scale = (maxPx.toFloat() / maxOf(page.width, page.height))
-                        .coerceAtMost(3f)
+                    val scale = scaleFor(page.width, page.height, maxPx)
                     val bmp = Bitmap.createBitmap(
                         (page.width * scale).toInt().coerceAtLeast(1),
                         (page.height * scale).toInt().coerceAtLeast(1),
@@ -166,9 +170,9 @@ class PdfSession {
         runCatching { renderer?.close() }
         renderer = null
         // Eine frühere entschlüsselte Kopie wegräumen
-        val w = workFile
+        val w = file
         if (w != null && w != srcFile) runCatching { w.delete() }
-        workFile = null
+        file = null
     }
 
     /**
@@ -188,14 +192,39 @@ class PdfSession {
     }
 
     companion object {
-        /** Übliche Obergrenze für die Kantenlänge einer gerenderten Seite. */
-        const val MAX_PAGE_PX = 2200
+        /**
+         * Obergrenze für die Kantenlänge einer angezeigten Seite.
+         *
+         * Bewusst nicht höher: Die Anzeige hält mehrere Seiten gleichzeitig
+         * vor (2200 px sind rund 13 MB je Seite, 1600 px rund 7 MB). Für das
+         * Speichern spielt der Wert seit [PdfOverlay] keine Rolle mehr — dort
+         * wird gar nicht mehr gerastert.
+         */
+        const val DISPLAY_PAGE_PX = 1600
+
+        /**
+         * Maßstab Seitenpunkte → Bildpunkte.
+         *
+         * Liegt hier, weil zwei Stellen exakt dieselbe Rechnung brauchen: das
+         * Rendern und — beim Speichern — die Rückrechnung der Aufsätze in
+         * PDF-Punkte. Gingen die auseinander, säße die Unterschrift im
+         * Ergebnis woanders als auf dem Bildschirm.
+         */
+        fun scaleFor(wPt: Int, hPt: Int, maxPx: Int): Float =
+            (maxPx.toFloat() / maxOf(wPt, hPt).coerceAtLeast(1)).coerceAtMost(3f)
 
         /**
          * Dekodiert ein Bild aus einer Datei, auf [maxPx] begrenzt. Liegt
          * hier, weil Bild und PDF im Editor denselben Weg nehmen.
          */
-        suspend fun decodeImage(file: File, maxPx: Int = MAX_PAGE_PX): Bitmap? =
+        /**
+         * Bilder dürfen größer bleiben als PDF-Seiten: Es gibt immer nur
+         * eines, und es wird beim Speichern unverändert weiterverwendet —
+         * eine kleinere Grenze wäre hier ein echter Qualitätsverlust.
+         */
+        const val IMAGE_MAX_PX = 2400
+
+        suspend fun decodeImage(file: File, maxPx: Int = IMAGE_MAX_PX): Bitmap? =
             withContext(Dispatchers.IO) {
                 runCatching {
                     val bounds = android.graphics.BitmapFactory.Options().apply {
