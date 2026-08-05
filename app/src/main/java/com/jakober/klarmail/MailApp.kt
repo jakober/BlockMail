@@ -23,6 +23,9 @@ class MailApp : Application() {
         createChannels()
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)
         cleanupSenderShortcuts()
+        // Arbeitsdateien des Dokument-Editors aufraeumen: Abbrueche und
+        // Abstuerze lassen dort sonst dauerhaft Kopien liegen
+        runCatching { com.jakober.klarmail.data.AttachmentEditing.cleanupOldFiles(this) }
         // Play-Abo prüfen: stellt Pro nach einer Neuinstallation von selbst
         // wieder her (läuft in der Testphase mit, ändert dort aber nichts)
         runCatching { com.jakober.klarmail.data.BillingManager.init(this) }

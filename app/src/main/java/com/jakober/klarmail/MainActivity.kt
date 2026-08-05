@@ -146,7 +146,16 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable("editor") {
+                        // Die Quelle kommt ueber den Merker herein und wird
+                        // dem Bildschirm als Parameter gereicht — er soll
+                        // spaeter auch von aussen benutzbar sein
+                        val src = com.jakober.klarmail.data.AttachmentEditing.pending
+                        if (src == null) {
+                            androidx.compose.runtime.LaunchedEffect(Unit) { nav.popBackStack() }
+                            return@composable
+                        }
                         com.jakober.klarmail.ui.AttachmentEditorScreen(
+                            source = src,
                             onBack = { nav.popBackStack() },
                             onSend = { replyUid ->
                                 // Editor aus dem Verlauf nehmen: Zurueck aus

@@ -2,8 +2,6 @@ package com.jakober.klarmail.ui
 
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfDocument
-import android.graphics.pdf.PdfRenderer
-import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -66,123 +64,41 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.jakober.klarmail.R
 import com.jakober.klarmail.data.AttachmentEditing
+import com.jakober.klarmail.data.Mark
+import com.jakober.klarmail.data.PageId
+import com.jakober.klarmail.data.PdfSession
+import com.jakober.klarmail.data.drawMarks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
-
-/**
- * Ein aufgesetzter Strich oder eine platzierte Unterschrift.
- *
- * Alle Koordinaten liegen im Pixelraster der GERENDERTEN SEITE, nicht des
- * Bildschirms. Nur so kommt beim Speichern exakt das heraus, was man beim
- * Zeichnen gesehen hat — unabhängig von Zoom und Bildschirmgröße.
- */
-private sealed class Mark {
-    data class Stroke(
-        val points: MutableList<Offset>,
-        val width: Float
-    ) : Mark()
-
-    data class Sign(var center: Offset, var width: Float) : Mark()
-}
-
-/** Größte Kantenlänge der gerenderten Seite — begrenzt den Speicherbedarf. */
-private const val MAX_PAGE_PX = 2200
-
-/**
- * Zeichnet die Aufsätze einer Seite. Wird für die Anzeige UND fürs Speichern
- * benutzt, damit beides garantiert gleich aussieht.
- *
- * @param scale Seitenpixel → Zielpixel
- */
-private fun drawMarks(
-    canvas: android.graphics.Canvas,
-    marks: List<Mark>,
-    signature: Bitmap?,
-    scale: Float,
-    dx: Float = 0f,
-    dy: Float = 0f
-) {
-    val paint = android.graphics.Paint().apply {
-        isAntiAlias = true
-        color = android.graphics.Color.BLACK
-        style = android.graphics.Paint.Style.STROKE
-        strokeCap = android.graphics.Paint.Cap.ROUND
-        strokeJoin = android.graphics.Paint.Join.ROUND
-    }
-    marks.forEach { mark ->
-        when (mark) {
-            is Mark.Stroke -> {
-                if (mark.points.size < 2) return@forEach
-                paint.strokeWidth = mark.width * scale
-                val path = android.graphics.Path()
-                mark.points.forEachIndexed { i, p ->
-                    val x = p.x * scale + dx
-                    val y = p.y * scale + dy
-                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                }
-                canvas.drawPath(path, paint)
-            }
-
-            is Mark.Sign -> {
-                val sig = signature ?: return@forEach
-                val w = mark.width * scale
-                val h = w * sig.height / sig.width
-                val left = mark.center.x * scale + dx - w / 2
-                val top = mark.center.y * scale + dy - h / 2
-                val dst = android.graphics.RectF(left, top, left + w, top + h)
-                canvas.drawBitmap(sig, null, dst, null)
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttachmentEditorScreen(
+    source: AttachmentEditing.Source,
     onBack: () -> Unit,
     onSend: (replyUid: Long?) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    val source = remember { AttachmentEditing.pending }
-
-    if (source == null) {
-        // Sollte nicht vorkommen — sicherheitshalber zurück statt Absturz
-        LaunchedEffect(Unit) { onBack() }
-        return
-    }
 
     val isPdf = remember { AttachmentEditing.isPdf(source.mime, source.name) }
 
-    // Quelldatei: PdfRenderer braucht eine echte Datei, kein Byte-Feld
-    val srcFile = remember {
-        File(context.cacheDir, "editor").apply { mkdirs() }
-            .resolve("src_${System.currentTimeMillis()}_${source.name}")
-            .also { it.writeBytes(source.bytes) }
-    }
-    // Geschuetzte PDFs: Der eingebaute Leser lehnt sie grundsaetzlich ab.
-    // Dann wird mit PDFBox eine entschluesselte Kopie erzeugt (siehe
-    // PdfUnlock) und ab da ganz normal weitergearbeitet.
-    var pdfFile by remember { mutableStateOf(srcFile) }
-    var renderer by remember { mutableStateOf<PdfRenderer?>(null) }
+    // Der Renderer samt seiner Eigenheiten liegt in PdfSession — hier wird
+    // nur noch bedient. Das Aufschliessen geschuetzter Dokumente ebenfalls.
+    val session = remember { PdfSession() }
+    var workFile by remember { mutableStateOf<File?>(null) }
+    var ready by remember { mutableStateOf(false) }
     var openError by remember { mutableStateOf<Throwable?>(null) }
     var askPassword by remember { mutableStateOf(false) }
     var passwordWrong by remember { mutableStateOf(false) }
     var unlocking by remember { mutableStateOf(false) }
     var pageCount by remember { mutableStateOf(if (isPdf) 0 else 1) }
-    // PdfRenderer darf immer nur eine Seite gleichzeitig offen haben
-    val renderLock = remember { Mutex() }
+    var pageIds by remember { mutableStateOf<List<PageId>>(emptyList()) }
     DisposableEffect(Unit) {
-        onDispose {
-            runCatching { renderer?.close() }
-            runCatching { srcFile.delete() }
-            runCatching { if (pdfFile != srcFile) pdfFile.delete() }
-        }
+        onDispose { session.close() }
     }
 
     var pageIndex by remember { mutableStateOf(0) }
@@ -190,54 +106,54 @@ fun AttachmentEditorScreen(
     var loading by remember { mutableStateOf(true) }
     var failed by remember { mutableStateOf(false) }
 
-    /** Entschluesselte Kopie anlegen und den Leser darauf umstellen. */
-    suspend fun tryUnlock(password: String): Boolean {
-        val out = File(context.cacheDir, "editor").resolve("open_${source.name}")
-        val ok = com.jakober.klarmail.data.PdfUnlock.unlock(srcFile, password, out)
-        if (ok) pdfFile = out
-        return ok
-    }
-
-    // PDF oeffnen — laeuft erneut, sobald eine entschluesselte Kopie vorliegt
-    LaunchedEffect(pdfFile) {
-        if (!isPdf) return@LaunchedEffect
-        val result = withContext(Dispatchers.IO) {
-            runCatching {
-                PdfRenderer(
-                    ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY)
-                )
+    /** Uebernimmt das Ergebnis eines Oeffnungsversuchs in den Zustand. */
+    fun applyOpen(result: PdfSession.OpenResult) {
+        when (result) {
+            PdfSession.OpenResult.OK -> {
+                pageCount = session.pageCount
+                pageIds = session.pageIds
+                openError = null
+                askPassword = false
+                ready = true
+            }
+            PdfSession.OpenResult.NEEDS_PASSWORD -> {
+                askPassword = true
+                openError = session.lastError
+                loading = false
+                failed = true
+            }
+            PdfSession.OpenResult.WRONG_PASSWORD -> passwordWrong = true
+            PdfSession.OpenResult.FAILED -> {
+                openError = session.lastError
+                loading = false
+                failed = true
             }
         }
-        val r = result.getOrNull()
-        if (r != null) {
-            renderer = r
-            pageCount = r.pageCount
-            openError = null
-            askPassword = false
-            return@LaunchedEffect
-        }
-        // Fehlgeschlagen: erst ohne Passwort aufschliessen versuchen — viele
-        // Dokumente sind nur gegen Bearbeiten geschuetzt, nicht gegen Lesen
-        if (pdfFile == srcFile) {
-            unlocking = true
-            val opened = tryUnlock("")
-            unlocking = false
-            if (opened) return@LaunchedEffect
-            askPassword = true
-        }
-        openError = result.exceptionOrNull()
-        loading = false
-        failed = true
     }
 
+    // Arbeitsdatei anlegen und oeffnen. materialize() gibt die Bytes eines
+    // Mail-Anhangs danach frei — vorher lagen sie bis zum Speichern doppelt.
+    LaunchedEffect(Unit) {
+        val file = runCatching { AttachmentEditing.materialize(context, source) }.getOrNull()
+        if (file == null) {
+            loading = false
+            failed = true
+            return@LaunchedEffect
+        }
+        workFile = file
+        if (isPdf) applyOpen(session.open(file)) else ready = true
+    }
 
-    // Aufsätze je Seite — bleiben erhalten, während man blättert
-    val marks = remember { androidx.compose.runtime.mutableStateMapOf<Int, MutableList<Mark>>() }
+    // Aufsätze je Seite — ueber die stabile Kennung, nicht ueber den Index
+    val marks = remember {
+        androidx.compose.runtime.mutableStateMapOf<PageId, MutableList<Mark>>()
+    }
+    fun idFor(index: Int): PageId = pageIds.getOrElse(index) { PageId(index.toLong()) }
     // Stabile Liste je Seite: einmal beim Seitenwechsel geholt, nicht bei
     // jeder Neuzeichnung — sonst schreibt die Anzeige in ihren eigenen
     // Zustand und loest laufend Neuzeichnungen aus
-    val currentMarks = remember(pageIndex) {
-        marks.getOrPut(pageIndex) { mutableStateListOf() }
+    val currentMarks = remember(pageIndex, pageIds) {
+        marks.getOrPut(idFor(pageIndex)) { mutableStateListOf() }
     }
 
     var signature by remember { mutableStateOf(AttachmentEditing.loadSignature(context)) }
@@ -246,42 +162,14 @@ fun AttachmentEditorScreen(
     var saving by remember { mutableStateOf(false) }
 
     /** Rendert eine Seite (PDF) bzw. dekodiert das Bild — immer im Hintergrund. */
-    suspend fun renderPage(index: Int): Bitmap? = withContext(Dispatchers.IO) {
-        if (!isPdf) {
-            val opts = android.graphics.BitmapFactory.Options().apply {
-                inJustDecodeBounds = true
-            }
-            android.graphics.BitmapFactory.decodeByteArray(
-                source.bytes, 0, source.bytes.size, opts
-            )
-            var sample = 1
-            while (maxOf(opts.outWidth, opts.outHeight) / sample > MAX_PAGE_PX) sample *= 2
-            val real = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
-            return@withContext android.graphics.BitmapFactory.decodeByteArray(
-                source.bytes, 0, source.bytes.size, real
-            )?.copy(Bitmap.Config.ARGB_8888, true)
-        }
-        val r = renderer ?: return@withContext null
-        renderLock.withLock {
-            runCatching {
-                val page = r.openPage(index)
-                val scale = (MAX_PAGE_PX.toFloat() / maxOf(page.width, page.height))
-                    .coerceAtMost(3f)
-                val bmp = Bitmap.createBitmap(
-                    (page.width * scale).toInt().coerceAtLeast(1),
-                    (page.height * scale).toInt().coerceAtLeast(1),
-                    Bitmap.Config.ARGB_8888
-                )
-                android.graphics.Canvas(bmp).drawColor(android.graphics.Color.WHITE)
-                page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                page.close()
-                bmp
-            }.getOrNull()
-        }
+    suspend fun renderPage(index: Int): Bitmap? {
+        val file = workFile ?: return null
+        return if (isPdf) session.renderPage(index, PdfSession.MAX_PAGE_PX)
+        else PdfSession.decodeImage(file)
     }
 
-    LaunchedEffect(pageIndex, renderer) {
-        if (isPdf && renderer == null) return@LaunchedEffect
+    LaunchedEffect(pageIndex, ready) {
+        if (!ready) return@LaunchedEffect
         loading = true
         val bmp = renderPage(pageIndex)
         pageBitmap = bmp
@@ -300,23 +188,17 @@ fun AttachmentEditorScreen(
                     val outName = AttachmentEditing.signedName(source.name)
                     val out = File(outDir, outName)
                     if (isPdf) {
-                        val r = renderer ?: error("PDF nicht lesbar")
                         val doc = PdfDocument()
-                        for (i in 0 until r.pageCount) {
+                        for (i in 0 until session.pageCount) {
                             val bmp = renderPage(i) ?: continue
-                            val (wPt, hPt) = renderLock.withLock {
-                                val p = r.openPage(i)
-                                val s = p.width to p.height
-                                p.close()
-                                s
-                            }
+                            val (wPt, hPt) = session.pageSize(i) ?: continue
                             val info = PdfDocument.PageInfo.Builder(wPt, hPt, i + 1).create()
                             val page = doc.startPage(info)
                             page.canvas.drawBitmap(
                                 bmp, null,
                                 android.graphics.Rect(0, 0, wPt, hPt), null
                             )
-                            marks[i]?.let {
+                            marks[idFor(i)]?.let {
                                 drawMarks(page.canvas, it, signature, wPt.toFloat() / bmp.width)
                             }
                             doc.finishPage(page)
@@ -327,7 +209,7 @@ fun AttachmentEditorScreen(
                     } else {
                         val base = pageBitmap ?: error("Bild nicht lesbar")
                         val result = base.copy(Bitmap.Config.ARGB_8888, true)
-                        marks[0]?.let {
+                        marks[idFor(0)]?.let {
                             drawMarks(android.graphics.Canvas(result), it, signature, 1f)
                         }
                         out.outputStream().use { s ->
@@ -364,16 +246,13 @@ fun AttachmentEditorScreen(
             onCancel = { askPassword = false },
             onSubmit = { pw ->
                 scope.launch {
+                    val file = workFile ?: return@launch
                     unlocking = true
                     passwordWrong = false
-                    val ok = tryUnlock(pw)
+                    val result = session.open(file, pw)
                     unlocking = false
-                    if (ok) {
-                        askPassword = false
-                        failed = false
-                    } else {
-                        passwordWrong = true
-                    }
+                    if (result == PdfSession.OpenResult.OK) failed = false
+                    applyOpen(result)
                 }
             }
         )

@@ -1,6 +1,8 @@
 package com.jakober.klarmail.data
 
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -21,13 +23,28 @@ import java.io.File
  */
 object AttachmentEditing {
 
-    /** Anhang, der gleich bearbeitet wird. */
+    /** Woher das Dokument kommt — bestimmt später die Ausgabewege. */
+    enum class Origin { MAIL, EXTERNAL_VIEW, EXTERNAL_EDIT, EXTERNAL_SHARE }
+
+    /**
+     * Dokument, das gleich bearbeitet wird.
+     *
+     * Entweder [bytes] (Mail-Anhang, liegt bereits im Speicher) ODER [uri]
+     * (von außen hereingereicht). In beiden Fällen macht [materialize] daraus
+     * eine Arbeitsdatei — und gibt die Bytes danach frei.
+     */
     class Source(
         val name: String,
         val mime: String,
-        val bytes: ByteArray,
+        /** Wird von [materialize] geleert, sobald die Datei geschrieben ist. */
+        internal var bytes: ByteArray?,
         /** Mail, auf die danach geantwortet werden soll (null = keine). */
-        val replyUid: Long?
+        val replyUid: Long?,
+        /** Von außen hereingereichtes Dokument. */
+        val uri: android.net.Uri? = null,
+        val origin: Origin = Origin.MAIL,
+        /** Darf die Ausgangsdatei überschrieben werden? */
+        val canOverwrite: Boolean = false
     )
 
     /** Fertig bearbeiteter Anhang für das Verfassen-Fenster. */
@@ -35,6 +52,46 @@ object AttachmentEditing {
 
     var pending: Source? = null
     var pendingResult: Result? = null
+
+    /**
+     * Legt die Arbeitsdatei an und gibt sie zurück.
+     *
+     * Der springende Punkt ist, was hier NICHT passiert: Ein großes Dokument
+     * wird nie am Stück in den Speicher gelesen. Bytes aus einer Mail werden
+     * geschrieben und danach freigegeben (vorher blieben sie bis zum
+     * Speichern doppelt liegen); ein Dokument von außen wird gestreamt
+     * kopiert, nicht mit `readBytes()` verschlungen.
+     */
+    suspend fun materialize(context: Context, src: Source): File =
+        withContext(Dispatchers.IO) {
+            val dir = File(context.cacheDir, "editor").apply { mkdirs() }
+            val safe = src.name.replace(Regex("[/\\\\:*?\"<>|]"), "_")
+            val out = File(dir, "src_${System.currentTimeMillis()}_$safe")
+            val bytes = src.bytes
+            if (bytes != null) {
+                out.writeBytes(bytes)
+                // Wichtig: Das Feld hält sonst ein zweites Mal dieselbe Datei
+                src.bytes = null
+            } else {
+                val uri = src.uri ?: error("Quelle ohne Inhalt")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    out.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
+                } ?: error("Datei nicht lesbar")
+            }
+            out
+        }
+
+    /** Räumt liegen gebliebene Arbeitsdateien weg (Abstürze, Abbrüche). */
+    fun cleanupOldFiles(context: Context, maxAgeMs: Long = 24 * 60 * 60 * 1000L) {
+        val now = System.currentTimeMillis()
+        listOf("editor", "exports").forEach { name ->
+            runCatching {
+                File(context.cacheDir, name).listFiles()?.forEach { f ->
+                    if (now - f.lastModified() > maxAgeMs) f.delete()
+                }
+            }
+        }
+    }
 
     /** Lässt sich dieser Anhang unterschreiben? Bilder und PDFs, sonst nichts. */
     fun isEditable(mime: String, name: String): Boolean {
