@@ -109,18 +109,53 @@ object ClaudeClient {
                 if (!resp.isSuccessful) {
                     // Proxy-Fehler zuerst: aussagekräftige Meldungen in der
                     // Sprache des Geräts (Muster wie im Rest der Datei)
-                    when (resp.code) {
-                        401, 403 -> throw IOException(
+                    // Der Proxy meldet seinen Grund als flaches Feld
+                    // ("subscription_required", "quota_exceeded",
+                    // "rate_limited", "play_verification_failed"), die
+                    // Anthropic-API dagegen als Objekt error.message —
+                    // deshalb beides defensiv lesen.
+                    val proxyError = runCatching {
+                        JSONObject(bodyText).optString("error")
+                    }.getOrNull().orEmpty()
+                    when {
+                        resp.code == 401 || resp.code == 403 -> throw IOException(
                             if (deviceIsGerman) "Pro-Abo erforderlich"
                             else "Pro subscription required"
                         )
-                        429 -> {
+                        // Zu schnell hintereinander gefragt — das ist KEIN
+                        // aufgebrauchtes Kontingent
+                        resp.code == 429 && proxyError == "rate_limited" -> throw IOException(
+                            if (deviceIsGerman)
+                                "Zu viele Anfragen in kurzer Zeit – bitte kurz warten"
+                            else "Too many requests in a short time – please wait a moment"
+                        )
+                        resp.code == 429 -> {
                             com.jakober.klarmail.data.AiQuota.refreshSoon()
+                            // Der Server nutzt 429 für das Monatskontingent
+                            // UND für die Stunden-Notbremse. Sind laut
+                            // Kontingent noch Anfragen übrig, war es die
+                            // Notbremse — dann hilft Warten, nicht Kaufen.
+                            val left = com.jakober.klarmail.data.AiQuota
+                                .info.value?.remaining ?: 0
                             throw IOException(
-                                if (deviceIsGerman) "Monatliches KI-Kontingent aufgebraucht"
-                                else "Monthly AI quota used up"
+                                if (left > 0) {
+                                    if (deviceIsGerman)
+                                        "Zu viele KI-Anfragen in dieser Stunde – " +
+                                            "bitte später erneut versuchen"
+                                    else "Too many AI requests this hour – please try again later"
+                                } else {
+                                    if (deviceIsGerman) "Monatliches KI-Kontingent aufgebraucht"
+                                    else "Monthly AI quota used up"
+                                }
                             )
                         }
+                        // Google war bei der Abo-Prüfung nicht erreichbar —
+                        // liegt weder am Nutzer noch am Kontingent
+                        proxyError == "play_verification_failed" -> throw IOException(
+                            if (deviceIsGerman)
+                                "Abo-Prüfung gerade nicht möglich – bitte später erneut versuchen"
+                            else "Subscription check unavailable – please try again later"
+                        )
                     }
                     // Sonst wie bisher: Fehlermeldung der Anthropic-Antwort;
                     // defensiv geparst, weil z. B. ein 504 des Proxys auch
@@ -130,12 +165,14 @@ object ClaudeClient {
                     }.getOrNull()?.takeIf { it.isNotBlank() } ?: "HTTP ${resp.code}"
                     throw IOException(msg)
                 }
+                // Der Server zählt jede Antwort mit HTTP 200 — der Zähler im
+                // Gerät muss an genau derselben Stelle hochgehen, sonst
+                // laufen beide Stände auseinander (auch bei „refusal“)
+                com.jakober.klarmail.data.AiQuota.noteUsed()
                 val json = JSONObject(bodyText)
                 if (json.optString("stop_reason") == "refusal") {
                     throw IOException("Die Anfrage wurde aus Sicherheitsgründen abgelehnt.")
                 }
-                // Anfrage ging durch: Kontingent-Anzeige sofort mitziehen
-                com.jakober.klarmail.data.AiQuota.noteUsed()
                 val content = json.getJSONArray("content")
                 val sb = StringBuilder()
                 for (i in 0 until content.length()) {

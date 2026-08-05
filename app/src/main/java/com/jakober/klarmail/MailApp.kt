@@ -22,6 +22,10 @@ class MailApp : Application() {
         // Kontingent-Stand aus dem Gerät laden (setzt bei Monatswechsel
         // zurück), damit die Gates von Anfang an den richtigen Wert sehen
         runCatching { com.jakober.klarmail.data.AiQuota.ensureLoaded() }
+        // …und den verbindlichen Stand beim Server nachfragen (der zählt
+        // geräteübergreifend, siehe AiQuota). Schlägt es fehl, bleibt der
+        // Zähler aus dem Gerät stehen.
+        runCatching { com.jakober.klarmail.data.AiQuota.refreshSoon() }
     }
 
     /**

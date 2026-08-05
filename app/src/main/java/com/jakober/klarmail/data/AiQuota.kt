@@ -198,7 +198,13 @@ object AiQuota {
             // Server gewinnt: den Zähler im Gerät auf seinen Stand ziehen
             Prefs.aiQuotaPeriod = currentPeriod()
             Prefs.aiUsedLocal = parsed.used
-            if (parsed.plan.isNotBlank()) BillingManager.planFromServer(parsed.plan)
+            // Den Tarif nur übernehmen, wenn wirklich etwas gekauft wurde:
+            // In der Testphase meldet der Server für JEDEN ein fiktives
+            // „pro-150“ — das darf in den Einstellungen nicht als gebuchter
+            // Tarif erscheinen.
+            if (parsed.plan.isNotBlank() && Prefs.purchaseToken.isNotBlank()) {
+                BillingManager.planFromServer(parsed.plan)
+            }
             true
         } finally {
             _loading.value = false
