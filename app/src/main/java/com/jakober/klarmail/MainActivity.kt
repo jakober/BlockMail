@@ -45,6 +45,20 @@ class MainActivity : ComponentActivity() {
         handleOpenIntent(intent)
     }
 
+    /**
+     * Abo-Stand bei jeder Rückkehr in die App neu bei Play erfragen.
+     *
+     * Ohne das merkt die App eine Kündigung erst beim nächsten Kaltstart:
+     * Wer im Play Store kündigt und zurückwechselt, sähe weiter „Dein
+     * aktueller Tarif“ — und der Wechsel-Knopf schickte Play einen
+     * Kauf-Token, den es nicht mehr gibt („Bei uns ist ein Fehler
+     * aufgetreten“).
+     */
+    override fun onResume() {
+        super.onResume()
+        runCatching { com.jakober.klarmail.data.BillingManager.refreshPurchases() }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

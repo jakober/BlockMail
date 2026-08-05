@@ -212,8 +212,11 @@ object BillingManager {
                 )
             )
         val oldToken = Prefs.purchaseToken
-        if (oldToken.isNotBlank() && Prefs.proPlan.isNotBlank() &&
-            Prefs.proPlan != basePlanId
+        // Nur wechseln, wenn wirklich noch ein Abo laeuft. Mit dem Token
+        // eines gekuendigten Abos lehnt Play den Kauf mit einer nichts
+        // sagenden Fehlermeldung ab.
+        if (ProAccess.hasSubscription && oldToken.isNotBlank() &&
+            Prefs.proPlan.isNotBlank() && Prefs.proPlan != basePlanId
         ) {
             builder.setSubscriptionUpdateParams(
                 BillingFlowParams.SubscriptionUpdateParams.newBuilder()
