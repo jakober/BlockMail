@@ -491,6 +491,11 @@ fun SettingsScreen(
                 com.jakober.klarmail.data.AiQuota.ensureLoaded()
                 com.jakober.klarmail.data.AiQuota.refresh()
             }
+            // Nur mit laufendem Abo: Ohne Abo gibt es kein Kontingent, und
+            // der Server meldet in der Testphase fuer jeden ein fiktives —
+            // das darf hier nicht als eigenes Guthaben erscheinen.
+            val q = quota.takeIf { isPro }
+            if (isPro) {
             Spacer(Modifier.height(12.dp))
             HorizontalDivider()
             Spacer(Modifier.height(12.dp))
@@ -500,7 +505,6 @@ fun SettingsScreen(
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(6.dp))
-            val q = quota
             if (q != null) {
                 Text(
                     stringResource(
@@ -551,6 +555,7 @@ fun SettingsScreen(
             OutlinedButton(onClick = {
                 scope.launch { com.jakober.klarmail.data.AiQuota.refresh() }
             }) { Text(stringResource(R.string.settings_pro_quota_refresh)) }
+            }
 
             // Tarife: Preis kommt aus dem Play Store, die Anfragezahl steht
             // daneben — so ist beim Kauf klar, was man bekommt.
