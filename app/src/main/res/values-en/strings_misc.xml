@@ -107,10 +107,12 @@
     <string name="detail_attachment_sign">Sign &amp; send back</string>
     <string name="editor_back">Back</string>
     <string name="editor_undo">Undo</string>
+    <string name="editor_mode_view">View</string>
     <string name="editor_mode_sign">Signature</string>
     <string name="editor_mode_draw">Draw</string>
     <string name="editor_prev_page">Previous page</string>
     <string name="editor_next_page">Next page</string>
+    <string name="editor_hint_view">Scroll and pinch to zoom. Pick a tool above to sign or draw.</string>
     <string name="editor_hint_sign">Tap where the signature should go. Drag to move it, − and + change its size.</string>
     <string name="editor_hint_no_signature">Draw your signature once — after that it stays saved on your device.</string>
     <string name="editor_create_signature">Draw signature</string>

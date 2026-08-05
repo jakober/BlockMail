@@ -5,8 +5,14 @@ import android.graphics.pdf.PdfDocument
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +23,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -24,6 +33,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,8 +52,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,8 +65,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -95,22 +110,29 @@ fun AttachmentEditorScreen(
     var askPassword by remember { mutableStateOf(false) }
     var passwordWrong by remember { mutableStateOf(false) }
     var unlocking by remember { mutableStateOf(false) }
-    var pageCount by remember { mutableStateOf(if (isPdf) 0 else 1) }
     var pageIds by remember { mutableStateOf<List<PageId>>(emptyList()) }
     DisposableEffect(Unit) {
         onDispose { session.close() }
     }
 
-    var pageIndex by remember { mutableStateOf(0) }
-    var pageBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var loading by remember { mutableStateOf(true) }
     var failed by remember { mutableStateOf(false) }
+
+    // Das Dokument wird als durchgehende Liste gezeigt, nicht Seite fuer
+    // Seite. Seitenmasse werden vorab geholt (billig, kein Rendern) — nur so
+    // stehen die Platzhalter in der richtigen Hoehe und der Bildlauf springt
+    // nicht, waehrend die Seiten nachladen.
+    val listState = rememberLazyListState()
+    var pageSizes by remember { mutableStateOf<List<Pair<Int, Int>>>(emptyList()) }
+    val pageBitmaps = remember { androidx.compose.runtime.mutableStateMapOf<Int, Bitmap>() }
+    var zoom by remember { mutableFloatStateOf(1f) }
+    var pan by remember { mutableStateOf(Offset.Zero) }
+    val pageIndex by remember { derivedStateOf { listState.firstVisibleItemIndex } }
 
     /** Uebernimmt das Ergebnis eines Oeffnungsversuchs in den Zustand. */
     fun applyOpen(result: PdfSession.OpenResult) {
         when (result) {
             PdfSession.OpenResult.OK -> {
-                pageCount = session.pageCount
                 pageIds = session.pageIds
                 openError = null
                 askPassword = false
@@ -155,10 +177,12 @@ fun AttachmentEditorScreen(
     val currentMarks = remember(pageIndex, pageIds) {
         marks.getOrPut(idFor(pageIndex)) { mutableStateListOf() }
     }
+    fun marksFor(index: Int): MutableList<Mark> =
+        marks.getOrPut(idFor(index)) { mutableStateListOf() }
 
     var signature by remember { mutableStateOf(AttachmentEditing.loadSignature(context)) }
     var showSignaturePad by remember { mutableStateOf(false) }
-    var mode by remember { mutableStateOf("sign") }
+    var mode by remember { mutableStateOf("view") }
     var saving by remember { mutableStateOf(false) }
 
     /** Rendert eine Seite (PDF) bzw. dekodiert das Bild — immer im Hintergrund. */
@@ -168,13 +192,36 @@ fun AttachmentEditorScreen(
         else PdfSession.decodeImage(file)
     }
 
-    LaunchedEffect(pageIndex, ready) {
+    // Seitenmasse einmal einsammeln, sobald das Dokument offen ist
+    LaunchedEffect(ready) {
         if (!ready) return@LaunchedEffect
         loading = true
-        val bmp = renderPage(pageIndex)
-        pageBitmap = bmp
-        failed = bmp == null
+        pageSizes = if (isPdf) {
+            (0 until session.pageCount).map { session.pageSize(it) ?: (595 to 842) }
+        } else {
+            val bmp = renderPage(0)
+            if (bmp != null) pageBitmaps[0] = bmp
+            listOfNotNull(bmp?.let { it.width to it.height })
+        }
+        failed = pageSizes.isEmpty()
         loading = false
+    }
+
+    /** Holt eine Seite in den Zwischenspeicher, falls noch nicht da. */
+    fun ensurePage(index: Int) {
+        if (!isPdf || pageBitmaps.containsKey(index)) return
+        scope.launch {
+            val bmp = renderPage(index) ?: return@launch
+            pageBitmaps[index] = bmp
+        }
+    }
+
+    // Speicher begrenzen: nur die Seiten in Sichtweite behalten. Verdraengte
+    // Bitmaps werden NICHT recycelt — Compose koennte sie noch zeichnen.
+    LaunchedEffect(pageIndex, pageSizes) {
+        if (pageSizes.size <= 3) return@LaunchedEffect
+        val keep = (pageIndex - 1)..(pageIndex + 2)
+        pageBitmaps.keys.filter { it !in keep }.forEach { pageBitmaps.remove(it) }
     }
 
     /** Baut das Ergebnis und übergibt es dem Verfassen-Fenster. */
@@ -207,7 +254,7 @@ fun AttachmentEditorScreen(
                         out.outputStream().use { doc.writeTo(it) }
                         doc.close()
                     } else {
-                        val base = pageBitmap ?: error("Bild nicht lesbar")
+                        val base = pageBitmaps[0] ?: error("Bild nicht lesbar")
                         val result = base.copy(Bitmap.Config.ARGB_8888, true)
                         marks[idFor(0)]?.let {
                             drawMarks(android.graphics.Canvas(result), it, signature, 1f)
@@ -312,13 +359,13 @@ fun AttachmentEditorScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clipToBounds(),
                 contentAlignment = Alignment.Center
             ) {
-                val bmp = pageBitmap
                 when {
                     loading -> CircularProgressIndicator()
-                    failed || bmp == null -> Column(
+                    failed || pageSizes.isEmpty() -> Column(
                         modifier = Modifier.padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -346,13 +393,64 @@ fun AttachmentEditorScreen(
                         }
                     }
 
-                    else -> PageCanvas(
-                        bitmap = bmp,
-                        marks = currentMarks,
-                        signature = signature,
-                        mode = mode,
-                        onNeedSignature = { showSignaturePad = true }
-                    )
+                    else -> {
+                        // Im Ansehen-Modus wird gescrollt und gezoomt, mit
+                        // aktivem Werkzeug gezeichnet. Bewusst getrennt: Sonst
+                        // kaempfen Bildlauf und Strich um dieselbe Geste, und
+                        // man zieht beim Unterschreiben die Seite weg.
+                        val viewing = mode == "view"
+                        LazyColumn(
+                            state = listState,
+                            userScrollEnabled = viewing,
+                            contentPadding = PaddingValues(vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = zoom
+                                    scaleY = zoom
+                                    translationX = pan.x
+                                    translationY = pan.y
+                                }
+                                .then(
+                                    if (viewing) Modifier.pointerInput(Unit) {
+                                        // Nur bei ZWEI Fingern eingreifen: Ein
+                                        // fertiger Zoom-Erkenner wuerde auch
+                                        // den einfingrigen Bildlauf schlucken
+                                        awaitEachGesture {
+                                            awaitFirstDown(requireUnconsumed = false)
+                                            var event: PointerEvent
+                                            do {
+                                                event = awaitPointerEvent()
+                                                if (event.changes.size >= 2) {
+                                                    val next = (zoom * event.calculateZoom())
+                                                        .coerceIn(1f, 4f)
+                                                    zoom = next
+                                                    // Bei Normalgroesse sitzt
+                                                    // die Seite wieder mittig
+                                                    pan = if (next <= 1.01f) Offset.Zero
+                                                    else pan + event.calculatePan()
+                                                    event.changes.forEach { it.consume() }
+                                                }
+                                            } while (event.changes.any { it.pressed })
+                                        }
+                                    } else Modifier
+                                )
+                        ) {
+                            items(pageSizes.indices.toList()) { index ->
+                                val (w, h) = pageSizes[index]
+                                PageItem(
+                                    aspect = if (h > 0) w.toFloat() / h else 0.7f,
+                                    bitmap = pageBitmaps[index],
+                                    marks = marksFor(index),
+                                    signature = signature,
+                                    mode = mode,
+                                    onNeedSignature = { showSignaturePad = true },
+                                    onNeeded = { ensurePage(index) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -363,6 +461,12 @@ fun AttachmentEditorScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        FilterChip(
+                            selected = mode == "view",
+                            onClick = { mode = "view" },
+                            label = { Text(stringResource(R.string.editor_mode_view)) },
+                            leadingIcon = { Icon(Icons.Filled.PanTool, contentDescription = null) }
+                        )
                         FilterChip(
                             selected = mode == "sign",
                             onClick = {
@@ -379,9 +483,13 @@ fun AttachmentEditorScreen(
                             leadingIcon = { Icon(Icons.Filled.Draw, contentDescription = null) }
                         )
                         Spacer(Modifier.weight(1f))
-                        if (pageCount > 1) {
+                        if (pageSizes.size > 1) {
                             IconButton(
-                                onClick = { if (pageIndex > 0) pageIndex-- },
+                                onClick = {
+                                    scope.launch {
+                                        listState.animateScrollToItem((pageIndex - 1).coerceAtLeast(0))
+                                    }
+                                },
                                 enabled = pageIndex > 0
                             ) {
                                 Icon(
@@ -389,10 +497,16 @@ fun AttachmentEditorScreen(
                                     contentDescription = stringResource(R.string.editor_prev_page)
                                 )
                             }
-                            Text("${pageIndex + 1}/$pageCount")
+                            Text("${pageIndex + 1}/${pageSizes.size}")
                             IconButton(
-                                onClick = { if (pageIndex < pageCount - 1) pageIndex++ },
-                                enabled = pageIndex < pageCount - 1
+                                onClick = {
+                                    scope.launch {
+                                        listState.animateScrollToItem(
+                                            (pageIndex + 1).coerceAtMost(pageSizes.lastIndex)
+                                        )
+                                    }
+                                },
+                                enabled = pageIndex < pageSizes.lastIndex
                             ) {
                                 Icon(
                                     Icons.Filled.ChevronRight,
@@ -400,6 +514,14 @@ fun AttachmentEditorScreen(
                                 )
                             }
                         }
+                    }
+                    if (mode == "view") {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            stringResource(R.string.editor_hint_view),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     if (mode == "sign") {
                         Spacer(Modifier.height(6.dp))
@@ -463,6 +585,46 @@ fun AttachmentEditorScreen(
 }
 
 /**
+ * Eine Seite in der Dokumentliste.
+ *
+ * Die Höhe steht schon fest, bevor das Bild da ist — aus den vorab geholten
+ * Seitenmaßen. Ohne das würde der Bildlauf springen, sobald eine Seite
+ * nachlädt.
+ */
+@Composable
+private fun PageItem(
+    aspect: Float,
+    bitmap: Bitmap?,
+    marks: MutableList<Mark>,
+    signature: Bitmap?,
+    mode: String,
+    onNeedSignature: () -> Unit,
+    onNeeded: () -> Unit
+) {
+    LaunchedEffect(Unit) { onNeeded() }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .aspectRatio(aspect.coerceIn(0.2f, 5f))
+            .background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        if (bitmap == null) {
+            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+        } else {
+            PageCanvas(
+                bitmap = bitmap,
+                marks = marks,
+                signature = signature,
+                mode = mode,
+                onNeedSignature = onNeedSignature
+            )
+        }
+    }
+}
+
+/**
  * Die Seite mit den Aufsätzen. Rechnet Bildschirm- in Seitenkoordinaten um,
  * damit Striche und Unterschrift beim Speichern exakt dort landen, wo sie
  * gesetzt wurden.
@@ -499,6 +661,7 @@ private fun PageCanvas(
             .fillMaxSize()
             .onSizeChanged { boxSize = it }
             .pointerInput(mode, signature, bitmap) {
+                if (mode == "view") return@pointerInput
                 if (mode == "draw") {
                     detectDragGestures(
                         onDragStart = { p ->
@@ -546,8 +709,8 @@ private fun PageCanvas(
                 }
             }
             .pointerInput(mode, signature, bitmap) {
+                if (mode != "sign") return@pointerInput
                 detectTapGestures { p ->
-                    if (mode != "sign") return@detectTapGestures
                     if (signature == null) {
                         onNeedSignature()
                         return@detectTapGestures
