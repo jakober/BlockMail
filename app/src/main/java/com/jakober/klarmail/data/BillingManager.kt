@@ -170,9 +170,9 @@ object BillingManager {
         if (purchase.purchaseState != Purchase.PurchaseState.PURCHASED) return
         if (purchase.products.none { it == PRODUCT_ID }) return
         Prefs.purchaseToken = purchase.purchaseToken
-        // Welcher Basis-Tarif gekauft wurde, verrät Play erst nach der
-        // Server-Prüfung sicher — der Merker dient nur der Anzeige und wird
-        // von der Kontingent-Abfrage überschrieben (siehe [planFromServer]).
+        // Welchen Basis-Tarif der Kauf betrifft, sagt die Kaufantwort nicht.
+        // Maßgeblich ist deshalb der Tarif, für den der Kaufdialog geöffnet
+        // wurde; bei einer späteren Abfrage der zuletzt bekannte.
         val plan = pendingPlan.ifBlank { Prefs.proPlan }.ifBlank { BASE_PLAN_PRO }
         pendingPlan = ""
         Prefs.proPlan = plan
@@ -233,16 +233,6 @@ object BillingManager {
             val r = c.launchBillingFlow(activity, builder.build())
             r.responseCode == BillingClient.BillingResponseCode.OK
         }.getOrDefault(false)
-    }
-
-    /**
-     * Der BlockMail-Server hat den Kauf bei Google geprüft und kennt den
-     * echten Tarif — der schlägt jede lokale Vermutung.
-     */
-    fun planFromServer(basePlanId: String) {
-        if (basePlanId.isBlank()) return
-        Prefs.proPlan = basePlanId
-        _activePlan.value = basePlanId
     }
 
     /** Play-Store-Seite zur Abo-Verwaltung (Tarif wechseln, kündigen). */

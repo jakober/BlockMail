@@ -194,17 +194,25 @@ object AiQuota {
                 ensureLoaded()
                 return@withContext false
             }
-            _info.value = parsed
-            // Server gewinnt: den Zähler im Gerät auf seinen Stand ziehen
-            Prefs.aiQuotaPeriod = currentPeriod()
-            Prefs.aiUsedLocal = parsed.used
-            // Den Tarif nur übernehmen, wenn wirklich etwas gekauft wurde:
-            // In der Testphase meldet der Server für JEDEN ein fiktives
-            // „pro-150“ — das darf in den Einstellungen nicht als gebuchter
-            // Tarif erscheinen.
-            if (parsed.plan.isNotBlank() && Prefs.purchaseToken.isNotBlank()) {
-                BillingManager.planFromServer(parsed.plan)
+            // Welcher Tarif gebucht ist, weiß Google Play — nicht der
+            // Server: In der Testphase (ALLOW_ALL) meldet dieser für JEDEN
+            // ein fiktives „pro-150“. Weichen beide ab, gilt der Kauf; nur
+            // der Verbrauch kommt vom Server, der zählt ihn verbindlich.
+            val localPlan = Prefs.proPlan
+            val reconciled = if (localPlan.isNotBlank() && parsed.plan != localPlan) {
+                val limit = BillingManager.requestsFor(localPlan)
+                parsed.copy(
+                    plan = localPlan,
+                    limit = limit,
+                    remaining = (limit - parsed.used).coerceAtLeast(0)
+                )
+            } else {
+                parsed
             }
+            _info.value = reconciled
+            // Zähler im Gerät auf den Server-Stand ziehen
+            Prefs.aiQuotaPeriod = currentPeriod()
+            Prefs.aiUsedLocal = reconciled.used
             true
         } finally {
             _loading.value = false
