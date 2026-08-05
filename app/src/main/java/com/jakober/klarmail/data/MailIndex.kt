@@ -52,14 +52,13 @@ object MailIndex {
         val sender: String,
         val senderAddr: String,
         val date: Long,
-        val isNewsletter: Boolean,
         /** FTS-Snippet um die Fundstelle — null bei reinen Betreff-/Absender-Treffern. */
         val snippet: String?
     )
 
     data class IndexStats(val mailCount: Int, val dbBytes: Long)
 
-    private class Helper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 1) {
+    private class Helper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 2) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 "CREATE TABLE IF NOT EXISTS mails(" +
@@ -71,7 +70,6 @@ object MailIndex {
                     "sender TEXT, " +
                     "sender_addr TEXT, " +
                     "date INTEGER, " +
-                    "is_newsletter INTEGER NOT NULL DEFAULT 0, " +
                     "UNIQUE(account, folder, uid))"
             )
             // FTS4 mit unicode61-Tokenizer ist auf allen Geräten ab minSdk 26 verfügbar
@@ -115,10 +113,9 @@ object MailIndex {
         sender: String,
         senderAddr: String,
         date: Long,
-        isNewsletter: Boolean,
         bodyText: String
     ): Unit = withContext(Dispatchers.IO) {
-        upsertSync(account, folder, uid, subject, sender, senderAddr, date, isNewsletter, bodyText)
+        upsertSync(account, folder, uid, subject, sender, senderAddr, date, bodyText)
     }
 
     /** Blockierende Variante für Aufrufer, die bereits auf Dispatchers.IO laufen. */
@@ -130,7 +127,6 @@ object MailIndex {
         sender: String,
         senderAddr: String,
         date: Long,
-        isNewsletter: Boolean,
         bodyText: String
     ) {
         val db = db() ?: return
@@ -152,7 +148,6 @@ object MailIndex {
                     put("sender", sender)
                     put("sender_addr", senderAddr.trim().lowercase())
                     put("date", date)
-                    put("is_newsletter", if (isNewsletter) 1 else 0)
                 }
                 if (id < 0) {
                     id = db.insertOrThrow("mails", null, values)
@@ -184,14 +179,13 @@ object MailIndex {
      * Suche im Index: FTS-MATCH über die Volltexte (alle Stichworte müssen
      * vorkommen; jedes Token wird in Anführungszeichen gesetzt, damit
      * FTS-Sonderzeichen wie - * : harmlos sind) ODER LIKE über Betreff und
-     * Absender — kombinierbar mit Absender-, Zeitraum- und Newsletter-Filter.
+     * Absender — kombinierbar mit Absender- und Zeitraum-Filter.
      */
     suspend fun search(
         keywords: List<String>,
         senderLike: String? = null,
         fromDate: Long? = null,
         toDate: Long? = null,
-        onlyNewsletter: Boolean = false,
         limit: Int = 200
     ): List<IndexHit> = withContext(Dispatchers.IO) {
         val db = db() ?: return@withContext emptyList()
@@ -208,10 +202,9 @@ object MailIndex {
             }
             fromDate?.let { filters.append(" AND m.date>=?"); filterArgs += it.toString() }
             toDate?.let { filters.append(" AND m.date<=?"); filterArgs += it.toString() }
-            if (onlyNewsletter) filters.append(" AND m.is_newsletter=1")
 
             val cols = "m.account, m.folder, m.uid, m.subject, m.sender, m.sender_addr, " +
-                "m.date, m.is_newsletter"
+                "m.date"
 
             fun readHit(c: android.database.Cursor, snippetCol: Int) = IndexHit(
                 account = c.getString(0),
@@ -221,7 +214,6 @@ object MailIndex {
                 sender = c.getString(4) ?: "",
                 senderAddr = c.getString(5) ?: "",
                 date = c.getLong(6),
-                isNewsletter = c.getInt(7) != 0,
                 snippet = if (snippetCol >= 0) c.getString(snippetCol)?.takeIf { it.isNotBlank() } else null
             )
 
@@ -229,7 +221,7 @@ object MailIndex {
             fun keyOf(h: IndexHit) = "${h.account}|${h.folder}|${h.uid}"
 
             if (words.isEmpty()) {
-                // Ohne Stichworte: reine Filter-Suche (Absender/Zeitraum/Newsletter)
+                // Ohne Stichworte: reine Filter-Suche (Absender/Zeitraum)
                 db.rawQuery(
                     "SELECT $cols FROM mails m WHERE 1=1$filters ORDER BY m.date DESC LIMIT ?",
                     (filterArgs + limit.toString()).toTypedArray()
@@ -343,9 +335,8 @@ object MailIndex {
 
     /**
      * Ein schonender Indexierungs-Lauf: holt für jedes gespeicherte Konto bis zu
-     * [batchSize] der neuesten noch nicht indexierten Mails aus INBOX und — falls
-     * vorhanden — aus dem Ordner "Newsletter" (Kopfdaten + Klartext, keine
-     * Anhänge). Wird alle 10 Minuten vom Dienst-Planer und vom Wächter-Worker
+     * [batchSize] der neuesten noch nicht indexierten Mails aus dem
+     * Posteingang (Kopfdaten + Klartext, keine Anhänge). Wird alle 10 Minuten vom Dienst-Planer und vom Wächter-Worker
      * aufgerufen; so wächst der Index nebenbei, ohne Akku und Netz zu belasten.
      */
     suspend fun syncBatch(context: Context, batchSize: Int = 25): Unit =
@@ -378,18 +369,10 @@ object MailIndex {
         if (budget <= 0) return
         val store = MailRepository.openStoreFor(acc.email)
         try {
-            budget -= indexFolder(
+            indexFolder(
                 store, "INBOX", MailRepository.MailFolder.INBOX.name,
-                acc.email, budget, cutoff, isNewsletter = false
+                acc.email, budget, cutoff
             )
-            if (budget > 0) {
-                runCatching {
-                    indexFolder(
-                        store, "Newsletter", MailRepository.MailFolder.NEWSLETTER.name,
-                        acc.email, budget, cutoff, isNewsletter = true
-                    )
-                }
-            }
         } finally {
             runCatching { store.close() }
         }
@@ -405,8 +388,7 @@ object MailIndex {
         folderKey: String,
         account: String,
         budget: Int,
-        cutoff: Long,
-        isNewsletter: Boolean
+        cutoff: Long
     ): Int {
         if (budget <= 0) return 0
         val folder = store.getFolder(imapName)
@@ -451,7 +433,6 @@ object MailIndex {
                             ?: fromAddr?.address ?: "",
                         senderAddr = fromAddr?.address ?: "",
                         date = date,
-                        isNewsletter = isNewsletter,
                         bodyText = plainTextOf(m)
                     )
                     done++
@@ -500,9 +481,8 @@ object MailIndex {
 
     /**
      * Schnellaufbau: indexiert in einer Schleife ALLE noch fehlenden Mails
-     * innerhalb der Zeitgrenze ([Prefs.indexYears]) für alle Konten (INBOX +
-     * Newsletter-Ordner), in Serverpaketen von [BUILD_CHUNK] Kopfdaten + Texten,
-     * neueste zuerst, bis fertig oder [cancelBuild] gerufen wurde. Anders als
+     * innerhalb der Zeitgrenze ([Prefs.indexYears]) für alle Konten, in
+     * Serverpaketen von [BUILD_CHUNK] Kopfdaten + Texten, neueste zuerst, bis fertig oder [cancelBuild] gerufen wurde. Anders als
      * [syncBatch] gilt hier nicht der 3000er-Deckel, sondern nur das absolute
      * Sicherheitsnetz [HARD_MAX_PER_ACCOUNT]. Läuft nie parallel zu [syncBatch]
      * (gemeinsames syncRunning-Flag).
@@ -535,19 +515,10 @@ object MailIndex {
         if (budget <= 0) return
         val store = MailRepository.openStoreFor(acc.email)
         try {
-            budget -= fullBuildFolder(
+            fullBuildFolder(
                 store, "INBOX", MailRepository.MailFolder.INBOX.name,
-                acc.email, budget, cutoff, isNewsletter = false
+                acc.email, budget, cutoff
             )
-            if (budget > 0 && !cancelRequested) {
-                // Fehler eines Ordners (existiert nicht o. Ä.) sind unkritisch
-                runCatching {
-                    fullBuildFolder(
-                        store, "Newsletter", MailRepository.MailFolder.NEWSLETTER.name,
-                        acc.email, budget, cutoff, isNewsletter = true
-                    )
-                }
-            }
         } finally {
             runCatching { store.close() }
         }
@@ -564,8 +535,7 @@ object MailIndex {
         folderKey: String,
         account: String,
         budget: Int,
-        cutoff: Long,
-        isNewsletter: Boolean
+        cutoff: Long
     ): Int {
         if (budget <= 0) return 0
         val folder = store.getFolder(imapName)
@@ -619,8 +589,7 @@ object MailIndex {
                                 ?: fromAddr?.address ?: "",
                             senderAddr = fromAddr?.address ?: "",
                             date = date,
-                            isNewsletter = isNewsletter,
-                            bodyText = plainTextOf(m)
+                                bodyText = plainTextOf(m)
                         )
                         done++
                         _buildProgress.value = _buildProgress.value + 1

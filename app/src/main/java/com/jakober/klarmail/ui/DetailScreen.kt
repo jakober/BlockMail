@@ -270,7 +270,7 @@ fun DetailScreen(
                     }
                 },
                 actions = {
-                    // Menü nur in der normalen Mailansicht (nicht im Newsletter-Detail)
+                    // Menü nur in der normalen Mailansicht
                     if (folder == null && mail != null) {
                         Box {
                             IconButton(onClick = { menuOpen = true }) {

@@ -72,7 +72,6 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Tonality
 import androidx.compose.material.icons.filled.MarkEmailUnread
-import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -564,8 +563,7 @@ fun InboxScreen(
      * Mail-Inhalt) und fragt Claude bzw. Gemini Nano. Datengrundlage sind
      * ZWEI parallel laufende Server-Abfragen: (a) der Kopfdaten-Index der
      * letzten Mails und (b) eine Stichwortsuche über den KOMPLETTEN
-     * Posteingang plus den Ordner "Newsletter" (findet auch Jahre alte und
-     * wegsortierte Mails). Der Mail-Pool beginnt mit den Stichwort-Treffern,
+     * Posteingang (findet auch Jahre alte Mails). Der Mail-Pool beginnt mit den Stichwort-Treffern,
      * dann füllen die neuesten Mails aus Anzeige/Cache/Index auf — so sieht
      * auch das kleine Nano-Modell vor allem relevante Mails. Schlägt alles
      * fehl (offline), bleiben die geladenen und gecachten Mails als
@@ -591,18 +589,10 @@ fun InboxScreen(
                 val keywords = extractAiKeywords(question)
                 // Stufe B: ZUERST der lokale Volltext-Index — schnell, lokal,
                 // durchsucht komplette Mail-Texte (besser als die IMAP-
-                // From/Subject-Suche) und kennt auch den Newsletter-Ordner.
+                // From/Subject-Suche).
                 // Der Index kann leer oder deaktiviert sein — dann kommt
                 // einfach nichts zurück; die IMAP-Wege unten laufen IMMER
                 // zusätzlich als Ergänzung/Fallback.
-                val wantsNewsletter = question.contains("newsletter", ignoreCase = true)
-                val newsletterIndexHits = if (wantsNewsletter) {
-                    // Newsletter-Frage: auch ohne brauchbare Stichwörter
-                    // sinnvoll (reine Filter-Suche, neueste zuerst)
-                    runCatching {
-                        MailIndex.search(keywords, onlyNewsletter = true, limit = 200)
-                    }.getOrDefault(emptyList())
-                } else emptyList()
                 val indexHits = if (keywords.isEmpty()) emptyList() else {
                     runCatching { MailIndex.search(keywords, limit = 200) }
                         .getOrDefault(emptyList())
@@ -631,8 +621,7 @@ fun InboxScreen(
                 val snippets = fillMails
                     .filter { it.snippet?.isNotBlank() == true }
                     .associate { "${it.account}:${it.uid}" to it.snippet }
-                // Pool-Reihenfolge (Stufe B): (0) Newsletter-Index-Treffer
-                // bei Newsletter-Fragen, (1) Index-Treffer, (2) IMAP-
+                // Pool-Reihenfolge (Stufe B): (1) Index-Treffer, (2) IMAP-
                 // Stichwort-Treffer (nach Datum absteigend), (3) Anzeige/
                 // Cache/Kopfdaten-Index als Auffüller. Dedupliziert über
                 // Ordner:Konto:UID — das Konto wird normalisiert, weil der
@@ -644,7 +633,6 @@ fun InboxScreen(
                     val acc = h.mail.account.ifBlank { Prefs.email }.trim().lowercase()
                     if (seenKeys.add("${h.folder.name}:$acc:${h.mail.uid}")) pool += h
                 }
-                newsletterIndexHits.forEach { addHit(indexHitToAiHit(it)) }
                 indexHits.forEach { addHit(indexHitToAiHit(it)) }
                 keywordHits
                     .sortedByDescending { it.mail.date }
@@ -686,7 +674,7 @@ fun InboxScreen(
                 val raw = com.jakober.klarmail.ai.ClaudeClient.askMailbox(question, list)
                 var answerRaw = raw
                 // Volltexte einer Auswahl laden: lokaler Index zuerst (kennt
-                // auch den Newsletter-Ordner), sonst IMAP mit Zeitgrenze
+                // sonst IMAP mit Zeitgrenze
                 suspend fun buildContents(
                     toRead: List<Pair<Int, MailRepository.AiSearchHit>>
                 ): String {
@@ -997,7 +985,6 @@ fun InboxScreen(
                                     Prefs.hiddenFolders(Prefs.email)
                                 }
                                 MailRepository.MailFolder.entries
-                                    .filter { it != MailRepository.MailFolder.NEWSLETTER }
                                     .filter { it.name !in hiddenFolders }
                                     .forEach { f ->
                                         val active = !unified && f == currentFolder
@@ -1886,17 +1873,6 @@ fun InboxScreen(
                         }
                     }
                 }
-                // Newsletter-Treffer: UIDs sind ordnerspezifisch, der
-                // Detail-Weg (detail/{uid}) lädt aber immer aus dem aktuellen
-                // Ordner. Solche Treffer werden deshalb angezeigt, aber ohne
-                // Öffnen/Wischen — ein Tipp darauf erklärt das per Snackbar.
-                val newsletterHitInfo: () -> Unit = {
-                    scope.launch {
-                        snackbar.showSnackbar(
-                            context.getString(R.string.inbox_ai_hit_newsletter_info)
-                        )
-                    }
-                }
                 if (aiHits.isEmpty()) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
@@ -1930,29 +1906,17 @@ fun InboxScreen(
                             contentType = { "mail" }
                         ) { hit ->
                             val mail = hit.mail
-                            if (hit.folder == MailRepository.MailFolder.NEWSLETTER) {
-                                MailBlock(
-                                    mail = mail,
-                                    selected = false,
-                                    selectionMode = false,
-                                    onClick = newsletterHitInfo,
-                                    onLongClick = {},
-                                    modifier = Modifier.animateItem(),
-                                    compact = compact
-                                )
-                            } else {
-                                SwipeableMailBlock(
-                                    mail = mail,
-                                    onClick = { openFromSearch(mail) },
-                                    onLongClick = {},
-                                    selected = false,
-                                    selectionMode = false,
-                                    rightSpec = specFor(swipeRight, mail),
-                                    leftSpec = specFor(swipeLeft, mail),
-                                    modifier = Modifier.animateItem(),
-                                    compact = compact
-                                )
-                            }
+                            SwipeableMailBlock(
+                                mail = mail,
+                                onClick = { openFromSearch(mail) },
+                                onLongClick = {},
+                                selected = false,
+                                selectionMode = false,
+                                rightSpec = specFor(swipeRight, mail),
+                                leftSpec = specFor(swipeLeft, mail),
+                                modifier = Modifier.animateItem(),
+                                compact = compact
+                            )
                         }
                     }
                 } else {
@@ -1968,29 +1932,16 @@ fun InboxScreen(
                             contentType = { "mail" }
                         ) { hit ->
                             val mail = hit.mail
-                            if (hit.folder == MailRepository.MailFolder.NEWSLETTER) {
-                                MailRow(
-                                    mail = mail,
-                                    selected = false,
-                                    selectionMode = false,
-                                    onClick = newsletterHitInfo,
-                                    onLongClick = {},
-                                    modifier = Modifier
-                                        .animateItem()
-                                        .padding(horizontal = 10.dp, vertical = 3.dp)
-                                )
-                            } else {
-                                SwipeableMailRow(
-                                    mail = mail,
-                                    onClick = { openFromSearch(mail) },
-                                    onLongClick = {},
-                                    selected = false,
-                                    selectionMode = false,
-                                    rightSpec = specFor(swipeRight, mail),
-                                    leftSpec = specFor(swipeLeft, mail),
-                                    modifier = Modifier.animateItem()
-                                )
-                            }
+                            SwipeableMailRow(
+                                mail = mail,
+                                onClick = { openFromSearch(mail) },
+                                onLongClick = {},
+                                selected = false,
+                                selectionMode = false,
+                                rightSpec = specFor(swipeRight, mail),
+                                leftSpec = specFor(swipeLeft, mail),
+                                modifier = Modifier.animateItem()
+                            )
                         }
                     }
                 }
@@ -2142,8 +2093,7 @@ fun InboxScreen(
                     }
                     // "Aus dem Archiv": Volltext-Treffer aus dem lokalen
                     // Index, die der Live-Filter nicht kennt — gerendert wie
-                    // die KI-Treffer; Newsletter-Ordner-Treffer ohne
-                    // Wisch/Klick, nur mit dem bestehenden Snackbar-Hinweis
+                    // die KI-Treffer
                     if (archiveExtra.isNotEmpty()) {
                         item(key = "header_archive") {
                             SectionHeader(
@@ -2156,37 +2106,16 @@ fun InboxScreen(
                             contentType = { "mail" }
                         ) { hit ->
                             val mail = hit.mail
-                            if (hit.folder == MailRepository.MailFolder.NEWSLETTER) {
-                                MailRow(
-                                    mail = mail,
-                                    selected = false,
-                                    selectionMode = false,
-                                    onClick = {
-                                        scope.launch {
-                                            snackbar.showSnackbar(
-                                                context.getString(
-                                                    R.string.inbox_ai_hit_newsletter_info
-                                                )
-                                            )
-                                        }
-                                    },
-                                    onLongClick = {},
-                                    modifier = Modifier
-                                        .animateItem()
-                                        .padding(horizontal = 10.dp, vertical = 3.dp)
-                                )
-                            } else {
-                                SwipeableMailRow(
-                                    mail = mail,
-                                    onClick = { openFromSearch(mail) },
-                                    onLongClick = {},
-                                    selected = false,
-                                    selectionMode = false,
-                                    rightSpec = specFor(swipeRight, mail),
-                                    leftSpec = specFor(swipeLeft, mail),
-                                    modifier = Modifier.animateItem()
-                                )
-                            }
+                            SwipeableMailRow(
+                                mail = mail,
+                                onClick = { openFromSearch(mail) },
+                                onLongClick = {},
+                                selected = false,
+                                selectionMode = false,
+                                rightSpec = specFor(swipeRight, mail),
+                                leftSpec = specFor(swipeLeft, mail),
+                                modifier = Modifier.animateItem()
+                            )
                         }
                     }
                 }
@@ -3208,7 +3137,6 @@ private fun folderIcon(f: MailRepository.MailFolder) = when (f) {
     MailRepository.MailFolder.DRAFTS -> Icons.Filled.Drafts
     MailRepository.MailFolder.ARCHIVE -> Icons.Filled.Archive
     MailRepository.MailFolder.TRASH -> Icons.Filled.Delete
-    MailRepository.MailFolder.NEWSLETTER -> Icons.Filled.Newspaper
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)

@@ -40,7 +40,6 @@ object MailRepository {
         SENT("Gesendet"),
         DRAFTS("Entwürfe"),
         ARCHIVE("Archiv"),
-        NEWSLETTER("Newsletter"),
         TRASH("Papierkorb")
     }
 
@@ -181,7 +180,6 @@ object MailRepository {
                 "Papierkorb", "Trash", "Deleted Items", "Gelöschte Elemente", "Gelöscht"
             )
         )
-        MailFolder.NEWSLETTER -> store.getFolder("Newsletter")
     }
 
     private fun openCurrentFolder(store: Store, mode: Int): IMAPFolder {
@@ -935,16 +933,15 @@ object MailRepository {
 
     /**
      * Treffer der KI-Stichwortsuche: Mail plus Herkunftsordner. Der Ordner ist
-     * wichtig, weil UIDs ordnerspezifisch sind — eine Newsletter-Mail lässt
-     * sich über den Posteingangs-Detailweg (detail/{uid}) NICHT öffnen.
+     * wichtig, weil UIDs ordnerspezifisch sind: Eine Mail aus einem anderen
+     * Ordner lässt sich über den Posteingangs-Detailweg nicht direkt öffnen.
      */
     data class AiSearchHit(val mail: MailMessage, val folder: MailFolder)
 
     /**
      * Server-Stichwortsuche für die KI-Frage: durchsucht je Stichwort den
-     * KOMPLETTEN Posteingang (nicht nur die letzten N Mails) sowie zusätzlich
-     * den Ordner "Newsletter", falls er existiert. Bewusst nur Absender +
-     * Betreff (kein BodyTerm): schneller und auf allen Servern robust.
+     * KOMPLETTEN Posteingang (nicht nur die letzten N Mails). Bewusst nur
+     * Absender + Betreff (kein BodyTerm): schneller und robuster.
      * Geholt werden nur Kopfdaten (ENVELOPE-Fetch wie bei headerIndex);
      * Fehler je Stichwort/Ordner werden geschluckt, Teilergebnisse kommen
      * trotzdem zurück. Dedupliziert über Ordner + UID.
@@ -963,15 +960,6 @@ object MailRepository {
                     val inbox = (store.getFolder("INBOX") as IMAPFolder)
                         .apply { open(Folder.READ_ONLY) }
                     searchFolderForAi(inbox, MailFolder.INBOX, keywords, maxPerKeyword, seen, hits)
-                }
-                runCatching {
-                    val nl = store.getFolder("Newsletter")
-                    if (nl.exists()) {
-                        (nl as IMAPFolder).open(Folder.READ_ONLY)
-                        searchFolderForAi(
-                            nl, MailFolder.NEWSLETTER, keywords, maxPerKeyword, seen, hits
-                        )
-                    }
                 }
             } finally {
                 runCatching { store.close() }
@@ -1210,7 +1198,7 @@ object MailRepository {
         return html
     }
 
-    /** Merker für eine aus dem Newsletter-Protokoll zu öffnende Mail. */
+    /** Merker für eine gezielt zu öffnende Mail (Suche/KI-Treffer). */
     var pendingOpen: Pair<MailFolder, MailMessage>? = null
 
     suspend fun loadBodyContent(
