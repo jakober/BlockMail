@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
  *  - Tages-Überblick / Ungelesenes zusammenfassen (KI-Knopf im Posteingang)
  *  - Antwort entwerfen und Mail formulieren mit KI (Verfassen-Fenster)
  *  - Rechtschreibprüfung per KI (Verfassen-Fenster)
- *  - Newsletter-Scan (manuell und täglicher Aufräum-Lauf)
  *
  * OHNE Pro bleibt die App voll benutzbar, nur eben ohne KI: Die Suchleiste
  * arbeitet dann als reine Textsuche (Live-Filter plus Server-Volltextsuche —

@@ -36,7 +36,6 @@
     <!-- Ordner-Menü -->
     <string name="inbox_all_accounts">Alle Konten</string>
     <string name="inbox_folder_switch">Ordner wechseln</string>
-    <string name="inbox_newsletter">Newsletter</string>
     <string name="inbox_attachments">Anhänge</string>
     <string name="inbox_stats">Statistik</string>
 

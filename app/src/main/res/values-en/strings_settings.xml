@@ -136,7 +136,7 @@
     <string name="settings_group_ai">Artificial intelligence</string>
     <string name="settings_pro_title">BlockMail Pro</string>
     <string name="settings_pro_subtitle">All AI features in one package</string>
-    <string name="settings_pro_features">• AI search (\"Ask your mailbox\")\n• Summarize emails with AI\n• Daily overview of your inbox\n• Draft replies and emails with AI\n• Proofreading\n• Newsletter scan with daily cleanup run</string>
+    <string name="settings_pro_features">• AI search (\"Ask your mailbox\")\n• Summarize emails with AI\n• Daily overview of your inbox\n• Draft replies and emails with AI\n• Proofreading</string>
     <string name="settings_pro_test_phase">Test phase: Pro is unlocked free of charge for all testers.</string>
     <string name="settings_ai_pro_active">Pro AI active (via the BlockMail server)</string>
     <string name="settings_ai_pro_inactive">AI features are part of BlockMail Pro.</string>
@@ -153,7 +153,6 @@
     <string name="settings_ai_mode_gemini">Always on-device AI (Gemini Nano)</string>
     <string name="settings_ai_device_status">On-device AI (Gemini Nano): %1$s</string>
     <string name="settings_ai_checking">checking …</string>
-    <string name="settings_ai_desc">With Claude, every AI feature runs, including the daily newsletter detection. The on-device AI handles summarizing, drafting replies, composing emails, and spell checking — entirely on the device; newsletter detection then uses the unsubscribe-header rule.</string>
     <string name="settings_ai_test_failed">Test failed: %1$s</string>
     <string name="settings_ai_testing">Testing on-device AI …</string>
     <string name="settings_ai_test_now">Test on-device AI now</string>
@@ -162,18 +161,6 @@
     <string name="settings_claude_key_label">Claude API key</string>
     <string name="settings_claude_key_desc">Optional: with an API key from console.anthropic.com, Claude can compose emails, draft replies, and check your spelling.</string>
 
-    <!-- Newsletter cleanup -->
-    <string name="settings_newsletter_title">Newsletter cleanup (AI)</string>
-    <string name="settings_newsletter_subtitle">Promotions land in the newsletter folder automatically</string>
-    <string name="settings_newsletter_daily">Daily cleanup run</string>
-    <string name="settings_newsletter_daily_desc">Every day at 8 PM the AI detects newsletters from the last 24 hours and moves them to the “Newsletter” folder. The log lists all moved emails along with unsubscribe links.</string>
-    <string name="settings_newsletter_on_snack">Daily newsletter cleanup on (8 PM)</string>
-    <string name="settings_newsletter_off_snack">Daily cleanup off — “Run now” still works</string>
-    <string name="settings_newsletter_log">Show log</string>
-    <string name="settings_newsletter_running">Running …</string>
-    <string name="settings_newsletter_run_now">Run now</string>
-    <string name="settings_newsletter_dialog_title">Newsletter cleanup</string>
-    <string name="settings_newsletter_open_log">Open log</string>
     <string name="settings_error_prefix">Error: %1$s</string>
 
     <!-- Sender rules -->

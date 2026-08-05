@@ -587,38 +587,6 @@ object ClaudeClient {
         return complete(system, user)
     }
 
-    /**
-     * Klassifiziert Mails (Absender/Betreff/Abmelde-Signal) als Newsletter.
-     * Liefert die 1-basierten Nummern der als Newsletter erkannten Einträge.
-     */
-    suspend fun classifyNewsletters(items: List<String>): Set<Int> {
-        if (items.isEmpty()) return emptySet()
-        val system = if (deviceIsGerman) {
-            "Du klassifizierst E-Mails als Newsletter oder nicht. " +
-                "Newsletter sind wiederkehrende Massen-Mails: Werbung, Marketing-Aktionen, " +
-                "Produktneuigkeiten, Blog- oder Community-Updates. " +
-                "KEINE Newsletter sind: persönliche Mails, Rechnungen, Bestell- und " +
-                "Versandbestätigungen, Termin-, Sicherheits- und Konto-Benachrichtigungen. " +
-                "Antworte AUSSCHLIESSLICH mit einem JSON-Array der Nummern der Newsletter, " +
-                "z. B. [1,4,5]. Wenn keine dabei sind: []"
-        } else {
-            "You classify emails as newsletters or not. " +
-                "Newsletters are recurring bulk emails: advertising, marketing campaigns, " +
-                "product news, blog or community updates. " +
-                "NOT newsletters: personal emails, invoices, order and shipping " +
-                "confirmations, appointment, security and account notifications. " +
-                "Reply EXCLUSIVELY with a JSON array of the numbers of the newsletters, " +
-                "e.g. [1,4,5]. If there are none: []"
-        }
-        val user = if (deviceIsGerman) {
-            "Welche dieser E-Mails sind Newsletter?\n\n" + items.joinToString("\n")
-        } else {
-            "Which of these emails are newsletters?\n\n" + items.joinToString("\n")
-        }
-        val response = complete(system, user)
-        return Regex("\\d+").findAll(response).map { it.value.toInt() }.toSet()
-    }
-
     suspend fun proofread(html: String): String {
         val system = if (deviceIsGerman) {
             "Du bist ein Korrekturleser. Korrigiere Rechtschreibung, Grammatik und " +

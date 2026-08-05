@@ -1557,46 +1557,6 @@ object MailRepository {
             }
         }
 
-    /** Verschiebt alle Mails eines Absenders aus dem Newsletter-Ordner in einen Zielordner. */
-    private suspend fun moveNewsletterFrom(address: String, target: MailFolder): Int =
-        withContext(Dispatchers.IO) {
-            var moved = 0
-            try {
-                val store = openStore()
-                try {
-                    val folder = resolveFolder(store, MailFolder.NEWSLETTER) ?: return@withContext 0
-                    if (!folder.exists()) return@withContext 0
-                    (folder as IMAPFolder).open(Folder.READ_WRITE)
-                    val hits = folder.search(javax.mail.search.FromStringTerm(address))
-                    if (hits.isNotEmpty()) {
-                        resolveFolder(store, target)?.let { dest ->
-                            if (!dest.exists()) dest.create(Folder.HOLDS_MESSAGES)
-                            folder.copyMessages(hits, dest)
-                        }
-                        runCatching {
-                            hits.forEach { it.setFlag(Flags.Flag.DELETED, true) }
-                            folder.expunge()
-                        }
-                        moved = hits.size
-                    }
-                } finally {
-                    runCatching { store.close() }
-                }
-            } catch (e: Exception) {
-                if (isConnectivityError(e)) _error.value = friendlyError(e)
-            }
-            moved
-        }
-
-    /** Nach Abmeldung: alle Mails eines Absenders aus dem Newsletter-Ordner löschen. */
-    suspend fun deleteNewsletterFrom(address: String): Int = moveNewsletterFrom(address, MailFolder.TRASH)
-
-    /** "Kein Newsletter": alle Mails eines Absenders zurück in den Posteingang + Absender merken. */
-    suspend fun restoreNewsletterFrom(address: String): Int {
-        Prefs.addNotNewsletter(address)
-        return moveNewsletterFrom(address, MailFolder.INBOX)
-    }
-
     /**
      * Übernimmt extern geänderte Lese-Markierungen (z. B. in Spark/Gmail gelesen)
      * in die angezeigte Liste. Nur relevant, wenn gerade der Posteingang offen ist.

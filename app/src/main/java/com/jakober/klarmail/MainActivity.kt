@@ -31,15 +31,12 @@ class MainActivity : ComponentActivity() {
     /** Von einer Benachrichtigung angeforderte Mail (direkt öffnen). */
     private val pendingOpenUid = androidx.compose.runtime.mutableStateOf<Long?>(null)
 
-    private val pendingOpenLog = androidx.compose.runtime.mutableStateOf(false)
-
     /** Vom Launcher-Shortcut angefordert: neue Mail verfassen. */
     private val pendingCompose = androidx.compose.runtime.mutableStateOf(false)
 
     private fun handleOpenIntent(intent: android.content.Intent?) {
         val uid = intent?.getLongExtra("open_uid", -1L) ?: -1L
         if (uid > 0) pendingOpenUid.value = uid
-        if (intent?.getBooleanExtra("open_log", false) == true) pendingOpenLog.value = true
         if (intent?.action == "com.jakober.klarmail.SHORTCUT_COMPOSE") pendingCompose.value = true
     }
 
@@ -72,13 +69,6 @@ class MainActivity : ComponentActivity() {
                         pendingOpenUid.value = null
                     }
                 }
-                val openLog = pendingOpenLog.value
-                androidx.compose.runtime.LaunchedEffect(openLog) {
-                    if (openLog) {
-                        nav.navigate("newsletterlog")
-                        pendingOpenLog.value = false
-                    }
-                }
                 val openCompose = pendingCompose.value
                 androidx.compose.runtime.LaunchedEffect(openCompose) {
                     if (openCompose) {
@@ -107,7 +97,6 @@ class MainActivity : ComponentActivity() {
                                 onCompose = { nav.navigate("compose") },
                                 onSettings = { nav.navigate("settings") },
                                 onReply = { uid -> nav.navigate("compose?replyTo=$uid") },
-                                onOpenNewsletterLog = { nav.navigate("newsletterlog") },
                                 onOpenDraft = { id -> nav.navigate("compose?draft=$id") },
                                 onOpenStats = { nav.navigate("stats") },
                                 onOpenAttachments = { nav.navigate("attachments") }
@@ -117,7 +106,6 @@ class MainActivity : ComponentActivity() {
                                 onOpenMail = { uid -> nav.navigate("detail/$uid") },
                                 onCompose = { nav.navigate("compose") },
                                 onSettings = { nav.navigate("settings") },
-                                onOpenNewsletterLog = { nav.navigate("newsletterlog") },
                                 onOpenDraft = { id -> nav.navigate("compose?draft=$id") },
                                 onOpenStats = { nav.navigate("stats") },
                                 onOpenAttachments = { nav.navigate("attachments") }
@@ -183,7 +171,6 @@ class MainActivity : ComponentActivity() {
                     composable("settings") {
                         SettingsScreen(
                             onBack = { nav.popBackStack() },
-                            onOpenNewsletterLog = { nav.navigate("newsletterlog") },
                             onOpenSetup = { nav.navigate("setup") },
                             onOpenTour = {
                                 // Live-Tour läuft im Posteingang — dorthin
@@ -215,24 +202,6 @@ class MainActivity : ComponentActivity() {
                             onSkip = {
                                 Prefs.welcomeShown = true
                                 nav.popBackStack()
-                            }
-                        )
-                    }
-                    composable("newsletterlog") {
-                        com.jakober.klarmail.ui.NewsletterLogScreen(
-                            onBack = { nav.popBackStack() },
-                            onOpenMail = { item ->
-                                com.jakober.klarmail.data.MailRepository.pendingOpen =
-                                    com.jakober.klarmail.data.MailRepository.MailFolder.NEWSLETTER to
-                                        com.jakober.klarmail.data.MailMessage(
-                                            uid = item.uid,
-                                            subject = item.subject,
-                                            from = item.from,
-                                            fromAddress = item.address,
-                                            date = item.date,
-                                            seen = true
-                                        )
-                                if (item.uid > 0) nav.navigate("nldetail")
                             }
                         )
                     }

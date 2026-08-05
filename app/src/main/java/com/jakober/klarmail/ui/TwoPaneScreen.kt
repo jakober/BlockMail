@@ -46,7 +46,6 @@ fun TwoPaneScreen(
     onCompose: () -> Unit,
     onSettings: () -> Unit,
     onReply: (Long) -> Unit,
-    onOpenNewsletterLog: () -> Unit = {},
     onOpenDraft: (Long) -> Unit = {},
     onOpenStats: () -> Unit = {},
     onOpenAttachments: () -> Unit = {}
@@ -68,7 +67,6 @@ fun TwoPaneScreen(
                     onOpenMail = { onSelect(it) },
                     onCompose = onCompose,
                     onSettings = onSettings,
-                    onOpenNewsletterLog = onOpenNewsletterLog,
                     onOpenDraft = onOpenDraft,
                     onOpenStats = onOpenStats,
                     onOpenAttachments = onOpenAttachments

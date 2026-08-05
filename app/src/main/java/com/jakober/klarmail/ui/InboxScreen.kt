@@ -265,7 +265,6 @@ fun InboxScreen(
     onOpenMail: (Long) -> Unit,
     onCompose: () -> Unit,
     onSettings: () -> Unit,
-    onOpenNewsletterLog: () -> Unit = {},
     onOpenDraft: (Long) -> Unit = {},
     onOpenStats: () -> Unit = {},
     onOpenAttachments: () -> Unit = {}
@@ -1041,24 +1040,6 @@ fun InboxScreen(
                                             }
                                         )
                                     }
-                                if ("NEWSLETTER" !in hiddenFolders) {
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                                    )
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                stringResource(R.string.inbox_newsletter),
-                                                style = MaterialTheme.typography.bodyLarge
-                                            )
-                                        },
-                                        leadingIcon = { Icon(Icons.Filled.Newspaper, null) },
-                                        onClick = {
-                                            folderMenuOpen = false
-                                            onOpenNewsletterLog()
-                                        }
-                                    )
-                                }
                                 // Lokale Entwürfe (automatisch beim Verlassen des
                                 // Verfassen-Fensters gespeichert)
                                 val draftList by Prefs.draftsFlow.collectAsState()

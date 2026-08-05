@@ -2,7 +2,7 @@
 
 Dieses Dokument enthält alle Informationen, die eine KI oder Agentur
 braucht, um eine Landingpage für die Android-App **BlockMail** zu bauen.
-Stand: App-Version 3.77 (August 2026).
+Stand: App-Version 3.79 (August 2026).
 
 **Wichtig vorweg:** Abschnitt 10 („Was NICHT behauptet werden darf")
 unbedingt lesen — dort stehen Aussagen, die früher galten und heute
@@ -59,8 +59,8 @@ sie wollen keine Konfiguration, sondern Ergebnisse.
 private Post auf einem Gerät verwalten und dabei auf Datenschutz achten.
 
 **Was sie nervt (Aufhänger für die Texte):**
-- Der Posteingang quillt über mit Newslettern und Werbung
-- Wichtige Mails gehen unter, Antworten werden vergessen
+- Der Posteingang quillt über, Wichtiges geht unter
+- Antworten werden vergessen
 - Suchen dauert ewig, besonders bei älteren Mails
 - Angst vor Phishing und Betrugsmails
 - Mehrere Konten bedeuten mehrere Apps oder ständiges Umschalten
@@ -73,21 +73,17 @@ private Post auf einem Gerät verwalten und dabei auf Datenschutz achten.
    statt Stichwortsuche. Beispiele, die man zeigen sollte:
    „Wie viel habe ich diesen Monat bei Amazon ausgegeben?",
    „Wann hat Brigitte mir das letzte Mal geschrieben?",
-   „Welche meiner Mails von heute waren Newsletter?"
+   „Welche Rechnungen kamen letzten Monat?"
    Die KI durchsucht das ganze Postfach, liest bei Bedarf die passenden
    Mails im Volltext und antwortet mit Quellenangabe (die Treffer-Mails
    erscheinen unter der Antwort).
-2. **Newsletter verschwinden von selbst.** Die App erkennt Newsletter
-   und Werbung und räumt sie täglich automatisch in einen eigenen
-   Ordner. Jede Verschiebung steht in einem Protokoll und ist mit einem
-   Tipp rückgängig zu machen.
-3. **Echtzeit-Push.** Neue Mails kommen in Sekunden an, nicht erst beim
+2. **Echtzeit-Push.** Neue Mails kommen in Sekunden an, nicht erst beim
    nächsten Abrufintervall. Technisch über eine dauerhafte
    IMAP-Verbindung, die auch Neustarts und Netzwechsel übersteht.
-4. **Phishing-Wächter.** Prüft verdächtige Absender, Links und
+3. **Phishing-Wächter.** Prüft verdächtige Absender, Links und
    Formulierungen und warnt mit rotem Hinweis, bevor man klickt. Läuft
    vollständig auf dem Gerät — hierfür verlassen keine Daten das Handy.
-5. **Sieht aus, wie man will.** Liste oder Kacheln, hell oder dunkel,
+4. **Sieht aus, wie man will.** Liste oder Kacheln, hell oder dunkel,
    sechs Farbwelten plus frei wählbare Farbe, schlichtes Design ohne
    Ablenkung, einstellbare Schriftgröße.
 
@@ -154,7 +150,6 @@ Ein Abo schaltet alle KI-Funktionen zusammen frei:
 - **Antworten entwerfen** mit KI
 - **Mails verfassen** mit KI
 - **Rechtschreibprüfung** beim Schreiben
-- **Newsletter-Scan** (das automatische tägliche Aufräumen)
 
 Nicht im Abo, also dauerhaft kostenlos: Phishing-Wächter, Antwort-Radar
 und sämtliche normalen Mail-Funktionen.
@@ -198,20 +193,19 @@ Als Formulierung für die Webseite geeignet:
 2. **Das Problem** (3 kurze Punkte, siehe Abschnitt 3)
 3. **Frag dein Postfach** — größter Abschnitt, mit Beispielfragen als
    Chat-artige Darstellung und Screenshot der KI-Antwort
-4. **Ordnung von selbst** — Newsletter-Aufräumen mit Vorher/Nachher
-5. **Schnell und sicher** — Echtzeit-Push und Phishing-Wächter
-6. **Sieht aus, wie du willst** — Farbwelten, hell/dunkel, drei
+4. **Schnell und sicher** — Echtzeit-Push und Phishing-Wächter
+5. **Sieht aus, wie du willst** — Farbwelten, hell/dunkel, drei
    Ansichten, Screenshot-Galerie
-7. **Alle Funktionen** — die Liste aus Abschnitt 5, aufklappbar oder als
+6. **Alle Funktionen** — die Liste aus Abschnitt 5, aufklappbar oder als
    Raster mit Symbolen
-8. **Preise** — zwei Karten: „BlockMail kostenlos" (alle
+7. **Preise** — zwei Karten: „BlockMail kostenlos" (alle
    Mail-Funktionen) und „BlockMail Pro — 4,90 €/Monat, 3 Tage gratis
    testen" (alle KI-Funktionen). Deutlich sagen: Die App selbst ist und
    bleibt kostenlos.
-9. **Datenschutz** — Abschnitt 6, ruhig mit Schloss-Symbolik
-10. **Häufige Fragen** — siehe Abschnitt 9
-11. **Abschluss-Aufruf** — Play-Store-Knopf noch einmal groß
-12. **Fußzeile** — Impressum, Datenschutzerklärung, Kontakt
+8. **Datenschutz** — Abschnitt 6, ruhig mit Schloss-Symbolik
+9. **Häufige Fragen** — siehe Abschnitt 9
+10. **Abschluss-Aufruf** — Play-Store-Knopf noch einmal groß
+11. **Fußzeile** — Impressum, Datenschutzerklärung, Kontakt
 
 ---
 
@@ -288,8 +282,9 @@ weil sie im Play Store oder rechtlich Probleme machen:
 - ❌ **„KI läuft auf dem Gerät" / „KI ohne Server"** — falsch. Die
   KI-Funktionen laufen über den BlockMail-Server. Nur der
   Phishing-Wächter arbeitet lokal.
-- ❌ **„Fokus-Blöcke"** — diese Funktion wurde entfernt, sie darf nicht
-  mehr beworben werden.
+- ❌ **„Fokus-Blöcke"** und ❌ **„Newsletter-Erkennung /
+  Newsletter-Aufräumen"** — diese Funktionen wurden entfernt, sie dürfen
+  nicht mehr beworben werden.
 - ❌ **„Exchange-Konten"** — wird derzeit nicht unterstützt (nur IMAP).
 - ❌ **„Kein Datenverkehr an Dritte"** — die KI-Anfragen gehen über den
   eigenen Server an einen KI-Anbieter.
@@ -309,7 +304,7 @@ weil sie im Play Store oder rechtlich Probleme machen:
 Natürlich in Fließtext und Überschriften einbauen, nicht aufreihen:
 
 E-Mail App Android, Mail App Deutsch, IMAP App, Gmail Alternative,
-E-Mail mit KI, Posteingang aufräumen, Newsletter aussortieren,
+E-Mail mit KI, Posteingang aufräumen,
 Phishing Schutz E-Mail, mehrere E-Mail Konten Android, Push Mail
 Echtzeit, E-Mail Suche, Mail App ohne Werbung, Datenschutz E-Mail App,
 E-Mail Assistent, Postfach durchsuchen

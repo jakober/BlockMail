@@ -258,7 +258,6 @@ private fun SwipeActionPicker(title: String, value: String, onSelect: (String) -
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    onOpenNewsletterLog: () -> Unit = {},
     onOpenSetup: () -> Unit = {},
     onOpenTour: () -> Unit = {}
 ) {
@@ -267,10 +266,8 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
-    // BlockMail Pro: Der Newsletter-Scan (manuell und täglich) ist eine
-    // Pro-Funktion. In der Testphase (ProAccess.TEST_PHASE_UNLOCK = true)
-    // ist isPro immer true — die Gates greifen dann nie und das Verhalten
-    // bleibt exakt wie bisher.
+    // BlockMail Pro: In der Testphase (ProAccess.TEST_PHASE_UNLOCK = true)
+    // ist isPro immer true — die Gates greifen dann nie.
     val isPro by com.jakober.klarmail.data.ProAccess.isProFlow.collectAsState()
     var showProUpsell by remember { mutableStateOf(false) }
     if (showProUpsell) {
@@ -283,8 +280,6 @@ fun SettingsScreen(
         mutableStateOf(Prefs.authMethod == "oauth" && Prefs.refreshToken.isNotBlank())
     }
     var addingAccount by remember { mutableStateOf(false) }
-    var newsletterRunning by remember { mutableStateOf(false) }
-    var newsletterResult by remember { mutableStateOf<String?>(null) }
     var connectedEmail by remember { mutableStateOf(Prefs.email) }
     val selectedScheme by Prefs.colorSchemeFlow.collectAsState()
     val darkMode by Prefs.darkModeFlow.collectAsState()
@@ -1481,77 +1476,6 @@ fun SettingsScreen(
 
             }
 
-            GroupHeader(stringResource(R.string.settings_group_ai))
-            SectionCard(
-                stringResource(R.string.settings_newsletter_title), Icons.Filled.Newspaper,
-                subtitle = stringResource(R.string.settings_newsletter_subtitle)
-            ) {
-            val newsletterAuto by Prefs.newsletterAutoFlow.collectAsState()
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        stringResource(R.string.settings_newsletter_daily),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        stringResource(R.string.settings_newsletter_daily_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                androidx.compose.material3.Switch(
-                    checked = newsletterAuto,
-                    onCheckedChange = { on ->
-                        // Pro-Gate: Der tägliche Aufräum-Lauf ist Pro
-                        if (!isPro) {
-                            showProUpsell = true
-                        } else {
-                            Prefs.newsletterAutoEnabled = on
-                            scope.launch {
-                                snackbar.showSnackbar(
-                                    if (on) context.getString(R.string.settings_newsletter_on_snack)
-                                    else context.getString(R.string.settings_newsletter_off_snack)
-                                )
-                            }
-                        }
-                    }
-                )
-            }
-            Row {
-                OutlinedButton(onClick = onOpenNewsletterLog) { Text(stringResource(R.string.settings_newsletter_log)) }
-                OutlinedButton(
-                    enabled = !newsletterRunning,
-                    onClick = {
-                        // Pro-Gate: Der manuelle Aufräum-Lauf ist Pro
-                        if (!isPro) {
-                            showProUpsell = true
-                        } else {
-                            scope.launch {
-                                newsletterRunning = true
-                                newsletterResult = try {
-                                    com.jakober.klarmail.data.NewsletterCleaner.run(context)
-                                } catch (e: Exception) {
-                                    context.getString(
-                                        R.string.settings_error_prefix,
-                                        e.message ?: e.javaClass.simpleName
-                                    )
-                                }
-                                newsletterRunning = false
-                            }
-                        }
-                    }
-                ) {
-                    Text(
-                        if (newsletterRunning) stringResource(R.string.settings_newsletter_running)
-                        else stringResource(R.string.settings_newsletter_run_now)
-                    )
-                }
-            }
-
-            }
 
             GroupHeader(stringResource(R.string.settings_group_rules))
             SectionCard(
@@ -2210,22 +2134,6 @@ fun SettingsScreen(
         }
     }
 
-    newsletterResult?.let { result ->
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { newsletterResult = null },
-            title = { Text(stringResource(R.string.settings_newsletter_dialog_title)) },
-            text = { Text(result) },
-            confirmButton = {
-                TextButton(onClick = {
-                    newsletterResult = null
-                    onOpenNewsletterLog()
-                }) { Text(stringResource(R.string.settings_newsletter_open_log)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { newsletterResult = null }) { Text(stringResource(R.string.settings_ok)) }
-            }
-        )
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

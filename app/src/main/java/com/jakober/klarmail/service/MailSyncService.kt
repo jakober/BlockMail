@@ -95,22 +95,6 @@ class MailSyncService : Service() {
                 maybeStartIdle()
                 checkNowAsync(stopAfter = eco)
             }
-            ACTION_NEWSLETTER -> {
-                maybeStartIdle()
-                scope.launch {
-                    // BlockMail Pro: Der Newsletter-Scan ist eine Pro-Funktion.
-                    // Ohne Pro tut der Launcher-Shortcut einfach nichts (kein
-                    // Dialog auf der Service-Seite). In der Testphase
-                    // (TEST_PHASE_UNLOCK) ist isPro immer true.
-                    if (com.jakober.klarmail.data.ProAccess.isPro) {
-                        runCatching {
-                            com.jakober.klarmail.data.NewsletterCleaner
-                                .runWithNotification(applicationContext)
-                        }
-                    }
-                    if (eco) stopSelfClean()
-                }
-            }
             ACTION_BUILD_INDEX -> {
                 maybeStartIdle()
                 // Schnellaufbau des Suchindex im Dienst-Scope: läuft auch
@@ -149,7 +133,7 @@ class MailSyncService : Service() {
             }
             else -> if (eco) stopSelfClean() else maybeStartIdle()
         }
-        if (!eco && cleanerJob?.isActive != true) startNewsletterScheduler()
+        if (!eco && cleanerJob?.isActive != true) startMaintenanceScheduler()
         return START_STICKY
     }
 
@@ -181,29 +165,13 @@ class MailSyncService : Service() {
 
     private var cleanerJob: Job? = null
 
-    /** Startet den täglichen Newsletter-Aufräumlauf (ab 20 Uhr, einmal pro Tag). */
-    private fun startNewsletterScheduler() {
+    /**
+     * Wiederkehrende Hintergrundarbeiten (alle 10 Minuten): Cache aufräumen,
+     * zurückgestellte und geplante Mails, Antwort-Radar, Suchindex.
+     */
+    private fun startMaintenanceScheduler() {
         cleanerJob = scope.launch {
             while (isActive) {
-                try {
-                    // BlockMail Pro: Der automatische Newsletter-Lauf ist eine
-                    // Pro-Funktion — ohne Pro läuft der Planer einfach leer
-                    if (Prefs.isConfigured && Prefs.newsletterAutoEnabled &&
-                        com.jakober.klarmail.data.ProAccess.isPro
-                    ) {
-                        val cal = java.util.Calendar.getInstance()
-                        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                        if (cal.get(java.util.Calendar.HOUR_OF_DAY) >= 20 &&
-                            Prefs.lastNewsletterRunDay != today
-                        ) {
-                            Prefs.lastNewsletterRunDay = today
-                            runCatching {
-                                com.jakober.klarmail.data.NewsletterCleaner.run(applicationContext)
-                            }
-                        }
-                    }
-                } catch (_: Exception) {
-                }
                 // Vorgeladene Mail-Inhalte, die älter als eine Woche sind, entfernen
                 runCatching { MailRepository.cleanupBodyCache() }
                 // Fällige zurückgestellte Mails wecken (Snooze)
@@ -361,7 +329,6 @@ class MailSyncService : Service() {
         @Volatile
         var lastAliveMs: Long = 0
         const val ACTION_CHECK_NOW = "com.jakober.klarmail.CHECK_NOW"
-        const val ACTION_NEWSLETTER = "com.jakober.klarmail.RUN_NEWSLETTER"
         const val ACTION_BUILD_INDEX = "com.jakober.klarmail.BUILD_INDEX"
         const val ACTION_SEND_REPLY = "com.jakober.klarmail.SEND_REPLY"
         const val KEY_QUICK_REPLY = "quick_reply"

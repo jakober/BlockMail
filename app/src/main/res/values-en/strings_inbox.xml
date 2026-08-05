@@ -36,7 +36,6 @@
     <!-- Folder menu -->
     <string name="inbox_all_accounts">All accounts</string>
     <string name="inbox_folder_switch">Switch folder</string>
-    <string name="inbox_newsletter">Newsletters</string>
     <string name="inbox_attachments">Attachments</string>
     <string name="inbox_stats">Statistics</string>
 

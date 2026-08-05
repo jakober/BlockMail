@@ -3,8 +3,6 @@
     <!-- MailApp: notification channels -->
     <string name="svc_channel_new_mail">New email</string>
     <string name="svc_channel_new_mail_desc">Notifications for new email</string>
-    <string name="svc_channel_newsletter">Newsletter cleanup</string>
-    <string name="svc_channel_newsletter_desc">Report of the daily newsletter cleanup</string>
     <string name="svc_channel_sync">Background sync</string>
     <string name="svc_channel_sync_desc">Persistent connection for real-time push</string>
 
@@ -46,19 +44,12 @@
     <string name="svc_widget_empty">No mail loaded</string>
     <string name="svc_widget_unread">%1$d new</string>
 
-    <!-- NewsletterCleaner: status and notification texts of the cleanup run -->
     <string name="svc_unknown_sender">Unknown</string>
     <string name="svc_no_subject">(No subject)</string>
     <string name="svc_nl_none_found">No mail found in the last 24 hours (empty search).</string>
     <string name="svc_nl_none_within">%1$d mail(s) found, but none within the last 24 hours.</string>
-    <string name="svc_nl_all_known">%1$d mail(s) checked, all known as “not a newsletter”.</string>
     <string name="svc_nl_method_no_ai">without AI (unsubscribe header only)</string>
-    <string name="svc_nl_none_detected">%1$d mail(s) from the last 24 h checked (%2$s), none detected as newsletters.</string>
-    <string name="svc_nl_folder_failed">Could not create the “Newsletter” folder.</string>
-    <string name="svc_nl_success">%1$d mail(s) checked (%2$s): %3$d newsletter(s) moved to the “Newsletter” folder.</string>
     <string name="svc_nl_error_cleanup">Error during cleanup: %1$s</string>
     <string name="svc_nl_error">Error: %1$s</string>
-    <string name="svc_nl_scan_done">Newsletter scan finished</string>
-    <string name="svc_nl_cleaned_title">%1$d newsletter(s) cleaned up</string>
     <string name="svc_nl_cleaned_text">Tap for the log with unsubscribe links</string>
 </resources>

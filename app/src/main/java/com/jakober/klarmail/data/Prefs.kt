@@ -37,9 +37,6 @@ object Prefs {
     /** Fokus-Blöcke im Posteingang aktiv? */
     val focusModeFlow = MutableStateFlow(false)
 
-    /** Tägliches Newsletter-Aufräumen aktiv? */
-    val newsletterAutoFlow = MutableStateFlow(true)
-
     /** Lokalen Suchindex automatisch im Hintergrund aufbauen? */
     val indexEnabledFlow = MutableStateFlow(true)
 
@@ -107,7 +104,6 @@ object Prefs {
         phishingFlow.value = loadSet("phishing_mails")
         radarFlow.value = radarEnabled
         focusModeFlow.value = focusMode
-        newsletterAutoFlow.value = newsletterAutoEnabled
         indexEnabledFlow.value = indexEnabled
         indexYearsFlow.value = indexYears
         plainDesignFlow.value = plainDesign
@@ -123,9 +119,9 @@ object Prefs {
         "conversation_view", "swipe_left", "swipe_right", "signature",
         "mail_templates", "muted_senders", "blocked_senders", "vip_senders",
         "vip_only_notif", "notif_actions", "push_mode", "default_send_account",
-        "ai_engine", "known_recipients", "not_newsletter"
+        "ai_engine", "known_recipients"
     )
-    private val backupPrefixes = listOf("account_color_", "hidden_folders_", "newsletter")
+    private val backupPrefixes = listOf("account_color_", "hidden_folders_")
 
     fun exportSettingsJson(): String {
         val values = JSONObject()
@@ -397,23 +393,6 @@ object Prefs {
         }
     }
 
-    /** Absender, die der Nutzer als "kein Newsletter" markiert hat (KI-Lernen). */
-    fun notNewsletterSenders(): Set<String> = try {
-        val a = org.json.JSONArray(sp.getString("not_newsletter", "[]") ?: "[]")
-        (0 until a.length()).map { a.getString(it).lowercase() }.toSet()
-    } catch (e: Exception) {
-        emptySet()
-    }
-
-    fun addNotNewsletter(address: String) {
-        val key = address.trim().lowercase()
-        if (key.isBlank()) return
-        val set = notNewsletterSenders().toMutableSet()
-        if (set.add(key)) {
-            sp.edit().putString("not_newsletter", org.json.JSONArray(set.toList()).toString()).apply()
-        }
-    }
-
     /** Lokaler Suchindex: automatisch im Hintergrund indexieren? Standard: an. */
     var indexEnabled: Boolean
         get() = sp.getBoolean("index_enabled", true)
@@ -449,19 +428,6 @@ object Prefs {
             sp.edit().putInt("font_scale", c).apply()
             fontScaleFlow.value = c
         }
-
-    /** Tägliches Newsletter-Aufräumen (20 Uhr) aktiv? Standard: an. */
-    var newsletterAutoEnabled: Boolean
-        get() = sp.getBoolean("newsletter_auto", true)
-        set(v) {
-            sp.edit().putBoolean("newsletter_auto", v).apply()
-            newsletterAutoFlow.value = v
-        }
-
-    /** Datum (yyyy-MM-dd) des letzten Newsletter-Aufräumlaufs. */
-    var lastNewsletterRunDay: String
-        get() = sp.getString("newsletter_last_run", "") ?: ""
-        set(v) = sp.edit().putString("newsletter_last_run", v).apply()
 
     /** Höchste bereits per Push verarbeitete Mail-UID (für Lücken-Nachholung). */
     // Pro Konto eigene Merkliste (Fallback auf den alten globalen Schlüssel)

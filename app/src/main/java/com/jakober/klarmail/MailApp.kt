@@ -53,13 +53,6 @@ class MailApp : Application() {
         )
         nm.createNotificationChannel(
             NotificationChannel(
-                CHANNEL_NEWSLETTER,
-                getString(R.string.svc_channel_newsletter),
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply { description = getString(R.string.svc_channel_newsletter_desc) }
-        )
-        nm.createNotificationChannel(
-            NotificationChannel(
                 CHANNEL_SYNC,
                 getString(R.string.svc_channel_sync),
                 NotificationManager.IMPORTANCE_MIN
@@ -73,6 +66,5 @@ class MailApp : Application() {
     companion object {
         const val CHANNEL_NEW_MAIL = "new_mail"
         const val CHANNEL_SYNC = "sync"
-        const val CHANNEL_NEWSLETTER = "newsletter"
     }
 }

@@ -13,17 +13,6 @@
             android:targetClass="com.jakober.klarmail.MainActivity" />
     </shortcut>
     <shortcut
-        android:shortcutId="newsletter_scan"
-        android:enabled="true"
-        android:icon="@drawable/ic_shortcut_newsletter"
-        android:shortcutShortLabel="@string/shortcut_newsletter_short"
-        android:shortcutLongLabel="@string/shortcut_newsletter_long">
-        <intent
-            android:action="com.jakober.klarmail.SHORTCUT_NEWSLETTER"
-            android:targetPackage="com.jakober.klarmail"
-            android:targetClass="com.jakober.klarmail.ShortcutActivity" />
-    </shortcut>
-    <shortcut
         android:shortcutId="refresh"
         android:enabled="true"
         android:icon="@drawable/ic_shortcut_refresh"

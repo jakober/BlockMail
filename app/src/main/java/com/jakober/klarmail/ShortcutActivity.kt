@@ -16,8 +16,6 @@ class ShortcutActivity : Activity() {
         when (intent?.action) {
             "com.jakober.klarmail.SHORTCUT_REFRESH" ->
                 MailSyncService.startWithAction(this, MailSyncService.ACTION_CHECK_NOW)
-            "com.jakober.klarmail.SHORTCUT_NEWSLETTER" ->
-                MailSyncService.startWithAction(this, MailSyncService.ACTION_NEWSLETTER)
         }
         finish()
     }

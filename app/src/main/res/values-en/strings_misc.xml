@@ -14,7 +14,7 @@
     <string name="welcome_feature_accounts_title">All accounts, one overview</string>
     <string name="welcome_feature_accounts_text">Multiple mailboxes with their own colors — separately or combined.</string>
     <string name="welcome_feature_ai_title">AI assistant (BlockMail Pro)</string>
-    <string name="welcome_feature_ai_text">Summarize, draft replies, daily overview and newsletter tidying. Runs via the BlockMail server — contents are not stored there. Try it free for 3 days, then €4.90 per month.</string>
+    <string name="welcome_feature_ai_text">Summarize, draft replies and daily overview. Runs via the BlockMail server — contents are not stored there. Try it free for 3 days, then €4.90 per month.</string>
     <string name="welcome_setup">Set up account</string>
     <string name="welcome_skip">Explore later</string>
 
@@ -51,46 +51,27 @@
     <!-- TwoPaneScreen -->
     <string name="pane_select_mail">Select an email on the left</string>
 
-    <!-- NewsletterLogScreen -->
-    <string name="nlog_title">Newsletter log</string>
-    <string name="nlog_back">Back</string>
-    <string name="nlog_empty">No cleanup runs yet.\nThe first run starts today at 8 pm –\nor via “Run now” in the settings.</string>
-    <string name="nlog_run_header">%1$s – %2$d moved</string>
-    <string name="nlog_deleted">%1$d newsletters deleted</string>
-    <string name="nlog_removed_from_log">Removed from log</string>
-    <string name="nlog_marked_not_newsletter">Remembered as “not a newsletter”</string>
-    <string name="nlog_marked_not_newsletter_restored">Remembered as “not a newsletter” – %1$d back in the inbox</string>
-    <string name="nlog_unsubscribe">Unsubscribe</string>
-    <string name="nlog_actions">Actions</string>
-    <string name="nlog_not_newsletter">Not a newsletter</string>
-    <string name="nlog_delete">Delete</string>
     <string name="welcome_feature_ask_title">Ask your mailbox</string>
     <string name="welcome_feature_ask_text">The AI search answers free-form questions like "How much did I spend at Amazon?" — and finds years-old emails too.</string>
 
     <!-- ProUpsell (BlockMail Pro) -->
     <string name="pro_title">BlockMail Pro</string>
-    <string name="pro_upsell_text">The AI features — AI search, summarizing, daily overview, drafting replies and emails with AI, proofreading, and the newsletter scan — are part of BlockMail Pro: try it free for 3 days, then €4.90 per month.</string>
+    <string name="pro_upsell_text">The AI features — AI search, summarizing, daily overview, drafting replies and emails with AI, and proofreading — are part of BlockMail Pro: try it free for 3 days, then €4.90 per month.</string>
     <string name="pro_ok">Got it</string>
     <!-- Intro tour -->
     <string name="tour_skip">Skip</string>
     <string name="tour_next">Next</string>
     <string name="tour_done">Let’s go</string>
-    <string name="tour_1_title">Your inbox, your view</string>
-    <string name="tour_1_text">Switch between list and tiles, light and dark, and your favorite color right from the header. The menu at the top right also holds the plain design and the font size.</string>
     <string name="tour_2_title">Ask your mailbox</string>
     <string name="tour_2_text">Ask the AI free-form questions in the search bar – for example “How much did I spend at Amazon this month?”. Enter starts the AI; it searches your mailbox and reads the matching mails when needed. Part of BlockMail Pro.</string>
     <string name="tour_3_title">Swiping does the rest</string>
     <string name="tour_3_text">Swipe a mail left or right: mark as read, snooze, archive, or delete. You choose what each gesture does in the settings.</string>
-    <string name="tour_4_title">Newsletters under control</string>
-    <string name="tour_4_text">BlockMail detects newsletters and, if you like, tidies them into their own folder every day. The phishing guard warns you about suspicious mails – right on your device.</string>
-    <string name="tour_5_title">Real-time push &amp; multiple accounts</string>
-    <string name="tour_5_text">New mails reach you in seconds. Connect several accounts and keep track of everything in one unified inbox.</string>
     <string name="tour_step_theme_title">Light, dark, your color</string>
     <string name="tour_step_theme_text">Use the sun/moon icon to switch between light and dark. The palette next to it cycles through the app’s color schemes.</string>
     <string name="tour_step_menu_title">View &amp; menu</string>
     <string name="tour_step_menu_text">The left icon switches directly between list and tiles. Next to it, the menu — open right now: light/dark, view, plain design, font size, and the settings.</string>
     <string name="tour_step_extras_title">There’s more inside</string>
-    <string name="tour_step_extras_text">BlockMail tidies newsletters into their own folder automatically, warns you about phishing, reminds you of unanswered mails with the reply radar, and shows statistics. You’ll find all extras in the settings.</string>
+    <string name="tour_step_extras_text">BlockMail warns you about phishing, reminds you of unanswered mails with the reply radar, and shows statistics. You’ll find all extras in the settings.</string>
     <string name="tour_step_compose_title">Write a new email</string>
     <string name="tour_step_compose_text">Tap the pen to start a new email — the AI can help you phrase it if you like.</string>
     <string name="tour_step_ai_title">Your AI assistant</string>

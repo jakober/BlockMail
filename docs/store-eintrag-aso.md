@@ -15,7 +15,7 @@ Zeichen-Limits: Titel 30, Kurzbeschreibung 80, Beschreibung 4000.
 BlockMail – E-Mail mit KI
 
 **Kurzbeschreibung (max. 80):**
-Schnelle E-Mail-App mit KI-Suche, Echtzeit-Push, Newsletter-Ordnung & Schutz.
+Schnelle E-Mail-App mit KI-Suche, Echtzeit-Push, Phishing-Schutz & Design.
 
 **Beschreibung:**
 
@@ -26,9 +26,6 @@ Stelle deiner Mailbox freie Fragen wie „Wie viel habe ich diesen Monat bei Ama
 
 ECHTZEIT-PUSH
 Neue E-Mails erreichen dich in Sekunden — dank dauerhafter IMAP-Verbindung, zuverlässig auch nach Neustarts und Netzwechseln.
-
-NEWSLETTER IM GRIFF
-BlockMail erkennt Newsletter und Werbung automatisch und räumt sie täglich in einen eigenen Ordner — dein Posteingang bleibt sauber. Jede Verschiebung ist im Protokoll nachvollziehbar.
 
 SCHUTZ VOR PHISHING & SPAM
 Der Phishing-Wächter prüft verdächtige Absender, Links und Formulierungen direkt auf deinem Gerät und warnt dich, bevor du klickst. Blockierte Absender werden sofort gelöscht.
@@ -60,7 +57,7 @@ Hol dir Ordnung, Tempo und KI in dein Postfach — mit BlockMail.
 BlockMail – Email with AI
 
 **Short description (max. 80):**
-Fast email app with AI search, real-time push, newsletter cleanup & protection.
+Fast email app with AI search, real-time push, phishing protection & style.
 
 **Description:**
 
@@ -71,9 +68,6 @@ Ask your mailbox free-form questions like “How much did I spend at Amazon this
 
 REAL-TIME PUSH
 New emails reach you in seconds — thanks to a persistent IMAP connection that survives reboots and network changes.
-
-NEWSLETTERS UNDER CONTROL
-BlockMail automatically detects newsletters and promotions and tidies them into their own folder every day — your inbox stays clean. Every move is traceable in the log.
 
 PHISHING & SPAM PROTECTION
 The phishing guard checks suspicious senders, links, and wording right on your device and warns you before you tap. Blocked senders are deleted on arrival.

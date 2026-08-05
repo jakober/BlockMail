@@ -24,23 +24,7 @@ class SyncGuardWorker(
         runCatching { MailChecker.processDueSnoozes(applicationContext) }
         // Fällige geplante Mails auch bei totem Dienst verschicken
         runCatching { MailChecker.processOutbox(applicationContext) }
-        // Täglicher Newsletter-Lauf und Cache-Aufräumen — wichtig im Sparmodus,
-        // wo der Dienst-Planer nicht läuft (doppelte Läufe verhindert das Datum)
-        runCatching {
-            val cal = java.util.Calendar.getInstance()
-            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                .format(java.util.Date())
-            // BlockMail Pro: Der automatische Newsletter-Lauf ist eine
-            // Pro-Funktion — ohne Pro passiert hier einfach nichts
-            if (com.jakober.klarmail.data.ProAccess.isPro &&
-                Prefs.newsletterAutoEnabled &&
-                cal.get(java.util.Calendar.HOUR_OF_DAY) >= 20 &&
-                Prefs.lastNewsletterRunDay != today
-            ) {
-                Prefs.lastNewsletterRunDay = today
-                com.jakober.klarmail.data.NewsletterCleaner.run(applicationContext)
-            }
-        }
+        // Cache aufräumen — wichtig im Sparmodus, wo der Dienst-Planer nicht läuft
         runCatching { com.jakober.klarmail.data.MailRepository.cleanupBodyCache() }
         // Antwort-Radar (läuft intern höchstens einmal pro Tag)
         runCatching { MailChecker.runReplyRadar(applicationContext) }

@@ -5,8 +5,6 @@
     <!-- Launcher-Shortcuts (langes Drücken auf das App-Icon) -->
     <string name="shortcut_refresh_short">Neue Mails</string>
     <string name="shortcut_refresh_long">Nach neuen Mails schauen</string>
-    <string name="shortcut_newsletter_short">Newsletter-Scan</string>
-    <string name="shortcut_newsletter_long">Newsletter-Scan ausführen</string>
     <string name="shortcut_compose_short">Neue Mail</string>
     <string name="shortcut_compose_long">Neue Mail verfassen</string>
 

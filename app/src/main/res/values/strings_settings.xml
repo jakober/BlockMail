@@ -136,7 +136,7 @@
     <string name="settings_group_ai">Künstliche Intelligenz</string>
     <string name="settings_pro_title">BlockMail Pro</string>
     <string name="settings_pro_subtitle">Alle KI-Funktionen in einem Paket</string>
-    <string name="settings_pro_features">• KI-Suche („Frag dein Postfach“)\n• Mails per KI zusammenfassen\n• Tages-Überblick über den Posteingang\n• Antworten und Mails mit KI verfassen\n• Rechtschreibprüfung\n• Newsletter-Scan mit täglichem Aufräum-Lauf</string>
+    <string name="settings_pro_features">• KI-Suche („Frag dein Postfach“)\n• Mails per KI zusammenfassen\n• Tages-Überblick über den Posteingang\n• Antworten und Mails mit KI verfassen\n• Rechtschreibprüfung</string>
     <string name="settings_pro_test_phase">Testphase: Pro ist für alle Tester kostenlos freigeschaltet.</string>
     <string name="settings_ai_pro_active">Pro-KI aktiv (über den BlockMail-Server)</string>
     <string name="settings_ai_pro_inactive">KI-Funktionen sind Teil von BlockMail Pro.</string>
@@ -153,7 +153,6 @@
     <string name="settings_ai_mode_gemini">Immer Geräte-KI (Gemini Nano)</string>
     <string name="settings_ai_device_status">Geräte-KI (Gemini Nano): %1$s</string>
     <string name="settings_ai_checking">wird geprüft …</string>
-    <string name="settings_ai_desc">Mit Claude laufen alle KI-Funktionen inklusive der täglichen Newsletter-Erkennung. Die Geräte-KI übernimmt Zusammenfassen, Antwort entwerfen, Mail formulieren und Rechtschreibprüfung — komplett auf dem Gerät; die Newsletter-Erkennung nutzt dann die Abmelde-Header-Regel.</string>
     <string name="settings_ai_test_failed">Test fehlgeschlagen: %1$s</string>
     <string name="settings_ai_testing">Geräte-KI wird getestet …</string>
     <string name="settings_ai_test_now">Geräte-KI jetzt testen</string>
@@ -162,18 +161,6 @@
     <string name="settings_claude_key_label">Claude API-Schlüssel</string>
     <string name="settings_claude_key_desc">Optional: Mit einem API-Schlüssel von console.anthropic.com kann Claude E-Mails formulieren, Antworten entwerfen und die Rechtschreibung prüfen.</string>
 
-    <!-- Newsletter-Aufräumen -->
-    <string name="settings_newsletter_title">Newsletter-Aufräumen (KI)</string>
-    <string name="settings_newsletter_subtitle">Werbung landet automatisch im Newsletter-Ordner</string>
-    <string name="settings_newsletter_daily">Täglicher Aufräum-Lauf</string>
-    <string name="settings_newsletter_daily_desc">Täglich um 20 Uhr erkennt die KI Newsletter der letzten 24 Stunden und verschiebt sie in den Ordner „Newsletter“. Im Protokoll findest du alle verschobenen Mails samt Abmelde-Links.</string>
-    <string name="settings_newsletter_on_snack">Tägliches Newsletter-Aufräumen aktiv (20 Uhr)</string>
-    <string name="settings_newsletter_off_snack">Tägliches Aufräumen aus — „Jetzt ausführen“ geht weiterhin</string>
-    <string name="settings_newsletter_log">Protokoll anzeigen</string>
-    <string name="settings_newsletter_running">Läuft …</string>
-    <string name="settings_newsletter_run_now">Jetzt ausführen</string>
-    <string name="settings_newsletter_dialog_title">Newsletter-Aufräumen</string>
-    <string name="settings_newsletter_open_log">Protokoll öffnen</string>
     <string name="settings_error_prefix">Fehler: %1$s</string>
 
     <!-- Absender-Regeln -->
