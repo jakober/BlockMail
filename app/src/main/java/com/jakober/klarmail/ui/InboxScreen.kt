@@ -961,11 +961,13 @@ fun InboxScreen(
                                     folderMenuOpen = true
                                 }
                             ) {
+                                // Lokaler Wert: Bei einer per "by" gehaltenen
+                                // Variablen kann Kotlin nicht smart-casten
+                                val customName = customFolder?.substringAfterLast('/')
                                 Text(
                                     when {
                                         unified -> stringResource(R.string.inbox_all_accounts)
-                                        customFolder != null ->
-                                            customFolder.substringAfterLast('/')
+                                        customName != null -> customName
                                         else -> currentFolder.label
                                     },
                                     fontWeight = FontWeight.SemiBold,
