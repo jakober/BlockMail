@@ -16,7 +16,7 @@
     <string name="welcome_feature_ai_title">KI-Assistent (BlockMail Pro)</string>
     <string name="welcome_feature_ai_text">Zusammenfassen, Antworten entwerfen und Tages-Überblick. Läuft über den BlockMail-Server — Inhalte werden dort nicht gespeichert. 3 Tage kostenlos testen, danach 4,90 € im Monat mit 150 KI-Anfragen oder 9 € mit 300 Anfragen.</string>
     <string name="welcome_feature_sign_title">Unterschreiben und zurückschicken</string>
-    <string name="welcome_feature_sign_text">Vertrag als PDF bekommen? Öffnen, mit dem Finger unterschreiben, direkt als Antwort zurück — ohne Drucker, Scanner oder zweite App. Auch Zeichnen auf Bildern. Teil von BlockMail Pro.</string>
+    <string name="welcome_feature_sign_text">Vertrag als PDF bekommen? Öffnen, mit dem Finger unterschreiben, direkt als Antwort zurück — ohne Drucker, Scanner oder zweite App. Dazu ein voller PDF-Editor: markieren, schwärzen, Häkchen, Datum, Seiten drehen. BlockMail lässt sich sogar als Standard-PDF-Programm festlegen. Teil von BlockMail Pro.</string>
     <string name="welcome_setup">Konto einrichten</string>
     <string name="welcome_skip">Später erkunden</string>
 
@@ -58,7 +58,7 @@
 
     <!-- ProUpsell (BlockMail Pro) -->
     <string name="pro_title">BlockMail Pro</string>
-    <string name="pro_upsell_text">Zu BlockMail Pro gehören alle KI-Funktionen — KI-Suche, Zusammenfassen, Tages-Überblick, Antworten und Mails verfassen, Rechtschreibprüfung — und der Anhang-Editor: PDFs und Bilder unterschreiben, bemalen und direkt zurückschicken. Wähle deinen Tarif:</string>
+    <string name="pro_upsell_text">Zu BlockMail Pro gehören alle KI-Funktionen — KI-Suche, Zusammenfassen, Tages-Überblick, Antworten und Mails verfassen, Rechtschreibprüfung — und der volle PDF-Editor: unterschreiben, markieren, schwärzen, Seiten ordnen, drucken — auch für PDFs aus anderen Apps, sogar als Standard-PDF-Programm. Wähle deinen Tarif:</string>
     <string name="pro_ok">Später</string>
     <string name="pro_plan_pro_name">BlockMail Pro</string>
     <string name="pro_plan_plus_name">BlockMail Pro+</string>
@@ -129,6 +129,47 @@
     <string name="editor_password_enter">Passwort eingeben</string>
     <string name="editor_save_failed">Speichern fehlgeschlagen.</string>
     <string name="editor_saving">Wird gespeichert …</string>
+    <string name="viewer_label">BlockMail: Bearbeiten</string>
+    <string name="editor_more">Weitere Aktionen</string>
+    <string name="editor_mode_highlight">Textmarker</string>
+    <string name="editor_mode_check">Häkchen</string>
+    <string name="editor_mode_cross">Kreuz</string>
+    <string name="editor_mode_date">Datum</string>
+    <string name="editor_mode_eraser">Radierer</string>
+    <string name="editor_mode_redact">Schwärzen</string>
+    <string name="editor_color_black">Schwarz</string>
+    <string name="editor_color_blue">Blau</string>
+    <string name="editor_color_red">Rot</string>
+    <string name="editor_width_thin">Fein</string>
+    <string name="editor_width_medium">Mittel</string>
+    <string name="editor_width_thick">Dick</string>
+    <string name="editor_sign_full">Unterschrift</string>
+    <string name="editor_sign_initials">Kürzel</string>
+    <string name="editor_initials_title">Dein Kürzel</string>
+    <string name="editor_hint_highlight">Ziehe über den Text, um ihn zu markieren.</string>
+    <string name="editor_hint_eraser">Tippe ein Element an, um es zu entfernen.</string>
+    <string name="editor_hint_redact">Ziehe ein Rechteck über die Stelle, die geschwärzt werden soll.</string>
+    <string name="editor_hint_stamp">Tippe dorthin, wo das Zeichen sitzen soll.</string>
+    <string name="editor_hint_date">Tippe dorthin, wo das Datum stehen soll.</string>
+    <string name="editor_menu_save_as">Speichern unter …</string>
+    <string name="editor_menu_share">Teilen</string>
+    <string name="editor_menu_print">Drucken</string>
+    <string name="editor_menu_send_mail">Als Mail senden</string>
+    <string name="editor_menu_rotate_left">Seite links drehen</string>
+    <string name="editor_menu_rotate_right">Seite rechts drehen</string>
+    <string name="editor_menu_delete_page">Seite löschen</string>
+    <string name="editor_menu_append_pdf">PDF anhängen …</string>
+    <string name="editor_menu_append_images">Fotos anhängen …</string>
+    <string name="editor_save_overwrite">Speichern</string>
+    <string name="editor_saved">Gespeichert.</string>
+    <string name="editor_redact_warn_title">Schwärzen ist endgültig</string>
+    <string name="editor_redact_warn_text">Geschwärzte Seiten werden beim Speichern in Bilder umgewandelt, damit der Text darunter wirklich verschwindet. Auf diesen Seiten lässt sich Text danach nicht mehr markieren.</string>
+    <string name="editor_redact_continue">Weiter</string>
+    <string name="editor_page_op_failed">Aktion fehlgeschlagen.</string>
+    <string name="editor_delete_last_page">Die letzte Seite kann nicht gelöscht werden.</string>
+    <string name="editor_locked_title">BlockMail Pro nötig</string>
+    <string name="editor_locked_text">Der Dokument-Editor gehört zu BlockMail Pro. Öffne BlockMail und starte die kostenlose Testphase — danach lassen sich PDFs direkt hier ansehen, unterschreiben und bearbeiten.</string>
+    <string name="editor_open_app">BlockMail öffnen</string>
     <string name="editor_page_of">Seite %1$d von %2$d</string>
     <string name="editor_signature_title">Deine Unterschrift</string>
     <string name="editor_signature_hint">Mit dem Finger unterschreiben. Sie wird auf dem Gerät gespeichert und steht dann für jedes Dokument bereit.</string>

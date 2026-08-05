@@ -825,8 +825,9 @@ fun DetailScreen(
                                     attachmentDialog = null
                                     // Pro-Funktion, aber ohne KI: das
                                     // Kontingent spielt hier keine Rolle
-                                    if (!isPro) showProUpsell = true
-                                    else attachmentAction(att, "sign")
+                                    if (!com.jakober.klarmail.data.ProAccess.canEditDocuments) {
+                                        showProUpsell = true
+                                    } else attachmentAction(att, "sign")
                                 }
                                 .padding(horizontal = 24.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically

@@ -36,6 +36,51 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- Dokument-Betrachter/-Editor von außen: eigene Aufgabe
+             (taskAffinity=""), damit Zurück wieder in der aufrufenden App
+             landet und der Posteingang getrennt bleibt -->
+        <activity
+            android:name=".ViewerActivity"
+            android:exported="true"
+            android:label="@string/viewer_label"
+            android:taskAffinity=""
+            android:documentLaunchMode="intoExisting"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Teilen-Blatt und „Bearbeiten mit …" -->
+            <intent-filter android:label="@string/viewer_label">
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <action android:name="android.intent.action.EDIT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <!-- Standard-PDF-Betrachter: erscheint beim Antippen jedes PDFs
+                 und lässt sich als Standard festlegen. Bewusst KEIN VIEW für
+                 image/* — beim Foto erwartet man die Galerie. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="application/pdf" />
+                <data android:scheme="file" android:mimeType="application/pdf" />
+            </intent-filter>
+            <!-- Fangnetz für Dateimanager ohne Typangabe. pathPattern kennt
+                 keine Groß-/Kleinschreib-Toleranz und sein .* ist gierig —
+                 deshalb Varianten für .PDF und für Namen mit mehreren
+                 Punkten. pathSuffix wäre sauberer, ist aber erst API 31. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="file" android:host="*" />
+                <data android:pathPattern=".*\\.pdf" />
+                <data android:pathPattern=".*\\..*\\.pdf" />
+                <data android:pathPattern=".*\\..*\\..*\\.pdf" />
+                <data android:pathPattern=".*\\.PDF" />
+                <data android:pathPattern=".*\\..*\\.PDF" />
+                <data android:pathPattern=".*\\..*\\..*\\.PDF" />
+            </intent-filter>
+        </activity>
+
         <!-- Unsichtbares Sprungbrett für Hintergrund-Shortcuts -->
         <activity
             android:name=".ShortcutActivity"

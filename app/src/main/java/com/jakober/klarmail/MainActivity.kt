@@ -38,6 +38,9 @@ class MainActivity : ComponentActivity() {
         val uid = intent?.getLongExtra("open_uid", -1L) ?: -1L
         if (uid > 0) pendingOpenUid.value = uid
         if (intent?.action == "com.jakober.klarmail.SHORTCUT_COMPOSE") pendingCompose.value = true
+        // Aus dem Dokument-Editor (ViewerActivity): Verfassen-Fenster mit dem
+        // wartenden Anhang oeffnen — den liest ComposeScreen von selbst
+        if (intent?.action == ViewerActivity.ACTION_COMPOSE_ATTACH) pendingCompose.value = true
     }
 
     override fun onNewIntent(intent: android.content.Intent) {

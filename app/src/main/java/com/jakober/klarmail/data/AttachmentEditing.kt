@@ -109,27 +109,40 @@ object AttachmentEditing {
     // Einmal mit dem Finger gezeichnet, danach dauerhaft verfügbar. Liegt als
     // PNG mit Transparenz im privaten App-Verzeichnis (nicht im Backup: eine
     // Unterschrift gehört nicht in eine Sicherungsdatei).
+    // Zwei Fächer: 0 = volle Unterschrift, 1 = Kürzel (Initialen).
 
-    private fun signatureFile(context: Context) = File(context.filesDir, "signature.png")
+    private fun signatureFile(context: Context, slot: Int = 0): File {
+        val dir = File(context.filesDir, "signatures").apply { mkdirs() }
+        val f = File(dir, "sig_$slot.png")
+        // Wanderung: Bestandsnutzer haben ihre Unterschrift noch als
+        // filesDir/signature.png — einmalig ins neue Fach 0 übernehmen,
+        // sonst wäre sie nach dem Update weg.
+        if (slot == 0 && !f.exists()) {
+            val old = File(context.filesDir, "signature.png")
+            if (old.exists()) runCatching { old.copyTo(f); old.delete() }
+        }
+        return f
+    }
 
-    fun hasSignature(context: Context): Boolean = signatureFile(context).exists()
+    fun hasSignature(context: Context): Boolean = signatureFile(context, 0).exists()
 
-    fun loadSignature(context: Context): Bitmap? {
-        val f = signatureFile(context)
+    fun loadSignature(context: Context, slot: Int = 0): Bitmap? {
+        val f = signatureFile(context, slot)
         if (!f.exists()) return null
         return runCatching { BitmapFactory.decodeFile(f.absolutePath) }.getOrNull()
     }
 
-    fun saveSignature(context: Context, bitmap: Bitmap) {
+    fun saveSignature(context: Context, bitmap: Bitmap, slot: Int = 0) {
         runCatching {
-            signatureFile(context).outputStream().use {
+            signatureFile(context, slot).outputStream().use {
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
             }
         }
     }
 
     fun clearSignature(context: Context) {
-        runCatching { signatureFile(context).delete() }
+        runCatching { File(context.filesDir, "signature.png").delete() }
+        runCatching { File(context.filesDir, "signatures").deleteRecursively() }
     }
 
     /**

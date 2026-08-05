@@ -80,8 +80,15 @@ class PdfSession {
      * das scheitert, wird nach einem Passwort gefragt.
      *
      * @param password null beim ersten Versuch, sonst die Eingabe des Nutzers
+     * @param ids Seitenkennungen der neuen Datei — gesetzt nach
+     *   Seitenoperationen (drehen/löschen/anhängen), damit die Aufsätze
+     *   ihren Seiten zugeordnet bleiben. null = frisch vergeben.
      */
-    suspend fun open(file: File, password: String? = null): OpenResult =
+    suspend fun open(
+        file: File,
+        password: String? = null,
+        ids: List<PageId>? = null
+    ): OpenResult =
         withContext(Dispatchers.IO) {
             lock.withLock {
                 if (closed) return@withLock OpenResult.FAILED
@@ -92,7 +99,7 @@ class PdfSession {
                 if (password == null) {
                     val direct = tryOpen(file)
                     if (direct != null) {
-                        adopt(direct, file)
+                        adopt(direct, file, ids)
                         return@withLock OpenResult.OK
                     }
                 }
@@ -102,7 +109,7 @@ class PdfSession {
                 if (PdfUnlock.unlock(file, password ?: "", out)) {
                     val unlocked = tryOpen(out)
                     if (unlocked != null) {
-                        adopt(unlocked, out)
+                        adopt(unlocked, out, ids)
                         return@withLock OpenResult.OK
                     }
                 }
@@ -115,11 +122,12 @@ class PdfSession {
         PdfRenderer(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY))
     }.onFailure { lastError = it }.getOrNull()
 
-    private fun adopt(r: PdfRenderer, file: File) {
+    private fun adopt(r: PdfRenderer, file: File, ids: List<PageId>?) {
         renderer = r
         this.file = file
         pageCount = r.pageCount
-        pageIds = List(r.pageCount) { PageId(it.toLong()) }
+        pageIds = ids?.takeIf { it.size == r.pageCount }
+            ?: List(r.pageCount) { PageId(it.toLong()) }
         lastError = null
     }
 

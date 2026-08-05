@@ -16,7 +16,7 @@
     <string name="welcome_feature_ai_title">AI assistant (BlockMail Pro)</string>
     <string name="welcome_feature_ai_text">Summarize, draft replies and daily overview. Runs via the BlockMail server — contents are not stored there. Try it free for 3 days, then €4.90 per month with 150 AI requests or €9 with 300 requests.</string>
     <string name="welcome_feature_sign_title">Sign and send back</string>
-    <string name="welcome_feature_sign_text">Got a contract as a PDF? Open it, sign with your finger, send it straight back as a reply — no printer, scanner or second app. Drawing on images works too. Part of BlockMail Pro.</string>
+    <string name="welcome_feature_sign_text">Got a contract as a PDF? Open it, sign with your finger, send it straight back as a reply — no printer, scanner or second app. Plus a full PDF editor: highlight, redact, checkmarks, date stamps, rotate pages. You can even set BlockMail as your default PDF app. Part of BlockMail Pro.</string>
     <string name="welcome_setup">Set up account</string>
     <string name="welcome_skip">Explore later</string>
 
@@ -58,7 +58,7 @@
 
     <!-- ProUpsell (BlockMail Pro) -->
     <string name="pro_title">BlockMail Pro</string>
-    <string name="pro_upsell_text">BlockMail Pro includes every AI feature — AI search, summaries, daily overview, drafting replies and emails, proofreading — plus the attachment editor: sign and annotate PDFs and images and send them straight back. Pick your plan:</string>
+    <string name="pro_upsell_text">BlockMail Pro includes every AI feature — AI search, summaries, daily overview, drafting replies and emails, proofreading — plus the full PDF editor: sign, highlight, redact, reorder pages, print — even for PDFs from other apps, including as your default PDF app. Pick your plan:</string>
     <string name="pro_ok">Later</string>
     <string name="pro_plan_pro_name">BlockMail Pro</string>
     <string name="pro_plan_plus_name">BlockMail Pro+</string>
@@ -129,6 +129,47 @@
     <string name="editor_password_enter">Enter password</string>
     <string name="editor_save_failed">Saving failed.</string>
     <string name="editor_saving">Saving …</string>
+    <string name="viewer_label">BlockMail: Edit</string>
+    <string name="editor_more">More actions</string>
+    <string name="editor_mode_highlight">Highlighter</string>
+    <string name="editor_mode_check">Checkmark</string>
+    <string name="editor_mode_cross">Cross</string>
+    <string name="editor_mode_date">Date</string>
+    <string name="editor_mode_eraser">Eraser</string>
+    <string name="editor_mode_redact">Redact</string>
+    <string name="editor_color_black">Black</string>
+    <string name="editor_color_blue">Blue</string>
+    <string name="editor_color_red">Red</string>
+    <string name="editor_width_thin">Thin</string>
+    <string name="editor_width_medium">Medium</string>
+    <string name="editor_width_thick">Thick</string>
+    <string name="editor_sign_full">Signature</string>
+    <string name="editor_sign_initials">Initials</string>
+    <string name="editor_initials_title">Your initials</string>
+    <string name="editor_hint_highlight">Drag across the text to highlight it.</string>
+    <string name="editor_hint_eraser">Tap an element to remove it.</string>
+    <string name="editor_hint_redact">Drag a rectangle over the area you want to redact.</string>
+    <string name="editor_hint_stamp">Tap where the mark should go.</string>
+    <string name="editor_hint_date">Tap where the date should go.</string>
+    <string name="editor_menu_save_as">Save as …</string>
+    <string name="editor_menu_share">Share</string>
+    <string name="editor_menu_print">Print</string>
+    <string name="editor_menu_send_mail">Send as email</string>
+    <string name="editor_menu_rotate_left">Rotate page left</string>
+    <string name="editor_menu_rotate_right">Rotate page right</string>
+    <string name="editor_menu_delete_page">Delete page</string>
+    <string name="editor_menu_append_pdf">Append PDF …</string>
+    <string name="editor_menu_append_images">Append photos …</string>
+    <string name="editor_save_overwrite">Save</string>
+    <string name="editor_saved">Saved.</string>
+    <string name="editor_redact_warn_title">Redaction is permanent</string>
+    <string name="editor_redact_warn_text">When saving, redacted pages are converted to images so the text underneath truly disappears. Text on those pages can no longer be selected afterwards.</string>
+    <string name="editor_redact_continue">Continue</string>
+    <string name="editor_page_op_failed">Action failed.</string>
+    <string name="editor_delete_last_page">The last page cannot be deleted.</string>
+    <string name="editor_locked_title">BlockMail Pro required</string>
+    <string name="editor_locked_text">The document editor is part of BlockMail Pro. Open BlockMail and start the free trial — after that you can view, sign and edit PDFs right here.</string>
+    <string name="editor_open_app">Open BlockMail</string>
     <string name="editor_page_of">Page %1$d of %2$d</string>
     <string name="editor_signature_title">Your signature</string>
     <string name="editor_signature_hint">Sign with your finger. It is stored on your device and ready for every document from then on.</string>

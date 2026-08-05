@@ -27,8 +27,8 @@ Stelle deiner Mailbox freie Fragen wie „Wie viel habe ich diesen Monat bei Ama
 ECHTZEIT-PUSH
 Neue E-Mails erreichen dich in Sekunden — dank dauerhafter IMAP-Verbindung, zuverlässig auch nach Neustarts und Netzwechseln.
 
-PDF UNTERSCHREIBEN UND ZURÜCKSCHICKEN
-Vertrag als PDF bekommen? Öffnen, mit dem Finger unterschreiben, direkt als Antwort zurücksenden — ohne Drucker, Scanner oder zweite App. Deine Unterschrift zeichnest du einmal und setzt sie danach auf jedes Dokument. Auf Bildern und PDFs kannst du außerdem zeichnen und markieren. Auch passwortgeschützte PDFs lassen sich öffnen.
+PDF UNTERSCHREIBEN, BEARBEITEN, ALS STANDARD-APP
+Vertrag als PDF bekommen? Öffnen, mit dem Finger unterschreiben, direkt als Antwort zurücksenden — ohne Drucker, Scanner oder zweite App. Dazu ein vollwertiger PDF-Editor: Textmarker, Häkchen, Datumsstempel, Schwärzen (wird echt eingebrannt), Seiten drehen und löschen, PDFs und Fotos anhängen, drucken. Funktioniert auch mit PDFs aus WhatsApp und dem Dateimanager — BlockMail lässt sich als Standard-PDF-Programm festlegen. Auch passwortgeschützte PDFs lassen sich öffnen.
 
 ALLE ANHÄNGE AN EINEM ORT
 Bilder, PDFs und Dokumente aus allen Mails liegen gebündelt in einer Galerie — nach Typ filterbar, direkt zu öffnen und zu teilen. Nie wieder die Mail suchen, nur um den Anhang zu finden.
@@ -75,8 +75,8 @@ Ask your mailbox free-form questions like “How much did I spend at Amazon this
 REAL-TIME PUSH
 New emails reach you in seconds — thanks to a persistent IMAP connection that survives reboots and network changes.
 
-SIGN PDFS AND SEND THEM BACK
-Got a contract as a PDF? Open it, sign with your finger, send it straight back as a reply — no printer, scanner or second app. Draw your signature once and place it on every document from then on. You can also draw and highlight on images and PDFs, and password-protected PDFs open too.
+SIGN AND EDIT PDFS, EVEN AS YOUR DEFAULT APP
+Got a contract as a PDF? Open it, sign with your finger, send it straight back as a reply — no printer, scanner or second app. Plus a full PDF editor: highlighter, checkmarks, date stamps, true burned-in redaction, rotate and delete pages, append PDFs and photos, print. Works with PDFs from WhatsApp and your file manager too — you can set BlockMail as your default PDF app. Password-protected PDFs open as well.
 
 ALL ATTACHMENTS IN ONE PLACE
 Images, PDFs and documents from every email are gathered in one gallery — filter by type, open and share them directly. Never hunt for an email just to find its attachment again.

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="attachments" path="attachments/" />
+    <!-- Ergebnisse des Dokument-Editors (Teilen/Drucken/Speichern) -->
+    <cache-path name="exports" path="exports/" />
 </paths>

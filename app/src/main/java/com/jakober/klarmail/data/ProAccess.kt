@@ -37,6 +37,21 @@ object ProAccess {
      */
     const val TEST_PHASE_UNLOCK = false
 
+    /**
+     * Dokument-Editor: false = alles Pro (auch das reine Ansehen von außen
+     * geöffneter PDFs). true = Ansehen frei, nur Bearbeiten/Speichern sind
+     * Pro. Bewusst EINE Konstante: Wer BlockMail als Standard-PDF-Programm
+     * einstellt und kein Abo hat, kann sonst keine PDFs mehr öffnen — sollte
+     * sich das als Falle erweisen, ist der Ausweg eine Zeile.
+     */
+    const val DOCUMENTS_VIEW_FREE = false
+
+    /** Darf ein Dokument angezeigt werden (Viewer von außen)? */
+    val canViewDocuments: Boolean get() = DOCUMENTS_VIEW_FREE || isPro
+
+    /** Dürfen Werkzeuge benutzt und Ergebnisse gespeichert werden? */
+    val canEditDocuments: Boolean get() = isPro
+
     /** Laufendes Play-Abo vorhanden? Wird vom BillingManager gesetzt. */
     private var subscribed = false
 
