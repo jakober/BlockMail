@@ -136,7 +136,7 @@
     <string name="settings_group_ai">Künstliche Intelligenz</string>
     <string name="settings_pro_title">BlockMail Pro</string>
     <string name="settings_pro_subtitle">Alle KI-Funktionen in einem Paket</string>
-    <string name="settings_pro_features">• KI-Suche („Frag dein Postfach“)\n• Mails per KI zusammenfassen\n• Tages-Überblick über den Posteingang\n• Antworten und Mails mit KI verfassen\n• Rechtschreibprüfung</string>
+    <string name="settings_pro_features">• KI-Suche („Frag dein Postfach“)\n• Mails per KI zusammenfassen\n• Tages-Überblick über den Posteingang\n• Antworten und Mails mit KI verfassen\n• Rechtschreibprüfung\n• PDFs und Bilder unterschreiben, bemalen und zurückschicken</string>
     <string name="settings_pro_test_phase">Testphase: Pro ist für alle Tester kostenlos freigeschaltet.</string>
     <string name="settings_ai_pro_active">Pro-KI aktiv (über den BlockMail-Server)</string>
     <string name="settings_ai_pro_inactive">KI-Funktionen sind Teil von BlockMail Pro.</string>

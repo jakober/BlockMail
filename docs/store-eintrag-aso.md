@@ -1,6 +1,6 @@
 # Play-Store-Eintrag (ASO-optimiert, de-DE + en-US)
 
-Stand: v3.72 · Empfehlung aus dem Testers-Community-Feedback umgesetzt:
+Stand: v3.96 · Empfehlung aus dem Testers-Community-Feedback umgesetzt:
 mehr Text, natürliche Suchbegriffe (E-Mail-App, IMAP, KI, Spam,
 Phishing, Newsletter, Push, Dark Mode …), Alleinstellungsmerkmale
 prominent.
@@ -15,7 +15,7 @@ Zeichen-Limits: Titel 30, Kurzbeschreibung 80, Beschreibung 4000.
 BlockMail – E-Mail mit KI
 
 **Kurzbeschreibung (max. 80):**
-E-Mail-App mit KI-Suche, Anhang-Galerie, Echtzeit-Push & Phishing-Schutz.
+E-Mail-App mit KI-Suche, PDF unterschreiben, Anhang-Galerie & Echtzeit-Push.
 
 **Beschreibung:**
 
@@ -26,6 +26,9 @@ Stelle deiner Mailbox freie Fragen wie „Wie viel habe ich diesen Monat bei Ama
 
 ECHTZEIT-PUSH
 Neue E-Mails erreichen dich in Sekunden — dank dauerhafter IMAP-Verbindung, zuverlässig auch nach Neustarts und Netzwechseln.
+
+PDF UNTERSCHREIBEN UND ZURÜCKSCHICKEN
+Vertrag als PDF bekommen? Öffnen, mit dem Finger unterschreiben, direkt als Antwort zurücksenden — ohne Drucker, Scanner oder zweite App. Deine Unterschrift zeichnest du einmal und setzt sie danach auf jedes Dokument. Auf Bildern und PDFs kannst du außerdem zeichnen und markieren. Auch passwortgeschützte PDFs lassen sich öffnen.
 
 ALLE ANHÄNGE AN EINEM ORT
 Bilder, PDFs und Dokumente aus allen Mails liegen gebündelt in einer Galerie — nach Typ filterbar, direkt zu öffnen und zu teilen. Nie wieder die Mail suchen, nur um den Anhang zu finden.
@@ -60,7 +63,7 @@ Hol dir Ordnung, Tempo und KI in dein Postfach — mit BlockMail.
 BlockMail – Email with AI
 
 **Short description (max. 80):**
-Email app with AI search, attachment gallery, real-time push & phishing guard.
+Email app with AI search, PDF signing, attachment gallery & real-time push.
 
 **Description:**
 
@@ -71,6 +74,9 @@ Ask your mailbox free-form questions like “How much did I spend at Amazon this
 
 REAL-TIME PUSH
 New emails reach you in seconds — thanks to a persistent IMAP connection that survives reboots and network changes.
+
+SIGN PDFS AND SEND THEM BACK
+Got a contract as a PDF? Open it, sign with your finger, send it straight back as a reply — no printer, scanner or second app. Draw your signature once and place it on every document from then on. You can also draw and highlight on images and PDFs, and password-protected PDFs open too.
 
 ALL ATTACHMENTS IN ONE PLACE
 Images, PDFs and documents from every email are gathered in one gallery — filter by type, open and share them directly. Never hunt for an email just to find its attachment again.

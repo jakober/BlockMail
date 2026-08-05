@@ -15,6 +15,8 @@
     <string name="welcome_feature_accounts_text">Multiple mailboxes with their own colors — separately or combined.</string>
     <string name="welcome_feature_ai_title">AI assistant (BlockMail Pro)</string>
     <string name="welcome_feature_ai_text">Summarize, draft replies and daily overview. Runs via the BlockMail server — contents are not stored there. Try it free for 3 days, then €4.90 per month with 150 AI requests or €9 with 300 requests.</string>
+    <string name="welcome_feature_sign_title">Sign and send back</string>
+    <string name="welcome_feature_sign_text">Got a contract as a PDF? Open it, sign with your finger, send it straight back as a reply — no printer, scanner or second app. Drawing on images works too. Part of BlockMail Pro.</string>
     <string name="welcome_setup">Set up account</string>
     <string name="welcome_skip">Explore later</string>
 
@@ -56,7 +58,7 @@
 
     <!-- ProUpsell (BlockMail Pro) -->
     <string name="pro_title">BlockMail Pro</string>
-    <string name="pro_upsell_text">The AI features — AI search, summarizing, daily overview, drafting replies and emails with AI, and proofreading — are part of BlockMail Pro. Pick your plan:</string>
+    <string name="pro_upsell_text">BlockMail Pro includes every AI feature — AI search, summaries, daily overview, drafting replies and emails, proofreading — plus the attachment editor: sign and annotate PDFs and images and send them straight back. Pick your plan:</string>
     <string name="pro_ok">Later</string>
     <string name="pro_plan_pro_name">BlockMail Pro</string>
     <string name="pro_plan_plus_name">BlockMail Pro+</string>
@@ -69,7 +71,7 @@
     <string name="pro_plan_switch">Switch to this plan</string>
     <string name="pro_what_counts">Every AI action counts as one request: asking your mailbox, summarizing a mail, the daily overview, drafting a reply, writing a mail with AI, and proofreading.</string>
     <string name="pro_ad_title">Get more out of your mailbox</string>
-    <string name="pro_ad_text">With BlockMail Pro you can ask your mailbox anything (\"How much did I spend at Amazon?\"), summarize long emails and draft replies. Free for 3 days.</string>
+    <string name="pro_ad_text">With BlockMail Pro you can ask your mailbox anything (\"How much did I spend at Amazon?\"), summarize emails — and sign PDFs right in the app. Free for 3 days.</string>
     <string name="pro_ad_open">Take a look</string>
     <string name="pro_ad_later">Later</string>
     <string name="pro_ad_never">Don\'t show again</string>
@@ -91,7 +93,7 @@
     <string name="tour_step_menu_title">View &amp; menu</string>
     <string name="tour_step_menu_text">The left icon switches directly between list and tiles. Next to it, the menu — open right now: light/dark, view, plain design, font size, and the settings.</string>
     <string name="tour_step_extras_title">There’s more inside</string>
-    <string name="tour_step_extras_text">BlockMail warns you about phishing, reminds you of unanswered mails with the reply radar, and shows statistics. You’ll find all extras in the settings.</string>
+    <string name="tour_step_extras_text">BlockMail warns you about phishing, reminds you of unanswered mails with the reply radar, shows statistics — and signs PDFs right inside the app. You’ll find all extras in the settings.</string>
     <string name="tour_step_compose_title">Write a new email</string>
     <string name="tour_step_compose_text">Tap the pen to start a new email — the AI can help you phrase it if you like.</string>
     <string name="tour_step_ai_title">Your AI assistant</string>
@@ -100,7 +102,7 @@
     <string name="welcome_feature_attachments_title">All attachments in one place</string>
     <string name="welcome_feature_attachments_text">Images, PDFs and documents from every email gathered in one gallery — find, open and share them without hunting for the email.</string>
     <string name="tour_step_attachments_title">All attachments in one place</string>
-    <string name="tour_step_attachments_text">Tap the folder name: this is where you switch folders and accounts — and find “Attachments”. Images, PDFs and documents from every email are gathered there in one gallery.</string>
+    <string name="tour_step_attachments_text">Tap the folder name: this is where you switch folders and accounts — and find “Attachments”. Images, PDFs and documents from every email are gathered there in one gallery. Tapping an attachment inside a mail also offers “Sign &amp; send back”.</string>
     <!-- Attachment editor (sign &amp; draw) -->
     <string name="detail_attachment_sign">Sign &amp; send back</string>
     <string name="editor_back">Back</string>

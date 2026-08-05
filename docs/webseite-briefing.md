@@ -166,7 +166,15 @@ Einstellungen der App, samt Datum des nächsten Kontingents. Nicht
 genutzte Anfragen verfallen am Monatsende; der Tarif lässt sich in Google
 Play jederzeit wechseln oder kündigen.
 
-Ein Abo schaltet alle KI-Funktionen zusammen frei:
+Ein Abo schaltet alle KI-Funktionen zusammen frei — dazu den
+**Anhang-Editor**: PDFs und Bilder mit dem Finger unterschreiben, darauf
+zeichnen und markieren und direkt als Antwort zurückschicken. Ohne
+Drucker, ohne Scanner, ohne zweite App; die Unterschrift wird einmal
+gezeichnet und liegt danach dauerhaft bereit. Auch passwortgeschützte
+PDFs lassen sich öffnen. Diese Funktion läuft komplett auf dem Gerät und
+zählt nicht gegen das KI-Kontingent.
+
+Die KI-Funktionen im Einzelnen:
 - **KI-Suche** „Frag dein Postfach" inklusive Volltext-Lesen
 - **Mail zusammenfassen** (lange Mails auf den Punkt)
 - **Tages-Überblick** und „Ungelesene zusammenfassen"
