@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BlockPDF</string>
+    <string name="home_tagline">View, sign and edit PDFs</string>
+    <string name="home_open">Open PDF</string>
+    <string name="home_recent">Recently opened</string>
+    <string name="home_empty">No documents yet — open your first PDF.</string>
+    <string name="home_view_free">Viewing is free. Editing, signing and saving come with BlockPDF Pro.</string>
+    <string name="pro_title">BlockPDF Pro</string>
+    <string name="pro_price_fallback">€1.99</string>
+    <string name="pro_per_month">%1$s / month</string>
+    <string name="pro_features">Signing, highlighter, checkmarks, date stamps, true burned-in redaction, rotate, delete and insert pages, print — unlock every tool.</string>
+    <string name="pro_subscribe">Unlock Pro</string>
+    <string name="pro_active">BlockPDF Pro is active — every tool unlocked.</string>
+    <string name="pro_note">Billed monthly through your Google Play account, cancel anytime.</string>
+    <string name="upsell_text">Viewing is free. To edit, sign and save you need BlockPDF Pro for %1$s per month — cancel anytime.</string>
+    <string name="upsell_later">Later</string>
+    <string name="open_failed">This file cannot be opened.</string>
+    <string name="back">Back</string>
+</resources>

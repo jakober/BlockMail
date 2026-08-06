@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BlockPDF</string>
+    <string name="home_tagline">PDFs ansehen, unterschreiben, bearbeiten</string>
+    <string name="home_open">PDF öffnen</string>
+    <string name="home_recent">Zuletzt geöffnet</string>
+    <string name="home_empty">Noch keine Dokumente — öffne dein erstes PDF.</string>
+    <string name="home_view_free">Ansehen ist kostenlos. Bearbeiten, Unterschreiben und Speichern gibt es mit BlockPDF Pro.</string>
+    <string name="pro_title">BlockPDF Pro</string>
+    <string name="pro_price_fallback">1,99 €</string>
+    <string name="pro_per_month">%1$s / Monat</string>
+    <string name="pro_features">Unterschreiben, Textmarker, Häkchen, Datum, Schwärzen (echt eingebrannt), Seiten drehen, löschen und einfügen, drucken — alle Werkzeuge freischalten.</string>
+    <string name="pro_subscribe">Pro freischalten</string>
+    <string name="pro_active">BlockPDF Pro ist aktiv — alle Werkzeuge freigeschaltet.</string>
+    <string name="pro_note">Monatliche Abrechnung über deinen Google-Play-Account, jederzeit kündbar.</string>
+    <string name="upsell_text">Ansehen ist kostenlos. Zum Bearbeiten, Unterschreiben und Speichern brauchst du BlockPDF Pro für %1$s im Monat — jederzeit kündbar.</string>
+    <string name="upsell_later">Später</string>
+    <string name="open_failed">Diese Datei lässt sich nicht öffnen.</string>
+    <string name="back">Zurück</string>
+</resources>

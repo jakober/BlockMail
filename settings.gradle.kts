@@ -15,3 +15,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "KlarMail"
 include(":app")
+include(":document")
+include(":blockpdf")

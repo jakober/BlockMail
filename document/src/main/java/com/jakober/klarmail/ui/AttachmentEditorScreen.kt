@@ -90,7 +90,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.jakober.klarmail.R
+import com.jakober.klarmail.data.DocumentHost
+import com.jakober.klarmail.document.R
 import com.jakober.klarmail.data.AttachmentEditing
 import com.jakober.klarmail.data.Mark
 import com.jakober.klarmail.data.PageId
@@ -332,7 +333,8 @@ fun AttachmentEditorScreen(
     // Schwaerzen: vor dem ersten Speichern einmal warnen (wird eingebrannt)
     var redactWarnAction by remember { mutableStateOf<String?>(null) }
     var redactAccepted by remember { mutableStateOf(false) }
-    val isPro by com.jakober.klarmail.data.ProAccess.isProFlow.collectAsState()
+    // "Pro" heisst hier nur: Die Gast-App erlaubt Bearbeiten/Speichern
+    val isPro by DocumentHost.editAllowedFlow.collectAsState()
 
     /** Rendert eine Seite (PDF) bzw. dekodiert das Bild — immer im Hintergrund. */
     suspend fun renderPage(index: Int): Bitmap? {
@@ -533,7 +535,7 @@ fun AttachmentEditorScreen(
         val out = File(outDir, AttachmentEditing.signedName(source.name))
         produce(out)
         val uri = androidx.core.content.FileProvider.getUriForFile(
-            context, "com.jakober.klarmail.fileprovider", out
+            context, DocumentHost.fileProviderAuthority, out
         )
         AttachmentEditing.pendingResult =
             AttachmentEditing.Result(uri, out.name, out.length())
@@ -543,7 +545,7 @@ fun AttachmentEditorScreen(
     fun shareResult() = runSaving {
         val out = produceToExports()
         val uri = androidx.core.content.FileProvider.getUriForFile(
-            context, "com.jakober.klarmail.fileprovider", out
+            context, DocumentHost.fileProviderAuthority, out
         )
         val send = android.content.Intent(android.content.Intent.ACTION_SEND)
             .setType(saveMime)
@@ -795,7 +797,9 @@ fun AttachmentEditorScreen(
     }
 
     if (showProUpsell) {
-        ProUpsellDialog(onDismiss = { showProUpsell = false })
+        val upsell = DocumentHost.upsell
+        if (upsell != null) upsell { showProUpsell = false }
+        else showProUpsell = false
     }
 
     if (insertBlankAsk || insertUri != null) {

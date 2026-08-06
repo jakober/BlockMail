@@ -12,8 +12,8 @@ android {
         applicationId = "com.jakober.klarmail"
         minSdk = 26
         targetSdk = 36
-        versionCode = 219
-        versionName = "4.16"
+        versionCode = 220
+        versionName = "4.17"
 
         // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
         manifestPlaceholders["appAuthRedirectScheme"] =
@@ -84,6 +84,9 @@ android {
 }
 
 dependencies {
+    // Gemeinsamer Dokument-Editor (auch von BlockPDF genutzt)
+    implementation(project(":document"))
+
     val composeBom = platform("androidx.compose:compose-bom:2025.06.00")
     implementation(composeBom)
     implementation("androidx.compose.material3:material3")

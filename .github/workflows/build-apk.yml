@@ -186,3 +186,34 @@ jobs:
               --title "BlockMail v$V (Play-Store-Bundle)" \
               --notes "Signiertes App-Bundle (AAB) der Version $V für den Play Store."
           fi
+
+      # ---- BlockPDF: zweite App aus demselben Bau (bundleRelease baut beide)
+
+      - name: BlockPDF-Version auslesen
+        if: steps.check.outputs.vorhanden == 'true'
+        id: pdfversion
+        run: |
+          V=$(grep -oP 'versionName = "\K[^"]+' blockpdf/build.gradle.kts)
+          echo "name=$V" >> "$GITHUB_OUTPUT"
+
+      - name: BlockPDF-Bundle als Artefakt hochladen
+        if: steps.check.outputs.vorhanden == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockPDF-v${{ steps.pdfversion.outputs.name }}-store-aab
+          path: blockpdf/build/outputs/bundle/release/blockpdf-release.aab
+
+      - name: BlockPDF-Bundle im Branch aab-blockpdf-latest ablegen
+        if: steps.check.outputs.vorhanden == 'true'
+        run: |
+          BLOB=$(git hash-object -w blockpdf/build/outputs/bundle/release/blockpdf-release.aab)
+          TREE=$(printf '100644 blob %s\tBlockPDF-store.aab\n' "$BLOB" | git mktree)
+          COMMIT=$(git commit-tree "$TREE" -m "BlockPDF-AAB v${{ steps.pdfversion.outputs.name }} aus ${{ github.sha }}")
+          for i in 1 2 3 4; do
+            if git push --force origin "$COMMIT:refs/heads/aab-blockpdf-latest"; then
+              exit 0
+            fi
+            echo "Push fehlgeschlagen (Versuch $i) — neuer Versuch in $((i*5))s"
+            sleep $((i*5))
+          done
+          exit 1

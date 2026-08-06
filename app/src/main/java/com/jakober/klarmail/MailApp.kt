@@ -19,6 +19,16 @@ class MailApp : Application() {
         runCatching {
             com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(applicationContext)
         }
+        // Anschlussstelle des gemeinsamen Dokument-Editors: In BlockMail
+        // entscheidet das Pro-Abo ueber Bearbeiten, der Kauf-Hinweis ist der
+        // bekannte Pro-Dialog
+        com.jakober.klarmail.data.DocumentHost.fileProviderAuthority =
+            "com.jakober.klarmail.fileprovider"
+        com.jakober.klarmail.data.DocumentHost.editAllowedFlow =
+            com.jakober.klarmail.data.ProAccess.isProFlow
+        com.jakober.klarmail.data.DocumentHost.upsell = { onDismiss ->
+            com.jakober.klarmail.ui.ProUpsellDialog(onDismiss = onDismiss)
+        }
         com.jakober.klarmail.data.MailIndex.init(this)
         createChannels()
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)
