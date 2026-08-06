@@ -40,11 +40,11 @@ object ProAccess {
     /**
      * Dokument-Editor: false = alles Pro (auch das reine Ansehen von außen
      * geöffneter PDFs). true = Ansehen frei, nur Bearbeiten/Speichern sind
-     * Pro. Bewusst EINE Konstante: Wer BlockMail als Standard-PDF-Programm
-     * einstellt und kein Abo hat, kann sonst keine PDFs mehr öffnen — sollte
-     * sich das als Falle erweisen, ist der Ausweg eine Zeile.
+     * Pro. Seit der Frei-Stufe „Unterschreiben & Weitersenden“ steht der
+     * Schalter auf true: Der Editor öffnet für alle und zeigt selbst, was
+     * frei ist und was „(Pro)“ trägt — das Schaufenster wirbt fürs Abo.
      */
-    const val DOCUMENTS_VIEW_FREE = false
+    const val DOCUMENTS_VIEW_FREE = true
 
     /** Darf ein Dokument angezeigt werden (Viewer von außen)? */
     val canViewDocuments: Boolean get() = DOCUMENTS_VIEW_FREE || isPro

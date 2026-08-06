@@ -824,11 +824,11 @@ fun DetailScreen(
                                 .fillMaxWidth()
                                 .clickable {
                                     attachmentDialog = null
-                                    // Pro-Funktion, aber ohne KI: das
-                                    // Kontingent spielt hier keine Rolle
-                                    if (!com.jakober.klarmail.data.ProAccess.canEditDocuments) {
-                                        showProUpsell = true
-                                    } else attachmentAction(att, "sign")
+                                    // Frei-Stufe: Unterschreiben + als Antwort
+                                    // senden geht OHNE Abo — die uebrigen
+                                    // Werkzeuge sperrt der Editor selbst mit
+                                    // "(Pro)" und Kauf-Hinweis
+                                    attachmentAction(att, "sign")
                                 }
                                 .padding(horizontal = 24.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -847,9 +847,9 @@ fun DetailScreen(
                         }
                     }
                     // PDFs und Bilder oeffnen im EIGENEN Editor (derselbe
-                    // Weg wie "Unterschreiben & zuruecksenden"). Ohne Abo
-                    // faellt der Knopf still auf das externe Oeffnen zurueck —
-                    // Anhaenge ansehen muss immer moeglich bleiben.
+                    // Weg wie "Unterschreiben & zuruecksenden") — auch ohne
+                    // Abo: Der Editor zeigt dann selbst, was frei ist
+                    // (Unterschrift + Senden) und was "(Pro)" traegt.
                     val editable = onEditAttachment != null &&
                         com.jakober.klarmail.data.AttachmentEditing.isEditable(att.mime, att.name)
                     actionRow(
@@ -858,9 +858,7 @@ fun DetailScreen(
                             if (editable) R.string.detail_attachment_open_edit
                             else R.string.detail_attachment_open
                         ),
-                        if (editable && com.jakober.klarmail.data.ProAccess.canEditDocuments)
-                            "sign"
-                        else "open"
+                        if (editable) "sign" else "open"
                     )
                     actionRow(
                         Icons.Filled.Share,
