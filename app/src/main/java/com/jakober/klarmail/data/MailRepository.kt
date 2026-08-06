@@ -123,8 +123,9 @@ object MailRepository {
             Prefs.activateAccount(acc)
             synchronized(bodyCache) { bodyCache.clear() }
             synchronized(attachmentCache) { attachmentCache.clear() }
-            // Inhalte-Cache leeren: UIDs verschiedener Konten würden kollidieren
-            runCatching { bodyCacheDir?.listFiles()?.forEach { it.delete() } }
+            // Der Inhalte-Cache auf der Platte bleibt stehen: Die Dateinamen
+            // tragen seit v4.36 immer das Konto — nichts kollidiert mehr,
+            // und die Anhang-Galerie uebersteht den Kontowechsel
             _currentFolder.value = MailFolder.INBOX
             loadLimit = MAX_MESSAGES
             _canLoadMore.value = false
@@ -1200,10 +1201,18 @@ object MailRepository {
     /** Wie lange vorgeladene Mail-Inhalte auf der Platte behalten werden. */
     private const val BODY_CACHE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
 
-    /** Schlüssel-Zusatz für Mails fremder Konten (Sammel-Posteingang). */
-    private fun accountKeyPart(account: String): String =
-        if (isActiveAccount(account)) ""
-        else "@" + account.trim().lowercase()
+    /**
+     * Schlüssel-Zusatz: IMMER das Konto im Dateinamen — auch beim aktiven.
+     * Früher blieb das aktive Konto ohne Zusatz; beim Kontowechsel musste
+     * deshalb der ganze Inhalte-Cache gelöscht werden (UID-Kollision), und
+     * mit ihm verschwand jedes Mal die Anhang-Galerie. Mit festem Zusatz
+     * überlebt der Cache jeden Wechsel.
+     */
+    private fun accountKeyPart(account: String): String {
+        val mail = account.trim().lowercase()
+            .ifBlank { Prefs.email.trim().lowercase() }
+        return "@$mail"
+    }
 
     private fun bodyCacheFile(folder: MailFolder, uid: Long, account: String = ""): File? =
         bodyCacheDir?.let {
@@ -2187,6 +2196,20 @@ object MailRepository {
      * Baut die Anhang-Galerie aus den bereits vorgeladenen Mail-Inhalten
      * (kein Netzwerk): alle Anhänge der aktuell geladenen Posteingangs-Mails.
      */
+    /**
+     * Lädt die Inhalte der neuesten Mails mit Anhang nach, die noch nicht im
+     * Cache liegen — die Anhang-Galerie füllt sich damit beim Öffnen selbst,
+     * statt auf das Hintergrund-Vorladen zu warten.
+     */
+    suspend fun prefetchAttachmentBodies(limit: Int = 30) = withContext(Dispatchers.IO) {
+        _messages.value
+            .filter { it.hasAttachments }
+            .take(limit)
+            .forEach { m ->
+                runCatching { prefetchBody(m.uid, MailFolder.INBOX, m.account) }
+            }
+    }
+
     suspend fun attachmentIndex(): List<AttachmentIndexEntry> = withContext(Dispatchers.IO) {
         _messages.value
             .filter { it.hasAttachments }

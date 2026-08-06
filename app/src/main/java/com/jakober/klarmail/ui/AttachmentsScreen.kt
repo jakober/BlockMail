@@ -72,6 +72,11 @@ fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
     }
     LaunchedEffect(Unit) {
         entries = runCatching { MailRepository.attachmentIndex() }.getOrDefault(emptyList())
+        // Fehlende Inhalte gleich nachladen und die Liste auffrischen — so
+        // fuellt sich die Galerie auch direkt nach Update oder Kontowechsel
+        runCatching { MailRepository.prefetchAttachmentBodies() }
+        entries = runCatching { MailRepository.attachmentIndex() }
+            .getOrDefault(entries ?: emptyList())
     }
 
     var filter by remember { mutableStateOf("all") } // all | images | docs
