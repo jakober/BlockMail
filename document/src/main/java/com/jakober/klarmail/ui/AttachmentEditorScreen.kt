@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Highlight
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.Save
@@ -322,6 +323,9 @@ fun AttachmentEditorScreen(
     // null = Zeichenfeld zu, sonst das Fach, fuer das gezeichnet wird
     var signaturePadSlot by remember { mutableStateOf<Int?>(null) }
     var mode by remember { mutableStateOf("view") }
+    // Bild-Werkzeug (nur erweiterte Werkzeuge): das zuletzt gewaehlte Bild.
+    // Bewusst nie recyclen — es koennte bereits platziert sein.
+    var placeImage by remember { mutableStateOf<Bitmap?>(null) }
     var saving by remember { mutableStateOf(false) }
     var busyOp by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -585,6 +589,65 @@ fun AttachmentEditorScreen(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument(saveMime)
     ) { uri -> if (uri != null) saveToUri(uri) }
 
+    // ---- Bild platzieren (nur erweiterte Werkzeuge) --------------------
+
+    /**
+     * Laedt das gewaehlte Bild herunterskaliert (lange Kante <= 1600 px, wie
+     * die Seitenanzeige) und richtet es nach seinen EXIF-Daten aus — Fotos
+     * tragen ihre Drehung oft nur dort.
+     */
+    fun loadPlaceImage(uri: android.net.Uri) {
+        scope.launch {
+            val bmp = withContext(Dispatchers.IO) {
+                runCatching {
+                    val resolver = context.contentResolver
+                    val bounds = android.graphics.BitmapFactory.Options()
+                        .apply { inJustDecodeBounds = true }
+                    resolver.openInputStream(uri)?.use {
+                        android.graphics.BitmapFactory.decodeStream(it, null, bounds)
+                    }
+                    var sample = 1
+                    while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1600) {
+                        sample *= 2
+                    }
+                    val opts = android.graphics.BitmapFactory.Options()
+                        .apply { inSampleSize = sample }
+                    val raw = resolver.openInputStream(uri)?.use {
+                        android.graphics.BitmapFactory.decodeStream(it, null, opts)
+                    } ?: return@runCatching null
+                    val rotation = runCatching {
+                        resolver.openInputStream(uri)?.use {
+                            when (android.media.ExifInterface(it).getAttributeInt(
+                                android.media.ExifInterface.TAG_ORIENTATION,
+                                android.media.ExifInterface.ORIENTATION_NORMAL
+                            )) {
+                                android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                                android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                                android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                                else -> 0f
+                            }
+                        }
+                    }.getOrNull() ?: 0f
+                    if (rotation == 0f) raw else {
+                        val m = android.graphics.Matrix().apply { postRotate(rotation) }
+                        Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, m, true)
+                            .also { if (it != raw) raw.recycle() }
+                    }
+                }.getOrNull()
+            }
+            if (bmp == null) {
+                snackbar.showSnackbar(context.getString(R.string.editor_image_failed))
+            } else {
+                placeImage = bmp
+                mode = "image"
+            }
+        }
+    }
+
+    val imagePickLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri -> if (uri != null) loadPlaceImage(uri) }
+
     // ---- Seitenoperationen (nur PDF) ----------------------------------
 
     /** Uebernimmt das Ergebnis einer Seitenoperation in die Sitzung. */
@@ -620,6 +683,7 @@ fun AttachmentEditorScreen(
                 is Mark.Stamp -> m.center = t(m.center)
                 is Mark.Label -> m.center = t(m.center)
                 is Mark.Redact -> { m.a = t(m.a); m.b = t(m.b) }
+                is Mark.Image -> m.center = t(m.center)
             }
         }
     }
@@ -1072,6 +1136,10 @@ fun AttachmentEditorScreen(
                                     mode = mode,
                                     drawColor = drawColor,
                                     widthFactor = drawWidthFactor,
+                                    placeImage = placeImage,
+                                    onNeedImage = {
+                                        imagePickLauncher.launch(arrayOf("image/*"))
+                                    },
                                     onNeedSignature = { signaturePadSlot = signSlot },
                                     onNeeded = { ensurePage(index) },
                                     onMarkAdded = { noteAdded(index) },
@@ -1132,7 +1200,18 @@ fun AttachmentEditorScreen(
                                 "redact", R.string.editor_mode_redact,
                                 Icons.Filled.VisibilityOff
                             )
-                        )
+                        ).let { base ->
+                            // Erweiterte Werkzeuge nur, wenn die Gast-App sie
+                            // freischaltet (BlockPDF ja, BlockMail nein)
+                            if (DocumentHost.extendedFeatures) {
+                                base.take(7) +
+                                    Triple(
+                                        "image", R.string.editor_mode_image,
+                                        Icons.Filled.Image
+                                    ) +
+                                    base.drop(7)
+                            } else base
+                        }
                         tools.forEach { (key, labelRes, icon) ->
                             FilterChip(
                                 selected = mode == key,
@@ -1144,6 +1223,8 @@ fun AttachmentEditorScreen(
                                             signaturePadSlot = signSlot
                                             mode = "sign"
                                         }
+                                        key == "image" && placeImage == null ->
+                                            imagePickLauncher.launch(arrayOf("image/*"))
                                         else -> mode = key
                                     }
                                 },
@@ -1298,6 +1379,7 @@ fun AttachmentEditorScreen(
                         "redact" -> R.string.editor_hint_redact
                         "check", "cross" -> R.string.editor_hint_stamp
                         "date" -> R.string.editor_hint_date
+                        "image" -> R.string.editor_hint_image
                         else -> null
                     }
                     if (hintRes != null) {
@@ -1307,6 +1389,19 @@ fun AttachmentEditorScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    if (mode == "image") {
+                        Spacer(Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = false,
+                                onClick = { imagePickLauncher.launch(arrayOf("image/*")) },
+                                label = { Text(stringResource(R.string.editor_image_pick)) },
+                                leadingIcon = {
+                                    Icon(Icons.Filled.Image, contentDescription = null)
+                                }
+                            )
+                        }
                     }
                     if (mode == "sign") {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1457,6 +1552,8 @@ private fun PageItem(
     mode: String,
     drawColor: Int,
     widthFactor: Float,
+    placeImage: Bitmap?,
+    onNeedImage: () -> Unit,
     onNeedSignature: () -> Unit,
     onNeeded: () -> Unit,
     onMarkAdded: () -> Unit,
@@ -1490,6 +1587,8 @@ private fun PageItem(
                 mode = mode,
                 drawColor = drawColor,
                 widthFactor = widthFactor,
+                placeImage = placeImage,
+                onNeedImage = onNeedImage,
                 onNeedSignature = onNeedSignature,
                 onMarkAdded = onMarkAdded,
                 onTouched = onTouched,
@@ -1516,6 +1615,8 @@ private fun PageCanvas(
     mode: String,
     drawColor: Int,
     widthFactor: Float,
+    placeImage: Bitmap?,
+    onNeedImage: () -> Unit,
     onNeedSignature: () -> Unit,
     onMarkAdded: () -> Unit,
     onTouched: () -> Unit,
@@ -1639,7 +1740,7 @@ private fun PageCanvas(
                     else -> Unit
                 }
             }
-            .pointerInput(mode, signature, initials, signSlot, drawColor, bitmap) {
+            .pointerInput(mode, signature, initials, signSlot, drawColor, placeImage, bitmap) {
                 detectTapGestures { p ->
                     val page = toPage(p)
                     val tol = bitmap.width / 40f
@@ -1688,6 +1789,16 @@ private fun PageCanvas(
                                 java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
                             )
                             marks.add(Mark.Label(text, page, bitmap.width / 32f, drawColor))
+                            onMarkAdded()
+                            onSelect(marks.lastIndex)
+                        }
+                        "image" -> {
+                            val img = placeImage
+                            if (img == null) {
+                                onNeedImage()
+                                return@detectTapGestures
+                            }
+                            marks.add(Mark.Image(page, bitmap.width / 3f, img))
                             onMarkAdded()
                             onSelect(marks.lastIndex)
                         }

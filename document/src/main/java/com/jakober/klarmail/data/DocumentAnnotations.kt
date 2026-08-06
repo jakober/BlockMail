@@ -50,6 +50,13 @@ sealed class Mark {
      * schwarzes Rechteck im PDF-Inhalt verdeckt nur optisch.
      */
     data class Redact(var a: Offset, var b: Offset) : Mark()
+
+    /**
+     * Eingefügtes Bild (Foto, Logo, Stempelgrafik). Trägt sein Bitmap
+     * selbst — anders als [Sign], wo die Unterschrift zentral hinterlegt
+     * ist. Das Seitenverhältnis kommt immer aus dem Bitmap.
+     */
+    data class Image(var center: Offset, var width: Float, val bitmap: Bitmap) : Mark()
 }
 
 /**
@@ -173,6 +180,15 @@ fun drawMarks(
                     fill
                 )
             }
+
+            is Mark.Image -> {
+                val w = mark.width * scale
+                val h = w * mark.bitmap.height / mark.bitmap.width
+                val left = mark.center.x * scale + dx - w / 2
+                val top = mark.center.y * scale + dy - h / 2
+                val dst = android.graphics.RectF(left, top, left + w, top + h)
+                canvas.drawBitmap(mark.bitmap, null, dst, null)
+            }
         }
     }
 }
@@ -225,6 +241,13 @@ fun markBounds(
             minOf(m.a.x, m.b.x), minOf(m.a.y, m.b.y),
             maxOf(m.a.x, m.b.x), maxOf(m.a.y, m.b.y)
         )
+        is Mark.Image -> {
+            val h = m.width * m.bitmap.height / m.bitmap.width
+            androidx.compose.ui.geometry.Rect(
+                m.center.x - m.width / 2, m.center.y - h / 2,
+                m.center.x + m.width / 2, m.center.y + h / 2
+            )
+        }
     }
 }
 
@@ -236,6 +259,7 @@ fun moveMark(m: Mark, d: Offset) {
         is Mark.Label -> m.center += d
         is Mark.Stroke -> for (j in m.points.indices) m.points[j] = m.points[j] + d
         is Mark.Redact -> { m.a += d; m.b += d }
+        is Mark.Image -> m.center += d
     }
 }
 
@@ -268,6 +292,7 @@ fun scaleMark(m: Mark, f: Float): Mark = when (m) {
             b = Offset(cx + (m.b.x - cx) * f, cy + (m.b.y - cy) * f)
         )
     }
+    is Mark.Image -> m.copy(width = m.width * f)
 }
 
 /**
@@ -292,6 +317,11 @@ fun hitMark(marks: List<Mark>, p: Offset, tolerance: Float): Int {
             is Mark.Redact ->
                 p.x in minOf(m.a.x, m.b.x)..maxOf(m.a.x, m.b.x) &&
                     p.y in minOf(m.a.y, m.b.y)..maxOf(m.a.y, m.b.y)
+            is Mark.Image -> {
+                val h = m.width * m.bitmap.height / m.bitmap.width
+                kotlin.math.abs(m.center.x - p.x) < m.width / 2 &&
+                    kotlin.math.abs(m.center.y - p.y) < h / 2
+            }
         }
         if (hit) return i
     }

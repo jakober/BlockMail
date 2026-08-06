@@ -26,4 +26,12 @@ object DocumentHost {
      * zeigt ihren eigenen Dialog. null = kein Hinweis (alles erlaubt).
      */
     var upsell: (@androidx.compose.runtime.Composable (onDismiss: () -> Unit) -> Unit)? = null
+
+    /**
+     * Erweiterte Werkzeuge (Bilder platzieren, künftig Text, Formen …).
+     * Nur BlockPDF schaltet sie ein — der Editor in BlockMail bleibt beim
+     * bewährten Umfang, bis eine Funktion sich dort bewusst gewünscht wird.
+     */
+    @Volatile
+    var extendedFeatures: Boolean = false
 }

@@ -88,6 +88,20 @@ object PdfOverlay {
                 val iniImage: PDImageXObject? = initials?.let {
                     runCatching { LosslessFactory.createFromImage(doc, it) }.getOrNull()
                 }
+                // Eingefügte Bilder: jedes Bitmap nur EINMAL einbetten, auch
+                // wenn es mehrfach platziert wurde. Fotos ohne Transparenz
+                // als JPEG (Bruchteil der Größe), alles andere verlustfrei.
+                val markImages = HashMap<Bitmap, PDImageXObject>()
+                marks.values.asSequence().flatten()
+                    .filterIsInstance<Mark.Image>()
+                    .map { it.bitmap }
+                    .distinct()
+                    .forEach { bmp ->
+                        runCatching {
+                            if (bmp.hasAlpha()) LosslessFactory.createFromImage(doc, bmp)
+                            else JPEGFactory.createFromImage(doc, bmp, 0.9f)
+                        }.getOrNull()?.let { markImages[bmp] = it }
+                    }
                 marks.forEach { (index, pageMarks) ->
                     if (pageMarks.isEmpty()) return@forEach
                     if (index !in 0 until doc.numberOfPages) return@forEach
@@ -105,7 +119,9 @@ object PdfOverlay {
                     ).use { cs ->
                         cs.saveGraphicsState()
                         cs.transform(pageMatrix(page))
-                        pageMarks.forEach { mark -> draw(cs, mark, sigImage, iniImage, f) }
+                        pageMarks.forEach { mark ->
+                            draw(cs, mark, sigImage, iniImage, markImages, f)
+                        }
                         cs.restoreGraphicsState()
                     }
                 }
@@ -187,6 +203,7 @@ object PdfOverlay {
         mark: Mark,
         signature: PDImageXObject?,
         initials: PDImageXObject?,
+        markImages: Map<Bitmap, PDImageXObject>,
         f: Float
     ) {
         when (mark) {
@@ -276,6 +293,17 @@ object PdfOverlay {
                 )
                 cs.showText(mark.text)
                 cs.endText()
+            }
+
+            is Mark.Image -> {
+                val img = markImages[mark.bitmap] ?: return
+                val w = mark.width * f
+                val h = w * img.height / img.width
+                val x = mark.center.x * f - w / 2f
+                val y = mark.center.y * f - h / 2f
+                // Negatives d wie bei der Unterschrift: Die Seitenmatrix
+                // spiegelt Y, die Bildmatrix spiegelt zurueck
+                cs.drawImage(img, Matrix(w, 0f, 0f, -h, x, y + h))
             }
 
             is Mark.Redact -> {

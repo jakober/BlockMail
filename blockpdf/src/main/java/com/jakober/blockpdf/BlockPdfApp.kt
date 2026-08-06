@@ -19,6 +19,9 @@ class BlockPdfApp : Application() {
         // Bearbeiten haengt am BlockPDF-Pro-Abo
         DocumentHost.fileProviderAuthority = "com.jakober.blockpdf.fileprovider"
         DocumentHost.editAllowedFlow = PdfBilling.isProFlow
+        // Erweiterte Werkzeuge (Bilder platzieren …) gibt es nur hier —
+        // BlockMail bleibt beim bewaehrten Editor-Umfang
+        DocumentHost.extendedFeatures = true
         DocumentHost.upsell = { onDismiss ->
             com.jakober.blockpdf.ui.PdfUpsellDialog(onDismiss = onDismiss)
         }

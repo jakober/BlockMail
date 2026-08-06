@@ -79,4 +79,8 @@
     <string name="editor_signature_clear">Nochmal</string>
     <string name="editor_signature_save">Speichern</string>
     <string name="editor_cancel">Abbrechen</string>
+    <string name="editor_mode_image">Bild</string>
+    <string name="editor_hint_image">Tippe auf die Stelle, an der das Bild stehen soll. Antippen wählt aus, Ziehen verschiebt.</string>
+    <string name="editor_image_pick">Anderes Bild wählen</string>
+    <string name="editor_image_failed">Bild konnte nicht geladen werden.</string>
 </resources>

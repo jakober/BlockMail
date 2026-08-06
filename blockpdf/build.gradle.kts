@@ -15,8 +15,8 @@ android {
         applicationId = "com.jakober.blockpdf"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.00"
+        versionCode = 2
+        versionName = "1.01"
     }
 
     // Gleicher Schluessel wie BlockMail: fuer Debug-Builds der geteilte
