@@ -65,4 +65,6 @@
     <string name="detail_phishing_not_phishing">Das ist kein Phishing</string>
     <string name="detail_page_phishing_advice">Tippe keine Links an und gib keine Passwörter oder Zahlungsdaten ein.</string>
     <string name="detail_page_not_phishing">Das ist kein Phishing – Warnung entfernen</string>
+    <string name="detail_attachments_one">1 Dateianhang</string>
+    <string name="detail_attachments_many">%1$d Dateianhänge</string>
 </resources>

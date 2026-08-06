@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Image
@@ -915,7 +916,9 @@ fun DetailScreen(
                         summarize = stringResource(R.string.detail_summarize_ai),
                         phishingWarning = stringResource(R.string.detail_phishing_warning),
                         phishingAdvice = stringResource(R.string.detail_page_phishing_advice),
-                        notPhishingLink = stringResource(R.string.detail_page_not_phishing)
+                        notPhishingLink = stringResource(R.string.detail_page_not_phishing),
+                        attachmentsOne = stringResource(R.string.detail_attachments_one),
+                        attachmentsMany = stringResource(R.string.detail_attachments_many)
                     )
                     // Absender-Icon vorab in Kotlin auflösen (mit Prüfung,
                     // ob die Quelle wirklich ein Bild liefert) — die WebView
@@ -1132,25 +1135,70 @@ fun DetailScreen(
                             }
                         }
                         if (currentBody.attachments.isNotEmpty()) {
+                            // Zugeklappt nur die Zahl mit Pfeil — die Chips
+                            // erscheinen erst beim Antippen (weniger Gedraenge
+                            // neben dem KI-Knopf)
+                            var attsExpanded by remember(uid) { mutableStateOf(false) }
+                            val n = currentBody.attachments.size
                             Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState())
-                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                                    .clickable { attsExpanded = !attsExpanded }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
-                                currentBody.attachments.forEach { att ->
-                                    AssistChip(
-                                        onClick = { attachmentDialog = att },
-                                        label = { Text("${att.name} (${formatSize(att.size)})") },
-                                        leadingIcon = {
-                                            Icon(
-                                                attachmentIcon(MailRepository.effectiveMime(att.name, att.mime)),
-                                                contentDescription = null,
-                                                modifier = Modifier.size(AssistChipDefaults.IconSize)
-                                            )
-                                        },
-                                        modifier = Modifier.padding(end = 8.dp)
-                                    )
+                                Icon(
+                                    Icons.Filled.AttachFile,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    if (n == 1) {
+                                        stringResource(R.string.detail_attachments_one)
+                                    } else {
+                                        stringResource(R.string.detail_attachments_many, n)
+                                    },
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Icon(
+                                    if (attsExpanded) Icons.Filled.ExpandLess
+                                    else Icons.Filled.ExpandMore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            if (attsExpanded) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(horizontal = 16.dp)
+                                ) {
+                                    currentBody.attachments.forEach { att ->
+                                        AssistChip(
+                                            onClick = { attachmentDialog = att },
+                                            label = {
+                                                Text("${att.name} (${formatSize(att.size)})")
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    attachmentIcon(
+                                                        MailRepository.effectiveMime(
+                                                            att.name, att.mime
+                                                        )
+                                                    ),
+                                                    contentDescription = null,
+                                                    modifier = Modifier
+                                                        .size(AssistChipDefaults.IconSize)
+                                                )
+                                            },
+                                            modifier = Modifier.padding(end = 8.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1259,6 +1307,8 @@ private val headerFreemailDomains = setOf(
  */
 private data class MailPageTexts(
     val summarize: String,
+    val attachmentsOne: String = "",
+    val attachmentsMany: String = "",
     val phishingWarning: String,
     val phishingAdvice: String,
     val notPhishingLink: String
@@ -1335,16 +1385,31 @@ private fun buildMailPageHtml(
             .append("</a>")
             .append("</div>")
     }
-    // KI-Knopf (oranges Pill) und Anhang-Chips in einer Zeile
-    if (aiAvailable || body.attachments.isNotEmpty()) {
-        sb.append("<div style=\"margin:4px 0 8px 0;line-height:2.4;\">")
-        if (aiAvailable) {
-            sb.append("<a href=\"blockmail://summarize\" style=\"display:inline-block;")
-                .append("background:$orange;color:#fff;border-radius:20px;")
-                .append("padding:8px 16px;text-decoration:none;font-size:13px;")
-                .append("font-weight:600;margin-right:8px;\">")
-                .append("✨ ").append(htmlEscape(texts.summarize)).append("</a>")
-        }
+    // KI-Knopf (oranges Pill) in eigener Zeile — die Anhänge haengen nicht
+    // mehr daran, sondern stehen darunter als aufklappbare Zeile
+    if (aiAvailable) {
+        sb.append("<div style=\"margin:4px 0 8px 0;\">")
+            .append("<a href=\"blockmail://summarize\" style=\"display:inline-block;")
+            .append("background:$orange;color:#fff;border-radius:20px;")
+            .append("padding:8px 16px;text-decoration:none;font-size:13px;")
+            .append("font-weight:600;\">")
+            .append("✨ ").append(htmlEscape(texts.summarize)).append("</a>")
+            .append("</div>")
+    }
+    // Anhänge: zusammengeklappt nur „N Dateianhänge“ mit Pfeil; Antippen
+    // klappt die Chips auf. <details>/<summary> kann die WebView nativ,
+    // ganz ohne JavaScript.
+    if (body.attachments.isNotEmpty()) {
+        val n = body.attachments.size
+        val label = if (n == 1) texts.attachmentsOne
+        else runCatching { String.format(texts.attachmentsMany, n) }
+            .getOrDefault("$n " + texts.attachmentsMany)
+        sb.append("<details style=\"margin:2px 0 8px 0;\">")
+            .append("<summary style=\"cursor:pointer;color:$chipColor;")
+            .append("font-size:13px;font-weight:600;padding:6px 0;")
+            .append("list-style-position:inside;\">")
+            .append("📎 ").append(htmlEscape(label)).append("</summary>")
+            .append("<div style=\"margin-top:6px;line-height:2.4;\">")
         body.attachments.forEachIndexed { i, att ->
             sb.append("<a href=\"blockmail://att/").append(i)
                 .append("\" style=\"display:inline-block;background:$chipBg;")
@@ -1352,7 +1417,7 @@ private fun buildMailPageHtml(
                 .append("text-decoration:none;font-size:12.5px;margin-right:8px;\">")
                 .append("📎 ").append(htmlEscape(att.name)).append("</a>")
         }
-        sb.append("</div>")
+        sb.append("</div></details>")
     }
     sb.append("<hr style=\"border:none;border-top:1px solid $hrColor;")
         .append("margin:6px 0 0 0;\">")

@@ -7,11 +7,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
@@ -46,6 +48,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Highlight
@@ -91,6 +94,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
@@ -1625,8 +1629,30 @@ fun AttachmentEditorScreen(
                     // Nach jeder Seitenoperation neu rendern — die Kennung
                     // im Bild stimmt sonst nicht mehr mit der Seite ueberein
                     LaunchedEffect(docGeneration) { pageThumbs.clear() }
+                    // Ziehen & Ablegen: lange druecken hebt die Kachel an,
+                    // Loslassen ueber einer anderen Kachel verschiebt die
+                    // Seite dorthin. Das Ziel wird geometrisch ueber die
+                    // sichtbaren Rasterzellen bestimmt.
+                    val pagesGrid = rememberLazyGridState()
+                    var dragIndex by remember { mutableStateOf<Int?>(null) }
+                    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+                    fun dropTarget(): Int? {
+                        val from = dragIndex ?: return null
+                        val info = pagesGrid.layoutInfo.visibleItemsInfo
+                        val origin = info.firstOrNull { it.index == from } ?: return null
+                        val cx = origin.offset.x + origin.size.width / 2f + dragOffset.x
+                        val cy = origin.offset.y + origin.size.height / 2f + dragOffset.y
+                        return info.firstOrNull { item ->
+                            item.index < pageSizes.size &&
+                                cx >= item.offset.x &&
+                                cx <= item.offset.x + item.size.width &&
+                                cy >= item.offset.y &&
+                                cy <= item.offset.y + item.size.height
+                        }?.index
+                    }
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(110.dp),
+                        state = pagesGrid,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth(),
@@ -1635,7 +1661,47 @@ fun AttachmentEditorScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(pageSizes.size) { index ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .zIndex(if (dragIndex == index) 1f else 0f)
+                                    .graphicsLayer {
+                                        if (dragIndex == index) {
+                                            translationX = dragOffset.x
+                                            translationY = dragOffset.y
+                                            scaleX = 1.05f
+                                            scaleY = 1.05f
+                                            alpha = 0.9f
+                                        }
+                                    }
+                                    .pointerInput(index, pageSizes.size) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = {
+                                                dragIndex = index
+                                                dragOffset = Offset.Zero
+                                            },
+                                            onDrag = { change, amount ->
+                                                change.consume()
+                                                dragOffset += amount
+                                            },
+                                            onDragEnd = {
+                                                val target = dropTarget()
+                                                val from = dragIndex
+                                                dragIndex = null
+                                                dragOffset = Offset.Zero
+                                                if (from != null && target != null &&
+                                                    target != from
+                                                ) {
+                                                    movePage(from, target)
+                                                }
+                                            },
+                                            onDragCancel = {
+                                                dragIndex = null
+                                                dragOffset = Offset.Zero
+                                            }
+                                        )
+                                    }
+                            ) {
                                 LaunchedEffect(index, docGeneration) {
                                     if (pageThumbs[index] == null) {
                                         session.renderPage(index, 300)
@@ -1699,6 +1765,43 @@ fun AttachmentEditorScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+                        // Plus-Kachel: neue leere Seite direkt aus der
+                        // Uebersicht — der Positionsdialog legt sich darueber
+                        item {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(0.7f)
+                                        .background(
+                                            MaterialTheme.colorScheme
+                                                .surfaceVariant.copy(alpha = 0.6f)
+                                        )
+                                        .clickable {
+                                            if (!isPro) showProUpsell = true
+                                            else insertBlankAsk = true
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Add,
+                                        contentDescription = stringResource(
+                                            R.string.editor_menu_insert_blank
+                                        ),
+                                        modifier = Modifier.size(40.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Text(
+                                    stringResource(R.string.editor_pages_add),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(vertical = 10.dp)
+                                )
                             }
                         }
                     }
