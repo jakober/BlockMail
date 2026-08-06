@@ -1148,24 +1148,25 @@ fun DetailScreen(
                                 Icon(
                                     Icons.Filled.AttachFile,
                                     contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier.size(22.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
-                                Spacer(Modifier.width(6.dp))
+                                Spacer(Modifier.width(8.dp))
                                 Text(
                                     if (n == 1) {
                                         stringResource(R.string.detail_attachments_one)
                                     } else {
                                         stringResource(R.string.detail_attachments_many, n)
                                     },
-                                    style = MaterialTheme.typography.labelLarge,
+                                    style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.primary
                                 )
+                                Spacer(Modifier.width(4.dp))
                                 Icon(
                                     if (attsExpanded) Icons.Filled.ExpandLess
                                     else Icons.Filled.ExpandMore,
                                     contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(24.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -1402,11 +1403,15 @@ private fun buildMailPageHtml(
         val label = if (n == 1) texts.attachmentsOne
         else runCatching { String.format(texts.attachmentsMany, n) }
             .getOrDefault("$n " + texts.attachmentsMany)
-        sb.append("<details style=\"margin:2px 0 8px 0;\">")
+        // Standard-Dreieck des <summary> ausblenden — der Pfeil steht
+        // stattdessen HINTER dem Text
+        sb.append("<style>summary::-webkit-details-marker{display:none}</style>")
+            .append("<details style=\"margin:2px 0 8px 0;\">")
             .append("<summary style=\"cursor:pointer;color:$chipColor;")
-            .append("font-size:13px;font-weight:600;padding:6px 0;")
-            .append("list-style-position:inside;\">")
-            .append("📎 ").append(htmlEscape(label)).append("</summary>")
+            .append("font-size:15.5px;font-weight:600;padding:8px 0;")
+            .append("list-style:none;\">")
+            .append("📎 ").append(htmlEscape(label))
+            .append(" <span style=\"font-size:13px;\">▼</span></summary>")
             .append("<div style=\"margin-top:6px;line-height:2.4;\">")
         body.attachments.forEachIndexed { i, att ->
             sb.append("<a href=\"blockmail://att/").append(i)
