@@ -127,4 +127,20 @@
     <string name="editor_compress_text">Pages are stored as images — the file gets much smaller, but text is no longer selectable afterwards.</string>
     <string name="editor_compress_ok">Reduce</string>
     <string name="editor_suffix_small">small</string>
+    <string name="editor_ai_title">AI assistant</string>
+    <string name="editor_ai_hint">Tell me in your own words what to do with the document — e.g. “Rotate page 3”, “Highlight all money amounts” or “Delete the last page”. Everything runs directly on your device.</string>
+    <string name="editor_ai_placeholder">What should I do?</string>
+    <string name="editor_ai_send">Send</string>
+    <string name="editor_ai_fail">Sorry, I did not understand that.</string>
+    <string name="editor_ai_need_pro">This requires Pro.</string>
+    <string name="editor_ai_marked">Highlighted %1$d places.</string>
+    <string name="editor_ai_no_matches">No matches found.</string>
+    <string name="editor_ai_rotated">Rotated page %1$d.</string>
+    <string name="editor_ai_deleted">Deleted page %1$d.</string>
+    <string name="editor_ai_inserted">Blank page inserted.</string>
+    <string name="editor_ai_night_on">Night mode on.</string>
+    <string name="editor_ai_night_off">Night mode off.</string>
+    <string name="editor_ai_search">%1$d matches — results are under the magnifier.</string>
+    <string name="editor_ai_stamp">Date stamp placed.</string>
+    <string name="editor_ai_saveflow">Done — the save dialog opens in a moment.</string>
 </resources>

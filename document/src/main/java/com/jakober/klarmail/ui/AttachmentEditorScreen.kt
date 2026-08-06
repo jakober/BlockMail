@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Image
@@ -358,6 +359,19 @@ fun AttachmentEditorScreen(
     var compressAsk by remember { mutableStateOf(false) }
     // Nachtmodus: Seiten invertiert anzeigen (nur Anzeige, nie gespeichert)
     var nightMode by remember { mutableStateOf(false) }
+    // KI-Assistent (Gemini Nano, nur auf Geraeten mit AICore)
+    var aiAvailable by remember { mutableStateOf(false) }
+    var aiOpen by remember { mutableStateOf(false) }
+    var aiBusy by remember { mutableStateOf(false) }
+    var aiInput by remember { mutableStateOf("") }
+    val aiMessages = remember { mutableStateListOf<Pair<Boolean, String>>() }
+    LaunchedEffect(Unit) {
+        if (DocumentHost.extendedFeatures) {
+            aiAvailable = runCatching {
+                com.jakober.klarmail.data.EditorAi.available()
+            }.getOrDefault(false)
+        }
+    }
     var saving by remember { mutableStateOf(false) }
     var busyOp by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -371,6 +385,8 @@ fun AttachmentEditorScreen(
     var redactAccepted by remember { mutableStateOf(false) }
     // "Pro" heisst hier nur: Die Gast-App erlaubt Bearbeiten/Speichern
     val isPro by DocumentHost.editAllowedFlow.collectAsState()
+    // Frei-Stufe der Gast-App: Unterschreiben + als Antwort senden ohne Abo
+    val freeSign = DocumentHost.freeSignatureAndSend
 
     /** Rendert eine Seite (PDF) bzw. dekodiert das Bild — immer im Hintergrund. */
     suspend fun renderPage(index: Int): Bitmap? {
@@ -807,8 +823,7 @@ fun AttachmentEditorScreen(
         }
     }
 
-    fun rotatePage(cw: Boolean) {
-        val idx = pageIndex
+    fun rotatePageAt(idx: Int, cw: Boolean) {
         mutateDoc(newIds = pageIds, before = { rotateMarksFor(idx, cw) }) { s, o ->
             com.jakober.klarmail.data.PdfPageOps.rotate(s, o, idx, cw)
         }
@@ -816,6 +831,10 @@ fun AttachmentEditorScreen(
 
     /** Verschiebt Seite [from] an Position [to] — Kennungen wandern mit. */
     fun movePage(from: Int, to: Int) {
+        if (!isPro) {
+            showProUpsell = true
+            return
+        }
         if (from == to || from !in pageIds.indices || to !in pageIds.indices) return
         val ids = pageIds.toMutableList()
         val id = ids.removeAt(from)
@@ -825,8 +844,9 @@ fun AttachmentEditorScreen(
         }
     }
 
-    fun deletePage() {
-        val idx = pageIndex
+    fun rotatePage(cw: Boolean) = rotatePageAt(pageIndex, cw)
+
+    fun deletePageAt(idx: Int) {
         if (pageSizes.size <= 1) {
             scope.launch {
                 snackbar.showSnackbar(context.getString(R.string.editor_delete_last_page))
@@ -844,6 +864,8 @@ fun AttachmentEditorScreen(
             }
         ) { s, o -> com.jakober.klarmail.data.PdfPageOps.delete(s, o, idx) }
     }
+
+    fun deletePage() = deletePageAt(pageIndex)
 
     /**
      * Fuegt neue Seiten an Position [at] ein (0 = ganz vorne, Seitenzahl =
@@ -923,6 +945,150 @@ fun AttachmentEditorScreen(
         }
     }
 
+    // ---- KI-Assistent: Befehl ausfuehren ------------------------------
+
+    /** „Markiere alle …“: Fundstellen suchen und als Textmarker auflegen. */
+    suspend fun aiHighlight(muster: String, begriff: String?): String {
+        val f = session.file ?: return context.getString(R.string.editor_ai_fail)
+        val regex = when (muster) {
+            "geld" -> Regex(
+                """\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\s*(?:€|EUR)|(?:€|EUR)\s*\d+(?:[.,]\d{1,2})?"""
+            )
+            "datum" -> Regex("""\b\d{1,2}\.\s?\d{1,2}\.\s?\d{2,4}\b""")
+            "iban" -> Regex(
+                """\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){3,7}(?:\s?[A-Z0-9]{1,3})?\b"""
+            )
+            "email" -> Regex("""[\w.+-]+@[\w-]+\.[A-Za-z]{2,}""")
+            else -> {
+                val term = begriff?.trim().orEmpty()
+                if (term.length < 2) return context.getString(R.string.editor_ai_fail)
+                Regex(Regex.escape(term), RegexOption.IGNORE_CASE)
+            }
+        }
+        val boxes = com.jakober.klarmail.data.PdfTextLocate.find(f, regex)
+        if (boxes.isEmpty()) return context.getString(R.string.editor_ai_no_matches)
+        boxes.forEach { b ->
+            val (wPt, hPt) = pageSizes.getOrNull(b.page) ?: return@forEach
+            val s = PdfSession.scaleFor(wPt, hPt, PdfSession.DISPLAY_PAGE_PX)
+            val yMid = (b.y + b.h / 2f) * s
+            marksFor(b.page).add(
+                Mark.Stroke(
+                    points = mutableListOf(
+                        Offset(b.x * s, yMid),
+                        Offset((b.x + b.w) * s, yMid)
+                    ),
+                    width = b.h * s,
+                    color = HIGHLIGHT_COLOR,
+                    highlight = true
+                )
+            )
+            noteAdded(b.page)
+        }
+        listState.scrollToItem(boxes.first().page)
+        return context.getString(R.string.editor_ai_marked, boxes.size)
+    }
+
+    /** Führt einen KI-Befehl aus und liefert die Chat-Antwort. */
+    suspend fun executeAi(cmd: org.json.JSONObject): String {
+        fun pageArg(key: String): Int {
+            val v = cmd.optInt(key, 0)
+            return if (v in 1..pageSizes.size) v - 1 else pageIndex
+        }
+        val aktion = cmd.optString("aktion")
+        val editCmds = setOf(
+            "drehen", "seite_loeschen", "leere_seite", "markieren",
+            "datum_stempel", "auszug", "verkleinern"
+        )
+        if (aktion in editCmds && !isPro) {
+            showProUpsell = true
+            return context.getString(R.string.editor_ai_need_pro)
+        }
+        return when (aktion) {
+            "gehe_zu" -> {
+                val p = pageArg("seite")
+                listState.scrollToItem(p)
+                context.getString(R.string.editor_search_page, p + 1)
+            }
+            "drehen" -> {
+                val p = pageArg("seite")
+                val cw = cmd.optString("richtung", "rechts") != "links"
+                rotatePageAt(p, cw)
+                context.getString(R.string.editor_ai_rotated, p + 1)
+            }
+            "seite_loeschen" -> {
+                val p = pageArg("seite")
+                deletePageAt(p)
+                context.getString(R.string.editor_ai_deleted, p + 1)
+            }
+            "leere_seite" -> {
+                val pos = cmd.optInt("position", 0)
+                    .let { if (it in 1..pageSizes.size) it else pageSizes.size }
+                insertOp(pos) { s, o ->
+                    if (com.jakober.klarmail.data.PdfPageOps.insertBlank(s, o, pos)) 1
+                    else -1
+                }
+                context.getString(R.string.editor_ai_inserted)
+            }
+            "nachtmodus" -> {
+                nightMode = cmd.optBoolean("an", true)
+                context.getString(
+                    if (nightMode) R.string.editor_ai_night_on
+                    else R.string.editor_ai_night_off
+                )
+            }
+            "suchen" -> {
+                val term = cmd.optString("begriff")
+                val f = session.file
+                if (term.length < 2 || f == null) {
+                    context.getString(R.string.editor_ai_fail)
+                } else {
+                    val hits = com.jakober.klarmail.data.PdfTextSearch.search(f, term)
+                    searchQuery = term
+                    searchResults = hits
+                    hits.firstOrNull()?.let { listState.scrollToItem(it.page) }
+                    context.getString(R.string.editor_ai_search, hits.size)
+                }
+            }
+            "markieren" -> aiHighlight(cmd.optString("muster"), cmd.optString("begriff"))
+            "datum_stempel" -> {
+                val p = pageArg("seite")
+                val (wPt, hPt) = pageSizes.getOrNull(p) ?: (595 to 842)
+                val s = PdfSession.scaleFor(wPt, hPt, PdfSession.DISPLAY_PAGE_PX)
+                val text = java.time.LocalDate.now().format(
+                    java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
+                )
+                marksFor(p).add(
+                    Mark.Label(
+                        text,
+                        Offset(wPt * s * 0.5f, hPt * s * 0.92f),
+                        wPt * s / 32f,
+                        drawColor
+                    )
+                )
+                noteAdded(p)
+                listState.scrollToItem(p)
+                context.getString(R.string.editor_ai_stamp)
+            }
+            "auszug" -> {
+                val from = cmd.optInt("von", 1) - 1
+                val to = cmd.optInt("bis", pageSizes.size) - 1
+                if (from < 0 || to >= pageSizes.size || from > to) {
+                    context.getString(R.string.editor_extract_invalid)
+                } else {
+                    extractPages(from, to)
+                    context.getString(R.string.editor_ai_saveflow)
+                }
+            }
+            "verkleinern" -> {
+                compressAndSave()
+                context.getString(R.string.editor_ai_saveflow)
+            }
+            "keine" -> cmd.optString("antwort")
+                .ifBlank { context.getString(R.string.editor_ai_fail) }
+            else -> context.getString(R.string.editor_ai_fail)
+        }
+    }
+
     // ---- Aktionen mit Schwaerzungs-Warnung ----------------------------
 
     fun executeAction(action: String) {
@@ -937,9 +1103,10 @@ fun AttachmentEditorScreen(
 
     fun runAction(action: String) {
         if (saving) return
-        // Speichern in jeder Form ist Pro — die Werkzeuge sind es auch, aber
-        // hier ist die letzte Tuer fuer alle Wege aus dem Menue
-        if (!isPro) {
+        // Speichern in jeder Form ist Pro — mit einer Ausnahme: In der
+        // Frei-Stufe darf das unterschriebene Dokument als Mail-Antwort
+        // zurueckgeschickt werden. Alles andere oeffnet den Kauf-Hinweis.
+        if (!isPro && !(freeSign && action == "send_mail")) {
             showProUpsell = true
             return
         }
@@ -1028,6 +1195,87 @@ fun AttachmentEditorScreen(
             dismissButton = {
                 TextButton(onClick = { textAsk = null }) {
                     Text(stringResource(R.string.editor_cancel))
+                }
+            }
+        )
+    }
+
+    if (aiOpen) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { aiOpen = false },
+            title = { Text(stringResource(R.string.editor_ai_title)) },
+            text = {
+                Column {
+                    if (aiMessages.isEmpty()) {
+                        Text(
+                            stringResource(R.string.editor_ai_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    } else {
+                        LazyColumn(Modifier.heightIn(max = 280.dp)) {
+                            items(aiMessages) { (user, txt) ->
+                                Text(
+                                    txt,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (user) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    androidx.compose.material3.OutlinedTextField(
+                        value = aiInput,
+                        onValueChange = { aiInput = it },
+                        singleLine = true,
+                        placeholder = {
+                            Text(stringResource(R.string.editor_ai_placeholder))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = aiInput.isNotBlank() && !aiBusy,
+                    onClick = {
+                        val q = aiInput.trim()
+                        aiInput = ""
+                        aiMessages.add(true to q)
+                        aiBusy = true
+                        scope.launch {
+                            val cmd = com.jakober.klarmail.data.EditorAi
+                                .command(q, pageSizes.size, pageIndex + 1)
+                            val answer = if (cmd == null) {
+                                context.getString(R.string.editor_ai_fail)
+                            } else {
+                                runCatching { executeAi(cmd) }.getOrElse {
+                                    context.getString(R.string.editor_ai_fail)
+                                }
+                            }
+                            aiMessages.add(false to answer)
+                            aiBusy = false
+                        }
+                    }
+                ) {
+                    if (aiBusy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp), strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(stringResource(R.string.editor_ai_send))
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { aiOpen = false }) {
+                    Text(stringResource(R.string.editor_back))
                 }
             }
         )
@@ -1485,6 +1733,16 @@ fun AttachmentEditorScreen(
                     }
                 },
                 actions = {
+                    if (aiAvailable && isPdf && ready) {
+                        IconButton(onClick = { aiOpen = true }) {
+                            Icon(
+                                Icons.Filled.AutoAwesome,
+                                contentDescription = stringResource(
+                                    R.string.editor_ai_title
+                                )
+                            )
+                        }
+                    }
                     if (DocumentHost.extendedFeatures && isPdf && ready) {
                         IconButton(onClick = { searchOpen = true }) {
                             Icon(
@@ -1516,22 +1774,26 @@ fun AttachmentEditorScreen(
                             onDismissRequest = { menuOpen = false }
                         ) {
                             androidx.compose.material3.DropdownMenuItem(
-                                text = { Text(stringResource(R.string.editor_menu_save_as)) },
+                                text = {
+                                    ProMenuText(R.string.editor_menu_save_as, !isPro)
+                                },
                                 onClick = { menuOpen = false; runAction("save_as") }
                             )
                             androidx.compose.material3.DropdownMenuItem(
-                                text = { Text(stringResource(R.string.editor_menu_share)) },
+                                text = {
+                                    ProMenuText(R.string.editor_menu_share, !isPro)
+                                },
                                 onClick = { menuOpen = false; runAction("share") }
                             )
                             if (isPdf) {
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.editor_menu_print)) },
+                                    text = { ProMenuText(R.string.editor_menu_print, !isPro) },
                                     onClick = { menuOpen = false; runAction("print") }
                                 )
                             }
                             if (source.origin != AttachmentEditing.Origin.MAIL) {
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.editor_menu_send_mail)) },
+                                    text = { ProMenuText(R.string.editor_menu_send_mail, !isPro && !freeSign) },
                                     onClick = { menuOpen = false; runAction("send_mail") }
                                 )
                             }
@@ -1579,9 +1841,7 @@ fun AttachmentEditorScreen(
                                         onClick = { menuOpen = false; nightMode = !nightMode }
                                     )
                                     androidx.compose.material3.DropdownMenuItem(
-                                        text = {
-                                            Text(stringResource(R.string.editor_menu_form))
-                                        },
+                                        text = { ProMenuText(R.string.editor_menu_form, !isPro) },
                                         onClick = {
                                             menuOpen = false
                                             if (!isPro) {
@@ -1606,18 +1866,14 @@ fun AttachmentEditorScreen(
                                         }
                                     )
                                     androidx.compose.material3.DropdownMenuItem(
-                                        text = {
-                                            Text(stringResource(R.string.editor_menu_scan))
-                                        },
+                                        text = { ProMenuText(R.string.editor_menu_scan, !isPro) },
                                         onClick = {
                                             menuOpen = false
                                             if (!isPro) showProUpsell = true else launchScan()
                                         }
                                     )
                                     androidx.compose.material3.DropdownMenuItem(
-                                        text = {
-                                            Text(stringResource(R.string.editor_menu_extract))
-                                        },
+                                        text = { ProMenuText(R.string.editor_menu_extract, !isPro) },
                                         enabled = pageSizes.size > 1,
                                         onClick = {
                                             menuOpen = false
@@ -1626,9 +1882,7 @@ fun AttachmentEditorScreen(
                                         }
                                     )
                                     androidx.compose.material3.DropdownMenuItem(
-                                        text = {
-                                            Text(stringResource(R.string.editor_menu_protect))
-                                        },
+                                        text = { ProMenuText(R.string.editor_menu_protect, !isPro) },
                                         onClick = {
                                             menuOpen = false
                                             if (!isPro) showProUpsell = true
@@ -1636,9 +1890,7 @@ fun AttachmentEditorScreen(
                                         }
                                     )
                                     androidx.compose.material3.DropdownMenuItem(
-                                        text = {
-                                            Text(stringResource(R.string.editor_menu_compress))
-                                        },
+                                        text = { ProMenuText(R.string.editor_menu_compress, !isPro) },
                                         onClick = {
                                             menuOpen = false
                                             if (!isPro) showProUpsell = true
@@ -1647,37 +1899,52 @@ fun AttachmentEditorScreen(
                                     )
                                 }
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.editor_menu_rotate_left)) },
-                                    onClick = { menuOpen = false; rotatePage(cw = false) }
+                                    text = { ProMenuText(R.string.editor_menu_rotate_left, !isPro) },
+                                    onClick = {
+                                        menuOpen = false
+                                        if (!isPro) showProUpsell = true
+                                        else rotatePage(cw = false)
+                                    }
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.editor_menu_rotate_right)) },
-                                    onClick = { menuOpen = false; rotatePage(cw = true) }
+                                    text = { ProMenuText(R.string.editor_menu_rotate_right, !isPro) },
+                                    onClick = {
+                                        menuOpen = false
+                                        if (!isPro) showProUpsell = true
+                                        else rotatePage(cw = true)
+                                    }
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.editor_menu_delete_page)) },
+                                    text = { ProMenuText(R.string.editor_menu_delete_page, !isPro) },
                                     enabled = pageSizes.size > 1,
-                                    onClick = { menuOpen = false; deletePage() }
-                                )
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.editor_menu_insert_blank)) },
                                     onClick = {
                                         menuOpen = false
-                                        insertBlankAsk = true
+                                        if (!isPro) showProUpsell = true
+                                        else deletePage()
                                     }
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.editor_menu_append_pdf)) },
+                                    text = { ProMenuText(R.string.editor_menu_insert_blank, !isPro) },
                                     onClick = {
                                         menuOpen = false
-                                        insertPdfLauncher.launch(arrayOf("application/pdf"))
+                                        if (!isPro) showProUpsell = true
+                                        else insertBlankAsk = true
                                     }
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.editor_menu_append_images)) },
+                                    text = { ProMenuText(R.string.editor_menu_append_pdf, !isPro) },
                                     onClick = {
                                         menuOpen = false
-                                        appendImagesLauncher.launch(arrayOf("image/*"))
+                                        if (!isPro) showProUpsell = true
+                                        else insertPdfLauncher.launch(arrayOf("application/pdf"))
+                                    }
+                                )
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { ProMenuText(R.string.editor_menu_append_images, !isPro) },
+                                    onClick = {
+                                        menuOpen = false
+                                        if (!isPro) showProUpsell = true
+                                        else appendImagesLauncher.launch(arrayOf("image/*"))
                                     }
                                 )
                             }
@@ -1898,11 +2165,19 @@ fun AttachmentEditorScreen(
                             } else base
                         }
                         tools.forEach { (key, labelRes, icon) ->
+                            // Frei erlaubt: Ansehen immer, Unterschrift in der
+                            // Frei-Stufe. Alles andere zeigt "(Pro)" und
+                            // oeffnet beim Antippen den Kauf-Hinweis — so
+                            // sieht man, was das Werkzeug alles kann.
+                            val allowed = isPro || key == "view" ||
+                                (freeSign && key == "sign")
+                            val lockedColor = MaterialTheme.colorScheme
+                                .onSurface.copy(alpha = 0.38f)
                             FilterChip(
                                 selected = mode == key,
                                 onClick = {
                                     when {
-                                        key != "view" && !isPro -> showProUpsell = true
+                                        !allowed -> showProUpsell = true
                                         key == "sign" &&
                                             (if (signSlot == 1) initials else signature) == null -> {
                                             signaturePadSlot = signSlot
@@ -1913,8 +2188,22 @@ fun AttachmentEditorScreen(
                                         else -> mode = key
                                     }
                                 },
-                                label = { Text(stringResource(labelRes)) },
-                                leadingIcon = { Icon(icon, contentDescription = null) }
+                                label = {
+                                    Text(
+                                        stringResource(labelRes) +
+                                            if (!allowed) " (Pro)" else "",
+                                        color = if (!allowed) lockedColor
+                                        else Color.Unspecified
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        icon,
+                                        contentDescription = null,
+                                        tint = if (!allowed) lockedColor
+                                        else androidx.compose.material3.LocalContentColor.current
+                                    )
+                                }
                             )
                         }
                     }
@@ -2244,6 +2533,21 @@ fun AttachmentEditorScreen(
             }
         }
     }
+}
+
+/**
+ * Menüpunkt-Beschriftung mit Pro-Kennzeichnung: Gesperrte Einträge bleiben
+ * sichtbar, tragen aber „(Pro)“ und sind gedämpft — so sieht auch der
+ * Frei-Nutzer, was das Werkzeug alles kann.
+ */
+@Composable
+private fun ProMenuText(res: Int, locked: Boolean) {
+    Text(
+        stringResource(res) + if (locked) " (Pro)" else "",
+        color = if (locked) {
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        } else Color.Unspecified
+    )
 }
 
 /**

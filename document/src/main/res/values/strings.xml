@@ -128,4 +128,20 @@
     <string name="editor_compress_text">Die Seiten werden als Bilder gespeichert — die Datei wird deutlich kleiner, Text ist danach aber nicht mehr markierbar.</string>
     <string name="editor_compress_ok">Verkleinern</string>
     <string name="editor_suffix_small">klein</string>
+    <string name="editor_ai_title">KI-Assistent</string>
+    <string name="editor_ai_hint">Sag mir in eigenen Worten, was ich am Dokument tun soll — z. B. „Drehe Seite 3“, „Markiere alle Geldbeträge“ oder „Lösche die letzte Seite“. Alles läuft direkt auf deinem Gerät.</string>
+    <string name="editor_ai_placeholder">Was soll ich tun?</string>
+    <string name="editor_ai_send">Senden</string>
+    <string name="editor_ai_fail">Das habe ich leider nicht verstanden.</string>
+    <string name="editor_ai_need_pro">Dafür wird Pro benötigt.</string>
+    <string name="editor_ai_marked">%1$d Stellen markiert.</string>
+    <string name="editor_ai_no_matches">Keine Fundstellen.</string>
+    <string name="editor_ai_rotated">Seite %1$d gedreht.</string>
+    <string name="editor_ai_deleted">Seite %1$d gelöscht.</string>
+    <string name="editor_ai_inserted">Leere Seite eingefügt.</string>
+    <string name="editor_ai_night_on">Nachtmodus an.</string>
+    <string name="editor_ai_night_off">Nachtmodus aus.</string>
+    <string name="editor_ai_search">%1$d Treffer — Ergebnisse liegen unter der Lupe.</string>
+    <string name="editor_ai_stamp">Datumsstempel gesetzt.</string>
+    <string name="editor_ai_saveflow">Alles klar — der Speichern-Dialog öffnet sich gleich.</string>
 </resources>

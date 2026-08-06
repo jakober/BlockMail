@@ -38,4 +38,7 @@ dependencies {
     // PDF: PdfRenderer/PdfDocument sind Bordmittel; PDFBox fuer
     // Entschluesseln, Overlay-Speichern und Seitenoperationen
     api("com.tom-roush:pdfbox-android:2.0.27.0")
+    // On-Device-KI (Gemini Nano ueber die ML-Kit-Prompt-API) fuer den
+    // KI-Assistenten des Editors — laeuft komplett auf dem Geraet
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
 }

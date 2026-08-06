@@ -33,6 +33,9 @@ class MailApp : Application() {
         // Suche, Formulare, Scannen, Auszug, Passwort, Verkleinern,
         // Nachtmodus, Seiten- und Inhaltsuebersicht
         com.jakober.klarmail.data.DocumentHost.extendedFeatures = true
+        // Frei-Stufe: Unterschreiben + als Antwort senden geht ohne Abo,
+        // alle uebrigen Werkzeuge zeigen "(Pro)" und den Kauf-Hinweis
+        com.jakober.klarmail.data.DocumentHost.freeSignatureAndSend = true
         com.jakober.klarmail.data.MailIndex.init(this)
         createChannels()
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)

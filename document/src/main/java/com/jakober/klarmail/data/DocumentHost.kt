@@ -34,4 +34,14 @@ object DocumentHost {
      */
     @Volatile
     var extendedFeatures: Boolean = false
+
+    /**
+     * Frei-Stufe „Unterschreiben & Weitersenden“: Ohne Abo dürfen
+     * Unterschrift/Kürzel gesetzt und das Ergebnis als Mail-Antwort
+     * verschickt werden. Alle übrigen Werkzeuge bleiben sichtbar, tragen
+     * aber „(Pro)“ und öffnen den Kauf-Hinweis. BlockMail schaltet das ein;
+     * BlockPDF bleibt bei „Ansehen frei, Bearbeiten mit Pro“.
+     */
+    @Volatile
+    var freeSignatureAndSend: Boolean = false
 }

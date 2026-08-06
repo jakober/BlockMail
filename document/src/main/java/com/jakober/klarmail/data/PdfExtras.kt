@@ -219,6 +219,81 @@ object PdfCompress {
     }
 }
 
+/**
+ * Findet Textstellen samt POSITION — Grundlage für „markiere alle
+ * Geldbeträge/Begriffe“: Die Fundstellen werden dem Editor als Rechtecke
+ * (PDF-Punkte der gedrehten Seite, Ursprung oben links) gemeldet, der legt
+ * dort dann echte Textmarker-Aufsätze hin.
+ */
+object PdfTextLocate {
+
+    data class Box(val page: Int, val x: Float, val y: Float, val w: Float, val h: Float)
+
+    suspend fun find(file: File, regex: Regex, maxBoxes: Int = 400): List<Box> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                PDDocument.load(file, MEM).use { doc ->
+                    val boxes = mutableListOf<Box>()
+                    for (p in 0 until doc.numberOfPages) {
+                        if (boxes.size >= maxBoxes) break
+                        val pageText = StringBuilder()
+                        val charPos = ArrayList<com.tom_roush.pdfbox.text.TextPosition?>()
+                        val stripper = object : PDFTextStripper() {
+                            override fun writeString(
+                                text: String,
+                                textPositions: MutableList<
+                                    com.tom_roush.pdfbox.text.TextPosition>
+                            ) {
+                                // Zeichen fuer Zeichen die Position merken —
+                                // ein TextPosition kann mehrere Zeichen
+                                // tragen (Ligaturen)
+                                textPositions.forEach { tp ->
+                                    val u = tp.unicode ?: return@forEach
+                                    for (ch in u) {
+                                        pageText.append(ch)
+                                        charPos.add(tp)
+                                    }
+                                }
+                            }
+
+                            override fun writeWordSeparator() {
+                                pageText.append(' ')
+                                charPos.add(null)
+                            }
+
+                            override fun writeLineSeparator() {
+                                pageText.append('\n')
+                                charPos.add(null)
+                            }
+                        }
+                        stripper.startPage = p + 1
+                        stripper.endPage = p + 1
+                        runCatching { stripper.getText(doc) }
+                        regex.findAll(pageText).forEach mloop@{ m ->
+                            if (boxes.size >= maxBoxes) return@mloop
+                            val tps = (m.range.first..m.range.last)
+                                .mapNotNull { charPos.getOrNull(it) }
+                            if (tps.isEmpty()) return@mloop
+                            // Je Zeile ein Kasten (mehrzeilige Treffer)
+                            tps.groupBy { (it.yDirAdj / 5f).toInt() }.values.forEach { line ->
+                                val x0 = line.minOf { it.xDirAdj }
+                                val x1 = line.maxOf { it.xDirAdj + it.widthDirAdj }
+                                val hMax = line.maxOf { tp ->
+                                    tp.heightDir.takeIf { it > 1f } ?: 9f
+                                }
+                                val yBase = line.maxOf { it.yDirAdj }
+                                if (x1 > x0) {
+                                    boxes += Box(p, x0, yBase - hMax, x1 - x0, hMax * 1.25f)
+                                }
+                            }
+                        }
+                    }
+                    boxes
+                }
+            }.getOrDefault(emptyList())
+        }
+}
+
 /** Inhaltsverzeichnis (Lesezeichen) eines PDFs mit Sprungzielen. */
 object PdfOutline {
 
