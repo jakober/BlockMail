@@ -41,7 +41,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -111,6 +110,30 @@ private val setupProviders = listOf(
 )
 
 /**
+ * Öffnet eine Hilfeseite als In-App-Overlay (Custom Tab): fühlt sich wie ein
+ * Popup der App an, teilt die Browser-Sitzung (bei Google meist schon
+ * angemeldet) und führt nach dem Schließen direkt zurück. Rückfall auf den
+ * externen Browser, falls kein Custom-Tab-fähiger Browser da ist.
+ */
+internal fun openInAppTab(context: android.content.Context, url: String) {
+    runCatching {
+        androidx.browser.customtabs.CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .build()
+            .launchUrl(context, android.net.Uri.parse(url))
+    }.onFailure {
+        runCatching {
+            context.startActivity(
+                android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse(url)
+                )
+            )
+        }
+    }
+}
+
+/**
  * Einrichtungsassistent: Anbieter wählen, E-Mail + Passwort eingeben — Server
  * und Ports setzt die App selbst, die Verbindung wird vor dem Speichern getestet.
  */
@@ -118,7 +141,6 @@ private val setupProviders = listOf(
 @Composable
 fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
 
     var provider by remember { mutableStateOf<SetupProvider?>(null) }
@@ -266,7 +288,7 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text(stringResource(p.noteRes), style = MaterialTheme.typography.bodyMedium)
                         p.helpUrl?.let { url ->
-                            TextButton(onClick = { runCatching { uriHandler.openUri(url) } }) {
+                            TextButton(onClick = { openInAppTab(context, url) }) {
                                 Text(stringResource(p.helpLabelRes ?: R.string.setup_help_open))
                                 Spacer(Modifier.width(6.dp))
                                 Icon(

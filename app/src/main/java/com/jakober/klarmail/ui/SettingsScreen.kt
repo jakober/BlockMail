@@ -860,7 +860,9 @@ fun SettingsScreen(
                     )
                 }
                 if (providerId == "gmail") {
-                    OutlinedButton(onClick = { uriHandler.openUri("https://myaccount.google.com/apppasswords") }) {
+                    OutlinedButton(onClick = {
+                        openInAppTab(context, "https://myaccount.google.com/apppasswords")
+                    }) {
                         Text(stringResource(R.string.settings_gmail_app_password))
                         Spacer(Modifier.width(6.dp))
                         Icon(
