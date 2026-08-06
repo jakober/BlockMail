@@ -1,6 +1,6 @@
 # Play-Store-Eintrag (ASO-optimiert, de-DE + en-US)
 
-Stand: v3.96 · Empfehlung aus dem Testers-Community-Feedback umgesetzt:
+Stand: v4.10 · Empfehlung aus dem Testers-Community-Feedback umgesetzt:
 mehr Text, natürliche Suchbegriffe (E-Mail-App, IMAP, KI, Spam,
 Phishing, Newsletter, Push, Dark Mode …), Alleinstellungsmerkmale
 prominent.
@@ -28,7 +28,7 @@ ECHTZEIT-PUSH
 Neue E-Mails erreichen dich in Sekunden — dank dauerhafter IMAP-Verbindung, zuverlässig auch nach Neustarts und Netzwechseln.
 
 PDF UNTERSCHREIBEN, BEARBEITEN, ALS STANDARD-APP
-Vertrag als PDF bekommen? Öffnen, mit dem Finger unterschreiben, direkt als Antwort zurücksenden — ohne Drucker, Scanner oder zweite App. Dazu ein vollwertiger PDF-Editor: Textmarker, Häkchen, Datumsstempel, Schwärzen (wird echt eingebrannt), Seiten drehen und löschen, PDFs und Fotos anhängen, drucken. Funktioniert auch mit PDFs aus WhatsApp und dem Dateimanager — BlockMail lässt sich als Standard-PDF-Programm festlegen. Auch passwortgeschützte PDFs lassen sich öffnen.
+Vertrag als PDF bekommen? Öffnen, mit dem Finger unterschreiben, direkt als Antwort zurücksenden — ohne Drucker, Scanner oder zweite App. Dazu ein vollwertiger PDF-Editor: Textmarker, Häkchen, Datumsstempel, zweite Unterschrift als Kürzel, Schwärzen (wird echt eingebrannt). Jedes Element lässt sich antippen, verschieben, vergrößern oder löschen. Seiten drehen und löschen, leere Seiten oder ganze PDFs an beliebiger Stelle einfügen, Fotos anhängen, drucken. Funktioniert auch mit PDFs aus WhatsApp und dem Dateimanager — BlockMail lässt sich als Standard-PDF-Programm festlegen. Auch passwortgeschützte PDFs lassen sich öffnen.
 
 ALLE ANHÄNGE AN EINEM ORT
 Bilder, PDFs und Dokumente aus allen Mails liegen gebündelt in einer Galerie — nach Typ filterbar, direkt zu öffnen und zu teilen. Nie wieder die Mail suchen, nur um den Anhang zu finden.
@@ -41,6 +41,7 @@ Liste oder Kacheln, hell oder dunkel, sechs Farbwelten plus eigene Farbe, schlic
 
 ALLES DRIN
 • Mehrere Konten mit Sammel-Posteingang und Konto-Farben
+• Wichtig-Stern mit eigenem Ordner über alle Postfächer
 • Wischgesten: gelesen, erinnern, archivieren, löschen (frei belegbar)
 • Konversations-Ansicht bündelt Mail-Verläufe
 • Lokaler Suchindex: findet auch jahrealte Mails in Sekunden
@@ -76,7 +77,7 @@ REAL-TIME PUSH
 New emails reach you in seconds — thanks to a persistent IMAP connection that survives reboots and network changes.
 
 SIGN AND EDIT PDFS, EVEN AS YOUR DEFAULT APP
-Got a contract as a PDF? Open it, sign with your finger, send it straight back as a reply — no printer, scanner or second app. Plus a full PDF editor: highlighter, checkmarks, date stamps, true burned-in redaction, rotate and delete pages, append PDFs and photos, print. Works with PDFs from WhatsApp and your file manager too — you can set BlockMail as your default PDF app. Password-protected PDFs open as well.
+Got a contract as a PDF? Open it, sign with your finger, send it straight back as a reply — no printer, scanner or second app. Plus a full PDF editor: highlighter, checkmarks, date stamps, a second signature for initials, true burned-in redaction. Tap any element to move, resize or delete it. Rotate and delete pages, insert blank pages or whole PDFs at any position, append photos, print. Works with PDFs from WhatsApp and your file manager too — you can set BlockMail as your default PDF app. Password-protected PDFs open as well.
 
 ALL ATTACHMENTS IN ONE PLACE
 Images, PDFs and documents from every email are gathered in one gallery — filter by type, open and share them directly. Never hunt for an email just to find its attachment again.
@@ -89,6 +90,7 @@ List or tiles, light or dark, six color schemes plus a custom color, a plain dis
 
 EVERYTHING INCLUDED
 • Multiple accounts with a unified inbox and per-account colors
+• Star important mails — one folder across all accounts
 • Swipe gestures: read, snooze, archive, delete (fully configurable)
 • Conversation view groups mail threads
 • Local search index: finds even years-old mails in seconds
