@@ -229,6 +229,19 @@ object BillingManager {
     }
 
     /**
+     * Der nackte Basis-Tarif OHNE Testphasen-Angebot — fuer den
+     * Tarifwechsel. Bestandskunden sind fuer das Neukunden-Angebot mit
+     * Gratis-Testphase nicht berechtigt; wird dessen Angebots-Token beim
+     * Wechsel mitgeschickt, lehnt Play mit einer nichtssagenden
+     * Fehlermeldung ab („Bei uns ist ein Fehler aufgetreten").
+     */
+    private fun baseOfferFor(basePlanId: String): ProductDetails.SubscriptionOfferDetails? {
+        val offers = _productDetails.value?.subscriptionOfferDetails
+            ?.filter { it.basePlanId == basePlanId } ?: return null
+        return offers.minByOrNull { it.pricingPhases.pricingPhaseList.size }
+    }
+
+    /**
      * Preis eines Basis-Tarifs, wie ihn Play anzeigt (z. B. „4,90 €“) —
      * null, solange die Angebotsdaten noch nicht geladen sind. Genommen
      * wird die LETZTE Preisphase, also der Dauerpreis nach der Testphase.
@@ -349,7 +362,12 @@ object BillingManager {
             queryProduct()
             return false
         }
-        val offerToken = offerFor(basePlanId)?.offerToken ?: return false
+        val oldTokenPeek = Prefs.purchaseToken
+        val switching = ProAccess.hasSubscription && oldTokenPeek.isNotBlank() &&
+            Prefs.proPlan.isNotBlank() && Prefs.proPlan != basePlanId
+        // Wechsel: Basis-Tarif ohne Testphase. Neukauf: Angebot mit Testphase.
+        val offerToken = (if (switching) baseOfferFor(basePlanId) else offerFor(basePlanId))
+            ?.offerToken ?: return false
         val builder = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(
                 listOf(
@@ -363,16 +381,24 @@ object BillingManager {
         // Nur wechseln, wenn wirklich noch ein Abo laeuft. Mit dem Token
         // eines gekuendigten Abos lehnt Play den Kauf mit einer nichts
         // sagenden Fehlermeldung ab.
-        if (ProAccess.hasSubscription && oldToken.isNotBlank() &&
-            Prefs.proPlan.isNotBlank() && Prefs.proPlan != basePlanId
-        ) {
+        if (switching) {
             pendingSwitchToken = oldToken
+            // Verrechnungsart nach Richtung: Beim Aufstieg (Pro → Pro+)
+            // rechnet Play den Restbetrag an — das erlaubt es NUR, wenn der
+            // neue Tarif teurer ist. Beim Rueckwechsel greift der neue Tarif
+            // zur naechsten Verlaengerung, ohne Anrechnung — sonst lehnt
+            // Play den Wechsel komplett ab.
+            val upgrade = basePlanId == BASE_PLAN_PLUS
             builder.setSubscriptionUpdateParams(
                 BillingFlowParams.SubscriptionUpdateParams.newBuilder()
                     .setOldPurchaseToken(oldToken)
                     .setSubscriptionReplacementMode(
-                        BillingFlowParams.SubscriptionUpdateParams
-                            .ReplacementMode.CHARGE_PRORATED_PRICE
+                        if (upgrade)
+                            BillingFlowParams.SubscriptionUpdateParams
+                                .ReplacementMode.CHARGE_PRORATED_PRICE
+                        else
+                            BillingFlowParams.SubscriptionUpdateParams
+                                .ReplacementMode.WITHOUT_PRORATION
                     )
                     .build()
             )
