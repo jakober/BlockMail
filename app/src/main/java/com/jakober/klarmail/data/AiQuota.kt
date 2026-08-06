@@ -159,6 +159,13 @@ object AiQuota {
      * bisherige Stand stehen und es wird false zurückgegeben.
      */
     suspend fun refresh(): Boolean = withContext(Dispatchers.IO) {
+        // Ohne Kauf-Token kann der Server nur ablehnen (403
+        // kein_kauf_token) — die Anfrage waere reiner Protokoll-Laerm.
+        // Der Zaehler im Geraet gilt dann ohnehin.
+        if (Prefs.purchaseToken.isBlank()) {
+            ensureLoaded()
+            return@withContext false
+        }
         _loading.value = true
         try {
             val request = Request.Builder()
