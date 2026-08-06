@@ -29,6 +29,10 @@ class MailApp : Application() {
         com.jakober.klarmail.data.DocumentHost.upsell = { onDismiss ->
             com.jakober.klarmail.ui.ProUpsellDialog(onDismiss = onDismiss)
         }
+        // Voller Editor-Umfang auch in BlockMail: Text, Bilder, Formen,
+        // Suche, Formulare, Scannen, Auszug, Passwort, Verkleinern,
+        // Nachtmodus, Seiten- und Inhaltsuebersicht
+        com.jakober.klarmail.data.DocumentHost.extendedFeatures = true
         com.jakober.klarmail.data.MailIndex.init(this)
         createChannels()
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)
