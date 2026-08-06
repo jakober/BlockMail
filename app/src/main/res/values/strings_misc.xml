@@ -158,7 +158,14 @@
     <string name="editor_menu_rotate_left">Seite links drehen</string>
     <string name="editor_menu_rotate_right">Seite rechts drehen</string>
     <string name="editor_menu_delete_page">Seite löschen</string>
-    <string name="editor_menu_append_pdf">PDF anhängen …</string>
+    <string name="editor_menu_append_pdf">PDF einfügen …</string>
+    <string name="editor_menu_insert_blank">Leere Seite einfügen …</string>
+    <string name="editor_insert_title">An welcher Stelle?</string>
+    <string name="editor_insert_front">Ganz vorne</string>
+    <string name="editor_insert_current">Nach der aktuellen Seite</string>
+    <string name="editor_insert_end">Ganz hinten</string>
+    <string name="editor_insert_after_label">Nach Seite (0 = ganz vorne)</string>
+    <string name="editor_insert_do">Einfügen</string>
     <string name="editor_menu_append_images">Fotos anhängen …</string>
     <string name="editor_save_overwrite">Speichern</string>
     <string name="editor_saved">Gespeichert.</string>

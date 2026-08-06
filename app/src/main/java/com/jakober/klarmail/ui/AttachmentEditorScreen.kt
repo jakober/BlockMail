@@ -670,8 +670,12 @@ fun AttachmentEditorScreen(
         ) { s, o -> com.jakober.klarmail.data.PdfPageOps.delete(s, o, idx) }
     }
 
-    /** Anhaengen liefert die Zahl neuer Seiten — die bekommen frische Kennungen. */
-    fun appendDoc(run: suspend (File, File) -> Int) {
+    /**
+     * Fuegt neue Seiten an Position [at] ein (0 = ganz vorne, Seitenzahl =
+     * ganz hinten). [op] liefert die Zahl der neuen Seiten — die bekommen
+     * frische Kennungen, die vorhandenen Aufsaetze wandern mit ihren Seiten.
+     */
+    fun insertOp(at: Int, op: suspend (File, File) -> Int) {
         if (busyOp || !isPdf) return
         busyOp = true
         scope.launch {
@@ -681,13 +685,15 @@ fun AttachmentEditorScreen(
                 return@launch
             }
             val outF = File(srcF.parentFile ?: context.cacheDir, "op_${System.currentTimeMillis()}.pdf")
-            val added = runCatching { run(srcF, outF) }.getOrDefault(-1)
+            val added = runCatching { op(srcF, outF) }.getOrDefault(-1)
             if (added <= 0) {
                 runCatching { outF.delete() }
                 snackbar.showSnackbar(context.getString(R.string.editor_page_op_failed))
             } else {
                 val next = (pageIds.maxOfOrNull { it.value } ?: -1L) + 1
-                val ids = pageIds + List(added) { PageId(next + it) }
+                val pos = at.coerceIn(0, pageIds.size)
+                val ids = pageIds.take(pos) + List(added) { PageId(next + it) } +
+                    pageIds.drop(pos)
                 if (!adoptOpResult(outF, ids)) {
                     snackbar.showSnackbar(context.getString(R.string.editor_page_op_failed))
                 }
@@ -696,17 +702,18 @@ fun AttachmentEditorScreen(
         }
     }
 
-    val appendPdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+    // Einfuege-Dialog: fragt nach der Position. uri gesetzt = PDF einfuegen,
+    // sonst leere Seite.
+    var insertUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var insertBlankAsk by remember { mutableStateOf(false) }
+
+    val insertPdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) appendDoc { s, o ->
-            com.jakober.klarmail.data.PdfPageOps.appendPdf(context, s, uri, o)
-        }
-    }
+    ) { uri -> if (uri != null) insertUri = uri }
     val appendImagesLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
-        if (!uris.isNullOrEmpty()) appendDoc { s, o ->
+        if (!uris.isNullOrEmpty()) insertOp(pageIds.size) { s, o ->
             com.jakober.klarmail.data.PdfPageOps.appendImages(context, s, uris, o)
         }
     }
@@ -782,6 +789,31 @@ fun AttachmentEditorScreen(
 
     if (showProUpsell) {
         ProUpsellDialog(onDismiss = { showProUpsell = false })
+    }
+
+    if (insertBlankAsk || insertUri != null) {
+        val uriToInsert = insertUri
+        InsertPositionDialog(
+            pageCount = pageSizes.size,
+            currentPage = pageIndex + 1,
+            onCancel = {
+                insertBlankAsk = false
+                insertUri = null
+            },
+            onPick = { at ->
+                insertBlankAsk = false
+                insertUri = null
+                if (uriToInsert == null) {
+                    insertOp(at) { s, o ->
+                        if (com.jakober.klarmail.data.PdfPageOps.insertBlank(s, o, at)) 1 else -1
+                    }
+                } else {
+                    insertOp(at) { s, o ->
+                        com.jakober.klarmail.data.PdfPageOps.insertPdf(context, s, uriToInsert, o, at)
+                    }
+                }
+            }
+        )
     }
 
     redactWarnAction?.let { queued ->
@@ -879,10 +911,17 @@ fun AttachmentEditorScreen(
                                     onClick = { menuOpen = false; deletePage() }
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.editor_menu_insert_blank)) },
+                                    onClick = {
+                                        menuOpen = false
+                                        insertBlankAsk = true
+                                    }
+                                )
+                                androidx.compose.material3.DropdownMenuItem(
                                     text = { Text(stringResource(R.string.editor_menu_append_pdf)) },
                                     onClick = {
                                         menuOpen = false
-                                        appendPdfLauncher.launch(arrayOf("application/pdf"))
+                                        insertPdfLauncher.launch(arrayOf("application/pdf"))
                                     }
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
@@ -1791,6 +1830,69 @@ private fun SignaturePad(
                     onSave(AttachmentEditing.trim(bmp))
                 }
             ) { Text(stringResource(R.string.editor_signature_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel) {
+                Text(stringResource(R.string.editor_cancel))
+            }
+        }
+    )
+}
+
+/**
+ * Fragt, an welcher Stelle neue Seiten eingefügt werden sollen.
+ * 0 = ganz vorne, [pageCount] = ganz hinten, dazwischen = nach Seite N.
+ */
+@Composable
+private fun InsertPositionDialog(
+    pageCount: Int,
+    currentPage: Int,
+    onCancel: () -> Unit,
+    onPick: (Int) -> Unit
+) {
+    var text by remember { mutableStateOf(currentPage.toString()) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.editor_insert_title)) },
+        text = {
+            Column {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = false,
+                        onClick = { onPick(0) },
+                        label = { Text(stringResource(R.string.editor_insert_front)) }
+                    )
+                    FilterChip(
+                        selected = false,
+                        onClick = { onPick(currentPage) },
+                        label = { Text(stringResource(R.string.editor_insert_current)) }
+                    )
+                    FilterChip(
+                        selected = false,
+                        onClick = { onPick(pageCount) },
+                        label = { Text(stringResource(R.string.editor_insert_end)) }
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = { v -> text = v.filter { it.isDigit() }.take(4) },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.editor_insert_after_label)) },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                onPick((text.toIntOrNull() ?: pageCount).coerceIn(0, pageCount))
+            }) { Text(stringResource(R.string.editor_insert_do)) }
         },
         dismissButton = {
             TextButton(onClick = onCancel) {

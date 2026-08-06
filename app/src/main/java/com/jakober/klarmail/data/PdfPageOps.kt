@@ -53,10 +53,42 @@ object PdfPageOps {
         }
 
     /**
-     * Hängt das PDF hinter [other] an [src] an.
+     * Fügt eine leere Seite an Position [atIndex] ein (0 = ganz vorne,
+     * Seitenzahl = ganz hinten). Größe folgt der Nachbarseite.
+     */
+    suspend fun insertBlank(src: File, out: File, atIndex: Int): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                PDDocument.load(src, memory).use { doc ->
+                    val at = atIndex.coerceIn(0, doc.numberOfPages)
+                    val neighbor = doc.getPage(
+                        (at - 1).coerceIn(0, doc.numberOfPages - 1)
+                    )
+                    val box = neighbor.mediaBox
+                    val page = PDPage(PDRectangle(box.width, box.height))
+                    if (at < doc.numberOfPages) {
+                        doc.documentCatalog.pages.insertBefore(page, doc.getPage(at))
+                    } else {
+                        doc.addPage(page)
+                    }
+                    doc.save(out)
+                }
+                out.length() > 0
+            }.getOrDefault(false)
+        }
+
+    /**
+     * Fügt alle Seiten von [other] an Position [atIndex] in [src] ein
+     * (0 = ganz vorne, Seitenzahl = ganz hinten).
      * @return Zahl der neuen Seiten, -1 bei Fehler
      */
-    suspend fun appendPdf(context: Context, src: File, other: Uri, out: File): Int =
+    suspend fun insertPdf(
+        context: Context,
+        src: File,
+        other: Uri,
+        out: File,
+        atIndex: Int
+    ): Int =
         withContext(Dispatchers.IO) {
             runCatching {
                 // Erst in eine Datei streamen: PDFBox braucht wahlfreien
@@ -68,10 +100,25 @@ object PdfPageOps {
                     } ?: return@withContext -1
                     PDDocument.load(src, memory).use { dst ->
                         PDDocument.load(tmp, memory).use { add ->
-                            val added = add.numberOfPages
-                            PDFMergerUtility().appendDocument(dst, add)
+                            val count = add.numberOfPages
+                            val at = atIndex.coerceIn(0, dst.numberOfPages)
+                            if (at >= dst.numberOfPages) {
+                                // Ganz hinten: der einfache Weg
+                                PDFMergerUtility().appendDocument(dst, add)
+                            } else {
+                                // Mitten hinein: importieren (landet hinten)
+                                // und vor die Bezugsseite umhaengen — der
+                                // Reihe nach, damit die Reihenfolge stimmt
+                                val ref = dst.getPage(at)
+                                val pages = dst.documentCatalog.pages
+                                for (i in 0 until count) {
+                                    val imported = dst.importPage(add.getPage(i))
+                                    pages.remove(imported)
+                                    pages.insertBefore(imported, ref)
+                                }
+                            }
                             dst.save(out)
-                            added
+                            count
                         }
                     }
                 } finally {

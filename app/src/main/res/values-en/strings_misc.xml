@@ -158,7 +158,14 @@
     <string name="editor_menu_rotate_left">Rotate page left</string>
     <string name="editor_menu_rotate_right">Rotate page right</string>
     <string name="editor_menu_delete_page">Delete page</string>
-    <string name="editor_menu_append_pdf">Append PDF …</string>
+    <string name="editor_menu_append_pdf">Insert PDF …</string>
+    <string name="editor_menu_insert_blank">Insert blank page …</string>
+    <string name="editor_insert_title">Where to insert?</string>
+    <string name="editor_insert_front">At the front</string>
+    <string name="editor_insert_current">After the current page</string>
+    <string name="editor_insert_end">At the end</string>
+    <string name="editor_insert_after_label">After page (0 = front)</string>
+    <string name="editor_insert_do">Insert</string>
     <string name="editor_menu_append_images">Append photos …</string>
     <string name="editor_save_overwrite">Save</string>
     <string name="editor_saved">Saved.</string>
