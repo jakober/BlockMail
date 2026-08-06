@@ -48,7 +48,8 @@ fun TwoPaneScreen(
     onReply: (Long) -> Unit,
     onOpenDraft: (Long) -> Unit = {},
     onOpenStats: () -> Unit = {},
-    onOpenAttachments: () -> Unit = {}
+    onOpenAttachments: () -> Unit = {},
+    onEditAttachment: (() -> Unit)? = null
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val density = LocalDensity.current
@@ -139,7 +140,10 @@ fun TwoPaneScreen(
                             uid = selectedUid,
                             onBack = { onSelect(-1L) },
                             onReply = { onReply(selectedUid) },
-                            fallbackMail = fallback
+                            fallbackMail = fallback,
+                            // Ohne diese Weiterleitung fehlten auf dem Tablet
+                            // die Editor-Eintraege im Anhang-Menue
+                            onEditAttachment = onEditAttachment
                         )
                     }
                 }

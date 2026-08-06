@@ -457,6 +457,15 @@ object Prefs {
         }
 
     /**
+     * Ist der automatische Voll-Aufbau des Suchindex (nachts bei WLAN +
+     * Laden, siehe IndexBuildWorker) schon einmal durchgelaufen? Wird bei
+     * jeder Kontoänderung zurückgesetzt, damit neue Konten nachziehen.
+     */
+    var indexAutoBuilt: Boolean
+        get() = sp.getBoolean("index_auto_built", false)
+        set(v) = sp.edit().putBoolean("index_auto_built", v).apply()
+
+    /**
      * Lokaler Suchindex: nur Mails indexieren, die jünger sind als so viele
      * Jahre (0 = keine Zeitgrenze, alles indexieren). Standard: 1 Jahr.
      */
@@ -592,6 +601,9 @@ object Prefs {
             imapHost, imapPort, smtpHost, smtpPort
         )
         saveAccounts(accounts().filter { !it.email.equals(acc.email, ignoreCase = true) } + acc)
+        // Kontostand hat sich geaendert: Der naechtliche Voll-Index darf
+        // erneut laufen, damit auch dieses Konto die volle Historie bekommt
+        indexAutoBuilt = false
     }
 
     fun removeAccount(accountEmail: String) =

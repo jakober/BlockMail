@@ -39,6 +39,8 @@ class MailApp : Application() {
         com.jakober.klarmail.data.MailIndex.init(this)
         createChannels()
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)
+        // Voll-Index automatisch aufbauen — aber nur bei WLAN + Laden
+        com.jakober.klarmail.service.IndexBuildWorker.schedule(this)
         cleanupSenderShortcuts()
         // Arbeitsdateien des Dokument-Editors aufraeumen: Abbrueche und
         // Abstuerze lassen dort sonst dauerhaft Kopien liegen
