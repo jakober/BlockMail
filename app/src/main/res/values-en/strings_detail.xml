@@ -56,6 +56,7 @@
     <string name="detail_attachment_saved">Saved: %1$s</string>
     <string name="detail_attachment_action_failed">Action failed: %1$s</string>
     <string name="detail_attachment_open">Open</string>
+    <string name="detail_attachment_open_edit">Open / edit</string>
     <string name="detail_attachment_share">Share</string>
     <string name="detail_attachment_save">Save to Downloads</string>
 

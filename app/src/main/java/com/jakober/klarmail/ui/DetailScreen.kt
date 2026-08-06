@@ -845,9 +845,21 @@ fun DetailScreen(
                             )
                         }
                     }
+                    // PDFs und Bilder oeffnen im EIGENEN Editor (derselbe
+                    // Weg wie "Unterschreiben & zuruecksenden"). Ohne Abo
+                    // faellt der Knopf still auf das externe Oeffnen zurueck —
+                    // Anhaenge ansehen muss immer moeglich bleiben.
+                    val editable = onEditAttachment != null &&
+                        com.jakober.klarmail.data.AttachmentEditing.isEditable(att.mime, att.name)
                     actionRow(
                         Icons.AutoMirrored.Filled.OpenInNew,
-                        stringResource(R.string.detail_attachment_open), "open"
+                        stringResource(
+                            if (editable) R.string.detail_attachment_open_edit
+                            else R.string.detail_attachment_open
+                        ),
+                        if (editable && com.jakober.klarmail.data.ProAccess.canEditDocuments)
+                            "sign"
+                        else "open"
                     )
                     actionRow(
                         Icons.Filled.Share,
