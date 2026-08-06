@@ -78,6 +78,34 @@ object PdfPageOps {
         }
 
     /**
+     * Verschiebt Seite [from] an die Zielposition [to] (Index im FERTIGEN
+     * Dokument). Nach dem Aushängen gilt: Einfügen vor der Seite, die im
+     * verkleinerten Dokument an Position [to] steht, ergibt genau [to] —
+     * egal ob vorwärts oder rückwärts verschoben wird.
+     */
+    suspend fun move(src: File, out: File, from: Int, to: Int): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                PDDocument.load(src, memory).use { doc ->
+                    val n = doc.numberOfPages
+                    if (from == to || from !in 0 until n || to !in 0 until n) {
+                        return@withContext false
+                    }
+                    val page = doc.getPage(from)
+                    val pages = doc.documentCatalog.pages
+                    pages.remove(page)
+                    if (to <= n - 2) {
+                        pages.insertBefore(page, doc.getPage(to))
+                    } else {
+                        doc.addPage(page)
+                    }
+                    doc.save(out)
+                }
+                out.length() > 0
+            }.getOrDefault(false)
+        }
+
+    /**
      * Fügt alle Seiten von [other] an Position [atIndex] in [src] ein
      * (0 = ganz vorne, Seitenzahl = ganz hinten).
      * @return Zahl der neuen Seiten, -1 bei Fehler

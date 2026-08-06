@@ -92,4 +92,9 @@
     <string name="editor_shape_oval">Circle</string>
     <string name="editor_shape_arrow">Arrow</string>
     <string name="editor_shape_line">Line</string>
+    <string name="editor_menu_pages">Page overview</string>
+    <string name="editor_pages_title">Page overview</string>
+    <string name="editor_pages_hint">Tap to jump to a page. Use the arrows to rearrange pages.</string>
+    <string name="editor_page_move_forward">Move page forward</string>
+    <string name="editor_page_move_back">Move page back</string>
 </resources>

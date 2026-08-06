@@ -93,4 +93,9 @@
     <string name="editor_shape_oval">Kreis</string>
     <string name="editor_shape_arrow">Pfeil</string>
     <string name="editor_shape_line">Linie</string>
+    <string name="editor_menu_pages">Seitenübersicht</string>
+    <string name="editor_pages_title">Seitenübersicht</string>
+    <string name="editor_pages_hint">Antippen springt zur Seite. Mit den Pfeilen ordnest du die Seiten neu.</string>
+    <string name="editor_page_move_forward">Seite nach vorne schieben</string>
+    <string name="editor_page_move_back">Seite nach hinten schieben</string>
 </resources>

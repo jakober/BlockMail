@@ -4,6 +4,10 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfDocument
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -332,6 +336,9 @@ fun AttachmentEditorScreen(
     var shapeKind by remember { mutableStateOf("rect") }
     // Text-Werkzeug: Seite + Stelle, fuer die gerade Text eingegeben wird
     var textAsk by remember { mutableStateOf<Pair<Int, Offset>?>(null) }
+    // Seiten-Uebersicht (nur erweiterte Werkzeuge): offen? + Miniaturbilder
+    var showPages by remember { mutableStateOf(false) }
+    val pageThumbs = remember { androidx.compose.runtime.mutableStateMapOf<Int, Bitmap>() }
     var saving by remember { mutableStateOf(false) }
     var busyOp by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -730,6 +737,17 @@ fun AttachmentEditorScreen(
         }
     }
 
+    /** Verschiebt Seite [from] an Position [to] — Kennungen wandern mit. */
+    fun movePage(from: Int, to: Int) {
+        if (from == to || from !in pageIds.indices || to !in pageIds.indices) return
+        val ids = pageIds.toMutableList()
+        val id = ids.removeAt(from)
+        ids.add(to, id)
+        mutateDoc(newIds = ids) { s, o ->
+            com.jakober.klarmail.data.PdfPageOps.move(s, o, from, to)
+        }
+    }
+
     fun deletePage() {
         val idx = pageIndex
         if (pageSizes.size <= 1) {
@@ -908,6 +926,117 @@ fun AttachmentEditorScreen(
         )
     }
 
+    if (showPages) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showPages = false },
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false
+            )
+        ) {
+            Surface(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize()) {
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.editor_pages_title)) },
+                        navigationIcon = {
+                            IconButton(onClick = { showPages = false }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(R.string.editor_back)
+                                )
+                            }
+                        }
+                    )
+                    Text(
+                        stringResource(R.string.editor_pages_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    // Nach jeder Seitenoperation neu rendern — die Kennung
+                    // im Bild stimmt sonst nicht mehr mit der Seite ueberein
+                    LaunchedEffect(docGeneration) { pageThumbs.clear() }
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(110.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentPadding = PaddingValues(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(pageSizes.size) { index ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                LaunchedEffect(index, docGeneration) {
+                                    if (pageThumbs[index] == null) {
+                                        session.renderPage(index, 300)
+                                            ?.let { pageThumbs[index] = it }
+                                    }
+                                }
+                                val thumb = pageThumbs[index]
+                                val (w, h) = pageSizes[index]
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(
+                                            (if (h > 0) w.toFloat() / h else 0.7f)
+                                                .coerceIn(0.2f, 5f)
+                                        )
+                                        .background(Color.White)
+                                        .clickable {
+                                            showPages = false
+                                            scope.launch { listState.scrollToItem(index) }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (thumb != null) {
+                                        androidx.compose.foundation.Image(
+                                            thumb.asImageBitmap(),
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(
+                                        onClick = { movePage(index, index - 1) },
+                                        enabled = index > 0 && !busyOp
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.ChevronLeft,
+                                            contentDescription = stringResource(
+                                                R.string.editor_page_move_forward
+                                            )
+                                        )
+                                    }
+                                    Text(
+                                        "${index + 1}",
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                    IconButton(
+                                        onClick = { movePage(index, index + 1) },
+                                        enabled = index < pageSizes.size - 1 && !busyOp
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.ChevronRight,
+                                            contentDescription = stringResource(
+                                                R.string.editor_page_move_back
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if (insertBlankAsk || insertUri != null) {
         val uriToInsert = insertUri
         InsertPositionDialog(
@@ -1014,6 +1143,14 @@ fun AttachmentEditorScreen(
                             }
                             if (isPdf && ready) {
                                 androidx.compose.material3.HorizontalDivider()
+                                if (DocumentHost.extendedFeatures) {
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = {
+                                            Text(stringResource(R.string.editor_menu_pages))
+                                        },
+                                        onClick = { menuOpen = false; showPages = true }
+                                    )
+                                }
                                 androidx.compose.material3.DropdownMenuItem(
                                     text = { Text(stringResource(R.string.editor_menu_rotate_left)) },
                                     onClick = { menuOpen = false; rotatePage(cw = false) }
