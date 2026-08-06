@@ -955,8 +955,12 @@ fun AttachmentEditorScreen(
     suspend fun aiHighlight(muster: String, begriff: String?): String {
         val f = session.file ?: return context.getString(R.string.editor_ai_fail)
         val regex = when (muster) {
+            // Waehrung vor ODER nach dem Betrag — Euro, Dollar, Pfund,
+            // Franken als Zeichen oder Kuerzel ("$15.00", "5,99 €",
+            // "EUR 100", "17.85 USD")
             "geld" -> Regex(
-                """\d{1,3}(?:[.,]\d{3})*[.,]\d{2}\s*(?:€|EUR)|(?:€|EUR)\s*\d+(?:[.,]\d{1,2})?"""
+                """(?:[€£${'$'}]|EUR|USD|GBP|CHF)\s*\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?""" +
+                    """|\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?\s*(?:[€£${'$'}]|(?:EUR|USD|GBP|CHF)\b)"""
             )
             "datum" -> Regex("""\b\d{1,2}\.\s?\d{1,2}\.\s?\d{2,4}\b""")
             "iban" -> Regex(
