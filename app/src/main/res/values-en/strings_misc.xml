@@ -14,7 +14,7 @@
     <string name="welcome_feature_accounts_title">All accounts, one overview</string>
     <string name="welcome_feature_accounts_text">Multiple mailboxes with their own colors — separately or combined.</string>
     <string name="welcome_feature_ai_title">AI assistant (BlockMail Pro)</string>
-    <string name="welcome_feature_ai_text">Summarize, draft replies and daily overview. Runs via the BlockMail server — contents are not stored there. Try it free for 3 days, then €4.90 per month with 150 AI requests or €9 with 300 requests.</string>
+    <string name="welcome_feature_ai_text">Summarize, draft replies and daily overview. Runs via the BlockMail server — contents are not stored there. Try it free for 3 days, then €5.99 per month with 150 AI requests or €10.99 with 300 requests.</string>
     <string name="welcome_feature_sign_title">Your PDF editor: sign &amp; edit</string>
     <string name="welcome_feature_sign_text">Got a contract as a PDF? Open it, sign with your finger, send it straight back as a reply — no printer, scanner or second app. Plus a full PDF editor: highlight, redact, checkmarks, date stamps, rotate pages. You can even set BlockMail as your default PDF app. Part of BlockMail Pro.</string>
     <string name="welcome_setup">Set up account</string>
@@ -64,8 +64,8 @@
     <string name="pro_plan_plus_name">BlockMail Pro+</string>
     <string name="pro_plan_requests">%1$d AI requests per month</string>
     <string name="pro_plan_price_month">%1$s / month</string>
-    <string name="pro_plan_pro_price_fallback">€4.90</string>
-    <string name="pro_plan_plus_price_fallback">€9.00</string>
+    <string name="pro_plan_pro_price_fallback">€5.99</string>
+    <string name="pro_plan_plus_price_fallback">€10.99</string>
     <string name="pro_plan_current">Your current plan</string>
     <string name="pro_plan_choose">Choose this plan</string>
     <string name="pro_plan_switch">Switch to this plan</string>
@@ -97,7 +97,7 @@
     <string name="tour_step_compose_title">Write a new email</string>
     <string name="tour_step_compose_text">Tap the pen to start a new email — the AI can help you phrase it if you like.</string>
     <string name="tour_step_ai_title">Your AI assistant</string>
-    <string name="tour_step_ai_text">The AI button summarizes your whole day or all unread mails at a glance. All AI features are part of BlockMail Pro: try it free for 3 days, then from €4.90 per month (150 AI requests) or €9 (300 requests).</string>
+    <string name="tour_step_ai_text">The AI button summarizes your whole day or all unread mails at a glance. All AI features are part of BlockMail Pro: try it free for 3 days, then from €5.99 per month (150 AI requests) or €10.99 (300 requests).</string>
     <string name="pro_subscribe">Subscribe to Pro</string>
     <string name="welcome_feature_attachments_title">All attachments in one place</string>
     <string name="welcome_feature_attachments_text">Images, PDFs and documents from every email gathered in one gallery — find, open and share them without hunting for the email.</string>
