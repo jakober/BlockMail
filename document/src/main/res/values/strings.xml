@@ -83,4 +83,14 @@
     <string name="editor_hint_image">Tippe auf die Stelle, an der das Bild stehen soll. Antippen wählt aus, Ziehen verschiebt.</string>
     <string name="editor_image_pick">Anderes Bild wählen</string>
     <string name="editor_image_failed">Bild konnte nicht geladen werden.</string>
+    <string name="editor_mode_text">Text</string>
+    <string name="editor_hint_text">Tippe auf die Stelle, an der der Text stehen soll.</string>
+    <string name="editor_text_title">Text einfügen</string>
+    <string name="editor_text_ok">Einfügen</string>
+    <string name="editor_mode_shape">Form</string>
+    <string name="editor_hint_shape">Ziehe die Form mit dem Finger auf. Antippen wählt aus, Ziehen verschiebt.</string>
+    <string name="editor_shape_rect">Rechteck</string>
+    <string name="editor_shape_oval">Kreis</string>
+    <string name="editor_shape_arrow">Pfeil</string>
+    <string name="editor_shape_line">Linie</string>
 </resources>

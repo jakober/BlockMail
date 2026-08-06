@@ -272,13 +272,18 @@ object PdfOverlay {
             }
 
             is Mark.Label -> {
-                // Datumsstempel: nur ASCII (Ziffern und Punkte), deshalb
-                // reicht die eingebaute Helvetica ohne eigene Schrift
+                // Die eingebaute Helvetica kann Latin-1 (Umlaute, Euro) —
+                // alles darueber hinaus (Emoji) wuerde showText abbrechen
+                // lassen und damit das ganze Speichern. Deshalb vorab auf
+                // darstellbare Zeichen eindampfen.
+                val safeText = mark.text.map {
+                    if (it.code in 32..255) it else '?'
+                }.joinToString("")
                 val size = mark.sizePx * f
                 val font = PDType1Font.HELVETICA_BOLD
                 val textWidth = runCatching {
-                    font.getStringWidth(mark.text) / 1000f * size
-                }.getOrDefault(mark.text.length * size * 0.55f)
+                    font.getStringWidth(safeText) / 1000f * size
+                }.getOrDefault(safeText.length * size * 0.55f)
                 setColor(cs, mark.color, stroking = false)
                 cs.beginText()
                 // Die Seitenmatrix spiegelt Y — die Textmatrix spiegelt
@@ -291,8 +296,61 @@ object PdfOverlay {
                         mark.center.y * f + size * 0.35f
                     )
                 )
-                cs.showText(mark.text)
+                cs.showText(safeText)
                 cs.endText()
+            }
+
+            is Mark.Shape -> {
+                setColor(cs, mark.color, stroking = true)
+                cs.setLineWidth((mark.width * f).coerceAtLeast(0.3f))
+                cs.setLineCapStyle(1)
+                cs.setLineJoinStyle(1)
+                val ax = mark.a.x * f
+                val ay = mark.a.y * f
+                val bx = mark.b.x * f
+                val by = mark.b.y * f
+                when (mark.kind) {
+                    "rect" -> {
+                        cs.addRect(
+                            minOf(ax, bx), minOf(ay, by),
+                            kotlin.math.abs(bx - ax), kotlin.math.abs(by - ay)
+                        )
+                        cs.stroke()
+                    }
+                    "oval" -> {
+                        // PDF kennt keine Ellipse — vier Bezierboegen mit der
+                        // ueblichen Kreiskonstante
+                        val cx = (ax + bx) / 2f
+                        val cy = (ay + by) / 2f
+                        val rx = kotlin.math.abs(bx - ax) / 2f
+                        val ry = kotlin.math.abs(by - ay) / 2f
+                        val k = 0.5523f
+                        cs.moveTo(cx + rx, cy)
+                        cs.curveTo(cx + rx, cy + k * ry, cx + k * rx, cy + ry, cx, cy + ry)
+                        cs.curveTo(cx - k * rx, cy + ry, cx - rx, cy + k * ry, cx - rx, cy)
+                        cs.curveTo(cx - rx, cy - k * ry, cx - k * rx, cy - ry, cx, cy - ry)
+                        cs.curveTo(cx + k * rx, cy - ry, cx + rx, cy - k * ry, cx + rx, cy)
+                        cs.stroke()
+                    }
+                    else -> {
+                        cs.moveTo(ax, ay)
+                        cs.lineTo(bx, by)
+                        cs.stroke()
+                        if (mark.kind == "arrow") {
+                            val ang = kotlin.math.atan2(by - ay, bx - ax)
+                            val len = (mark.width * f * 5f).coerceAtLeast(6f)
+                            for (s in floatArrayOf(1f, -1f)) {
+                                val t = ang + Math.PI.toFloat() - s * 0.44f
+                                cs.moveTo(bx, by)
+                                cs.lineTo(
+                                    bx + len * kotlin.math.cos(t),
+                                    by + len * kotlin.math.sin(t)
+                                )
+                                cs.stroke()
+                            }
+                        }
+                    }
+                }
             }
 
             is Mark.Image -> {

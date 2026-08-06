@@ -82,4 +82,14 @@
     <string name="editor_hint_image">Tap where the image should go. Tap an element to select it, drag to move it.</string>
     <string name="editor_image_pick">Choose another image</string>
     <string name="editor_image_failed">The image could not be loaded.</string>
+    <string name="editor_mode_text">Text</string>
+    <string name="editor_hint_text">Tap where the text should go.</string>
+    <string name="editor_text_title">Insert text</string>
+    <string name="editor_text_ok">Insert</string>
+    <string name="editor_mode_shape">Shape</string>
+    <string name="editor_hint_shape">Drag to draw the shape. Tap an element to select it, drag to move it.</string>
+    <string name="editor_shape_rect">Rectangle</string>
+    <string name="editor_shape_oval">Circle</string>
+    <string name="editor_shape_arrow">Arrow</string>
+    <string name="editor_shape_line">Line</string>
 </resources>

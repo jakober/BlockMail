@@ -41,9 +41,11 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Undo
@@ -326,6 +328,10 @@ fun AttachmentEditorScreen(
     // Bild-Werkzeug (nur erweiterte Werkzeuge): das zuletzt gewaehlte Bild.
     // Bewusst nie recyclen — es koennte bereits platziert sein.
     var placeImage by remember { mutableStateOf<Bitmap?>(null) }
+    // Form-Werkzeug: welche Form aufgezogen wird
+    var shapeKind by remember { mutableStateOf("rect") }
+    // Text-Werkzeug: Seite + Stelle, fuer die gerade Text eingegeben wird
+    var textAsk by remember { mutableStateOf<Pair<Int, Offset>?>(null) }
     var saving by remember { mutableStateOf(false) }
     var busyOp by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -684,6 +690,7 @@ fun AttachmentEditorScreen(
                 is Mark.Label -> m.center = t(m.center)
                 is Mark.Redact -> { m.a = t(m.a); m.b = t(m.b) }
                 is Mark.Image -> m.center = t(m.center)
+                is Mark.Shape -> { m.a = t(m.a); m.b = t(m.b) }
             }
         }
     }
@@ -864,6 +871,41 @@ fun AttachmentEditorScreen(
         val upsell = DocumentHost.upsell
         if (upsell != null) upsell { showProUpsell = false }
         else showProUpsell = false
+    }
+
+    textAsk?.let { (pageIdx, pos) ->
+        var textValue by remember(textAsk) { mutableStateOf("") }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { textAsk = null },
+            title = { Text(stringResource(R.string.editor_text_title)) },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = textValue,
+                    onValueChange = { textValue = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = textValue.isNotBlank(),
+                    onClick = {
+                        val list = marksFor(pageIdx)
+                        val base = pageBitmaps[pageIdx]?.width ?: 1200
+                        list.add(Mark.Label(textValue.trim(), pos, base / 28f, drawColor))
+                        noteAdded(pageIdx)
+                        selected = idFor(pageIdx) to list.lastIndex
+                        lastTouched = idFor(pageIdx)
+                        textAsk = null
+                    }
+                ) { Text(stringResource(R.string.editor_text_ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { textAsk = null }) {
+                    Text(stringResource(R.string.editor_cancel))
+                }
+            }
+        )
     }
 
     if (insertBlankAsk || insertUri != null) {
@@ -1140,6 +1182,8 @@ fun AttachmentEditorScreen(
                                     onNeedImage = {
                                         imagePickLauncher.launch(arrayOf("image/*"))
                                     },
+                                    shapeKind = shapeKind,
+                                    onTextAt = { pos -> textAsk = index to pos },
                                     onNeedSignature = { signaturePadSlot = signSlot },
                                     onNeeded = { ensurePage(index) },
                                     onMarkAdded = { noteAdded(index) },
@@ -1204,12 +1248,20 @@ fun AttachmentEditorScreen(
                             // Erweiterte Werkzeuge nur, wenn die Gast-App sie
                             // freischaltet (BlockPDF ja, BlockMail nein)
                             if (DocumentHost.extendedFeatures) {
-                                base.take(7) +
+                                base.take(7) + listOf(
+                                    Triple(
+                                        "text", R.string.editor_mode_text,
+                                        Icons.Filled.TextFields
+                                    ),
                                     Triple(
                                         "image", R.string.editor_mode_image,
                                         Icons.Filled.Image
-                                    ) +
-                                    base.drop(7)
+                                    ),
+                                    Triple(
+                                        "shape", R.string.editor_mode_shape,
+                                        Icons.Filled.Category
+                                    )
+                                ) + base.drop(7)
                             } else base
                         }
                         tools.forEach { (key, labelRes, icon) ->
@@ -1248,7 +1300,9 @@ fun AttachmentEditorScreen(
                     }
                     // Unterwerkzeuge: Farbe (und Strichstaerke) fuer Stift,
                     // Haekchen, Kreuz und Datum
-                    if (mode == "draw" || mode == "check" || mode == "cross" || mode == "date") {
+                    if (mode == "draw" || mode == "check" || mode == "cross" ||
+                        mode == "date" || mode == "text" || mode == "shape"
+                    ) {
                         Spacer(Modifier.height(6.dp))
                         Row(
                             modifier = Modifier
@@ -1380,6 +1434,8 @@ fun AttachmentEditorScreen(
                         "check", "cross" -> R.string.editor_hint_stamp
                         "date" -> R.string.editor_hint_date
                         "image" -> R.string.editor_hint_image
+                        "text" -> R.string.editor_hint_text
+                        "shape" -> R.string.editor_hint_shape
                         else -> null
                     }
                     if (hintRes != null) {
@@ -1389,6 +1445,29 @@ fun AttachmentEditorScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    if (mode == "shape") {
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "rect" to R.string.editor_shape_rect,
+                                "oval" to R.string.editor_shape_oval,
+                                "arrow" to R.string.editor_shape_arrow,
+                                "line" to R.string.editor_shape_line
+                            ).forEach { (k, res) ->
+                                FilterChip(
+                                    selected = shapeKind == k,
+                                    onClick = { shapeKind = k },
+                                    label = { Text(stringResource(res)) }
+                                )
+                            }
+                        }
                     }
                     if (mode == "image") {
                         Spacer(Modifier.height(6.dp))
@@ -1554,6 +1633,8 @@ private fun PageItem(
     widthFactor: Float,
     placeImage: Bitmap?,
     onNeedImage: () -> Unit,
+    shapeKind: String,
+    onTextAt: (Offset) -> Unit,
     onNeedSignature: () -> Unit,
     onNeeded: () -> Unit,
     onMarkAdded: () -> Unit,
@@ -1589,6 +1670,8 @@ private fun PageItem(
                 widthFactor = widthFactor,
                 placeImage = placeImage,
                 onNeedImage = onNeedImage,
+                shapeKind = shapeKind,
+                onTextAt = onTextAt,
                 onNeedSignature = onNeedSignature,
                 onMarkAdded = onMarkAdded,
                 onTouched = onTouched,
@@ -1617,6 +1700,8 @@ private fun PageCanvas(
     widthFactor: Float,
     placeImage: Bitmap?,
     onNeedImage: () -> Unit,
+    shapeKind: String,
+    onTextAt: (Offset) -> Unit,
     onNeedSignature: () -> Unit,
     onMarkAdded: () -> Unit,
     onTouched: () -> Unit,
@@ -1700,7 +1785,10 @@ private fun PageCanvas(
                     }
                 }
             }
-            .pointerInput(mode, signature, initials, signSlot, drawColor, widthFactor, bitmap) {
+            .pointerInput(
+                mode, signature, initials, signSlot, drawColor, widthFactor,
+                shapeKind, bitmap
+            ) {
                 when (mode) {
                     "draw", "highlight" -> detectDragGestures(
                         onDragStart = { p ->
@@ -1734,6 +1822,25 @@ private fun PageCanvas(
                             val r = marks.lastOrNull() as? Mark.Redact ?: return@detectDragGestures
                             change.consume()
                             r.b = toPage(change.position)
+                            version++
+                        }
+                    )
+                    // Form: wie Schwaerzen aufziehen, Anfang -> Ende
+                    "shape" -> detectDragGestures(
+                        onDragStart = { p ->
+                            val page = toPage(p)
+                            marks.add(
+                                Mark.Shape(
+                                    shapeKind, page, page, drawColor,
+                                    strokeWidth * 1.2f * widthFactor
+                                )
+                            )
+                            onMarkAdded()
+                        },
+                        onDrag = { change, _ ->
+                            val s = marks.lastOrNull() as? Mark.Shape ?: return@detectDragGestures
+                            change.consume()
+                            s.b = toPage(change.position)
                             version++
                         }
                     )
@@ -1802,6 +1909,8 @@ private fun PageCanvas(
                             onMarkAdded()
                             onSelect(marks.lastIndex)
                         }
+                        // Text: erst der Dialog — der Aufsatz entsteht dort
+                        "text" -> onTextAt(page)
                         // Stift, Marker, Schwaerzen: Tipp auf Freiflaeche
                         // hebt nur die Auswahl auf — gezeichnet wird gezogen
                         else -> onSelect(-1)

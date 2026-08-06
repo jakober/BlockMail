@@ -57,6 +57,19 @@ sealed class Mark {
      * ist. Das Seitenverhältnis kommt immer aus dem Bitmap.
      */
     data class Image(var center: Offset, var width: Float, val bitmap: Bitmap) : Mark()
+
+    /**
+     * Aufgezogene Form. [kind]: "rect", "oval", "line" oder "arrow" —
+     * bei Linie und Pfeil sind [a]/[b] Anfang und Spitze, sonst zwei
+     * gegenüberliegende Ecken.
+     */
+    data class Shape(
+        val kind: String,
+        var a: Offset,
+        var b: Offset,
+        val color: Int,
+        val width: Float
+    ) : Mark()
 }
 
 /**
@@ -189,6 +202,43 @@ fun drawMarks(
                 val dst = android.graphics.RectF(left, top, left + w, top + h)
                 canvas.drawBitmap(mark.bitmap, null, dst, null)
             }
+
+            is Mark.Shape -> {
+                paint.color = mark.color
+                paint.strokeWidth = mark.width * scale
+                val ax = mark.a.x * scale + dx
+                val ay = mark.a.y * scale + dy
+                val bx = mark.b.x * scale + dx
+                val by = mark.b.y * scale + dy
+                when (mark.kind) {
+                    "rect" -> canvas.drawRect(
+                        minOf(ax, bx), minOf(ay, by), maxOf(ax, bx), maxOf(ay, by), paint
+                    )
+                    "oval" -> canvas.drawOval(
+                        android.graphics.RectF(
+                            minOf(ax, bx), minOf(ay, by), maxOf(ax, bx), maxOf(ay, by)
+                        ),
+                        paint
+                    )
+                    else -> {
+                        canvas.drawLine(ax, ay, bx, by, paint)
+                        if (mark.kind == "arrow") {
+                            // Pfeilspitze: zwei Schenkel, 25 Grad zur Linie
+                            val ang = kotlin.math.atan2(by - ay, bx - ax)
+                            val len = (mark.width * scale * 5f).coerceAtLeast(14f)
+                            for (s in floatArrayOf(1f, -1f)) {
+                                val t = ang + Math.PI.toFloat() - s * 0.44f
+                                canvas.drawLine(
+                                    bx, by,
+                                    bx + len * kotlin.math.cos(t),
+                                    by + len * kotlin.math.sin(t),
+                                    paint
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -248,6 +298,10 @@ fun markBounds(
                 m.center.x + m.width / 2, m.center.y + h / 2
             )
         }
+        is Mark.Shape -> androidx.compose.ui.geometry.Rect(
+            minOf(m.a.x, m.b.x) - m.width, minOf(m.a.y, m.b.y) - m.width,
+            maxOf(m.a.x, m.b.x) + m.width, maxOf(m.a.y, m.b.y) + m.width
+        )
     }
 }
 
@@ -260,6 +314,7 @@ fun moveMark(m: Mark, d: Offset) {
         is Mark.Stroke -> for (j in m.points.indices) m.points[j] = m.points[j] + d
         is Mark.Redact -> { m.a += d; m.b += d }
         is Mark.Image -> m.center += d
+        is Mark.Shape -> { m.a += d; m.b += d }
     }
 }
 
@@ -293,6 +348,15 @@ fun scaleMark(m: Mark, f: Float): Mark = when (m) {
         )
     }
     is Mark.Image -> m.copy(width = m.width * f)
+    is Mark.Shape -> {
+        val cx = (m.a.x + m.b.x) / 2f
+        val cy = (m.a.y + m.b.y) / 2f
+        m.copy(
+            a = Offset(cx + (m.a.x - cx) * f, cy + (m.a.y - cy) * f),
+            b = Offset(cx + (m.b.x - cx) * f, cy + (m.b.y - cy) * f),
+            width = m.width * f
+        )
+    }
 }
 
 /**
@@ -321,6 +385,23 @@ fun hitMark(marks: List<Mark>, p: Offset, tolerance: Float): Int {
                 val h = m.width * m.bitmap.height / m.bitmap.width
                 kotlin.math.abs(m.center.x - p.x) < m.width / 2 &&
                     kotlin.math.abs(m.center.y - p.y) < h / 2
+            }
+            is Mark.Shape -> when (m.kind) {
+                // Linie/Pfeil: Abstand zum Segment, sonst traefe man sie kaum
+                "line", "arrow" -> {
+                    val d = m.b - m.a
+                    val len2 = d.x * d.x + d.y * d.y
+                    val t = if (len2 <= 0f) 0f else
+                        (((p.x - m.a.x) * d.x + (p.y - m.a.y) * d.y) / len2)
+                            .coerceIn(0f, 1f)
+                    val nx = m.a.x + t * d.x
+                    val ny = m.a.y + t * d.y
+                    kotlin.math.abs(p.x - nx) < tolerance &&
+                        kotlin.math.abs(p.y - ny) < tolerance
+                }
+                else ->
+                    p.x in minOf(m.a.x, m.b.x) - tolerance..maxOf(m.a.x, m.b.x) + tolerance &&
+                        p.y in minOf(m.a.y, m.b.y) - tolerance..maxOf(m.a.y, m.b.y) + tolerance
             }
         }
         if (hit) return i
