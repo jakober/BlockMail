@@ -1752,7 +1752,10 @@ private fun PageCanvas(
                     isAntiAlias = true
                     style = android.graphics.Paint.Style.STROKE
                     color = 0xFF1565C0.toInt()
-                    strokeWidth = 2.5f
+                    // this: sonst greift die Zuweisung die gleichnamige
+                    // lokale Stiftstaerke von PageCanvas (val) und der
+                    // Uebersetzer lehnt ab
+                    this.strokeWidth = 2.5f
                     pathEffect = android.graphics.DashPathEffect(
                         floatArrayOf(10f, 8f), 0f
                     )
