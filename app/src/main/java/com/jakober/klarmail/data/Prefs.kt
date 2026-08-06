@@ -457,6 +457,15 @@ object Prefs {
         }
 
     /**
+     * Entwickler-Freischaltung: alle Pro-Funktionen dauerhaft an, ohne Abo.
+     * Wird über das versteckte Code-Feld in den Einstellungen umgeschaltet
+     * (siebenmal auf den Titel „Einstellungen“ tippen).
+     */
+    var devPro: Boolean
+        get() = sp.getBoolean("dev_pro", false)
+        set(v) = sp.edit().putBoolean("dev_pro", v).apply()
+
+    /**
      * Ist der automatische Voll-Aufbau des Suchindex (nachts bei WLAN +
      * Laden, siehe IndexBuildWorker) schon einmal durchgelaufen? Wird bei
      * jeder Kontoänderung zurückgesetzt, damit neue Konten nachziehen.

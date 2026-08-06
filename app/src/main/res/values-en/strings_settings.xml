@@ -308,4 +308,9 @@
     <string name="settings_more_folders_failed">Could not load folders: %1$s</string>
     <string name="setup_pw_autofilled">App password taken from the clipboard.</string>
     <string name="setup_pick_account">Choose account</string>
+    <string name="settings_dev_title">Developer code</string>
+    <string name="settings_dev_apply">Apply</string>
+    <string name="settings_dev_on">Developer Pro enabled — all Pro features permanently unlocked.</string>
+    <string name="settings_dev_off">Developer Pro disabled.</string>
+    <string name="settings_dev_wrong">Wrong code.</string>
 </resources>

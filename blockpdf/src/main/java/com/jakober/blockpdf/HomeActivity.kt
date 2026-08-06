@@ -195,6 +195,57 @@ class HomeActivity : ComponentActivity() {
             }
         }
 
+        // Versteckte Entwickler-Freischaltung: siebenmal aufs Logo tippen
+        // oeffnet ein Code-Feld; geprueft wird nur der SHA-256 des Codes.
+        var devTaps by remember { mutableStateOf(0) }
+        var devAsk by remember { mutableStateOf(false) }
+        if (devAsk) {
+            var devCode by remember { mutableStateOf("") }
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { devAsk = false },
+                title = { Text(stringResource(R.string.dev_title)) },
+                text = {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = devCode,
+                        onValueChange = { devCode = it },
+                        singleLine = true,
+                        visualTransformation =
+                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        val hash = java.security.MessageDigest.getInstance("SHA-256")
+                            .digest(devCode.trim().toByteArray())
+                            .joinToString("") { "%02x".format(it) }
+                        devAsk = false
+                        if (hash ==
+                            "25b4fa3094dc1f0443152c622f3e943d229a24255b4f1dc0c13c870c9115b74d"
+                        ) {
+                            val on = !PdfBilling.isDevPro()
+                            PdfBilling.setDevPro(context, on)
+                            android.widget.Toast.makeText(
+                                context,
+                                if (on) R.string.dev_on else R.string.dev_off,
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            android.widget.Toast.makeText(
+                                context, R.string.dev_wrong,
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }) { Text(stringResource(R.string.dev_apply)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { devAsk = false }) {
+                        Text(stringResource(R.string.upsell_later))
+                    }
+                }
+            )
+        }
+
         Scaffold { padding ->
             Column(
                 modifier = Modifier
@@ -208,7 +259,14 @@ class HomeActivity : ComponentActivity() {
                         modifier = Modifier
                             .size(44.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primary),
+                            .background(MaterialTheme.colorScheme.primary)
+                            .clickable {
+                                devTaps++
+                                if (devTaps >= 7) {
+                                    devTaps = 0
+                                    devAsk = true
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(

@@ -13,6 +13,8 @@ class MailApp : Application() {
         Prefs.init(this)
         // Ersten Start merken (steuert, ab wann die Pro-Hinweiskarte darf)
         if (Prefs.firstStartAt == 0L) Prefs.firstStartAt = System.currentTimeMillis()
+        // Entwickler-Freischaltung aus den Einstellungen uebernehmen
+        runCatching { com.jakober.klarmail.data.ProAccess.refresh() }
         MailRepository.init(this)
         // PDFBox braucht seine Schriftdaten aus den App-Ressourcen, bevor
         // ein geschuetztes PDF aufgeschlossen werden kann

@@ -20,4 +20,9 @@
     <string name="home_scan">Scan</string>
     <string name="home_create_failed">The PDF could not be created.</string>
     <string name="back">Back</string>
+    <string name="dev_title">Developer code</string>
+    <string name="dev_apply">Apply</string>
+    <string name="dev_on">Developer Pro enabled</string>
+    <string name="dev_off">Developer Pro disabled</string>
+    <string name="dev_wrong">Wrong code</string>
 </resources>

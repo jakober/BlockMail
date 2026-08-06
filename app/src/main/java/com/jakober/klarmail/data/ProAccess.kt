@@ -73,11 +73,15 @@ object ProAccess {
     /** Vom BillingManager aufgerufen, sobald der Abo-Status feststeht. */
     fun setSubscribed(active: Boolean) {
         subscribed = active
-        _isPro.value = active || TEST_PHASE_UNLOCK
+        refresh()
     }
 
-    /** Setzt den Pro-Status neu aus Testphasen-Schalter und Abo-Status. */
+    /**
+     * Setzt den Pro-Status neu aus Testphasen-Schalter, Abo-Status und
+     * Entwickler-Freischaltung (verstecktes Code-Feld in den Einstellungen).
+     */
     fun refresh() {
-        _isPro.value = subscribed || TEST_PHASE_UNLOCK
+        val dev = runCatching { Prefs.devPro }.getOrDefault(false)
+        _isPro.value = subscribed || TEST_PHASE_UNLOCK || dev
     }
 }

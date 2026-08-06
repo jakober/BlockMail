@@ -39,8 +39,23 @@ object PdfBilling {
     @Volatile
     private var connecting = false
 
+    /** Entwickler-Freischaltung (verstecktes Code-Feld am Startbildschirm). */
+    @Volatile
+    private var devPro = false
+
     private val _isPro = MutableStateFlow(TEST_UNLOCK)
     val isProFlow: StateFlow<Boolean> = _isPro
+
+    fun setDevPro(context: Context, on: Boolean) {
+        devPro = on
+        context.getSharedPreferences("blockpdf", Context.MODE_PRIVATE)
+            .edit().putBoolean("dev_pro", on).apply()
+        _isPro.value = on || TEST_UNLOCK
+        // Beim Abschalten zaehlt wieder der echte Kaufstand
+        if (!on) refreshPurchases()
+    }
+
+    fun isDevPro(): Boolean = devPro
 
     private val _price = MutableStateFlow<String?>(null)
     /** Monatspreis, wie Play ihn anzeigt — null bis zur ersten Antwort. */
@@ -49,6 +64,9 @@ object PdfBilling {
     private val _productDetails = MutableStateFlow<ProductDetails?>(null)
 
     fun init(context: Context) {
+        devPro = context.getSharedPreferences("blockpdf", Context.MODE_PRIVATE)
+            .getBoolean("dev_pro", false)
+        if (devPro) _isPro.value = true
         if (client != null) return
         val c = BillingClient.newBuilder(context.applicationContext)
             .setListener { result, purchases ->
@@ -126,7 +144,7 @@ object PdfBilling {
                     it.purchaseState == Purchase.PurchaseState.PURCHASED
                 }
                 if (active.isEmpty()) {
-                    _isPro.value = TEST_UNLOCK
+                    _isPro.value = TEST_UNLOCK || devPro
                 } else {
                     active.forEach { handlePurchase(it) }
                 }

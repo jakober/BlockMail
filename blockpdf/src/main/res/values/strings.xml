@@ -20,4 +20,9 @@
     <string name="home_scan">Scannen</string>
     <string name="home_create_failed">PDF konnte nicht erstellt werden.</string>
     <string name="back">Zurück</string>
+    <string name="dev_title">Entwickler-Code</string>
+    <string name="dev_apply">Anwenden</string>
+    <string name="dev_on">Entwickler-Pro aktiviert</string>
+    <string name="dev_off">Entwickler-Pro deaktiviert</string>
+    <string name="dev_wrong">Falscher Code</string>
 </resources>

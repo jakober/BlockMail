@@ -2191,18 +2191,20 @@ fun AttachmentEditorScreen(
                                                     val d = change?.let {
                                                         it.position - it.previousPosition
                                                     } ?: Offset.Zero
-                                                    // Nur waagerechte Bewegung
-                                                    // abfangen. Senkrechte NICHT
-                                                    // verbrauchen — die gehoert
-                                                    // weiter dem Bildlauf.
-                                                    if (kotlin.math.abs(d.x) >
-                                                        kotlin.math.abs(d.y) &&
-                                                        kotlin.math.abs(d.x) > 0.5f
-                                                    ) {
-                                                        pan = clampPan(
-                                                            Offset(pan.x + d.x, pan.y), zoom
-                                                        )
-                                                        change?.consume()
+                                                    // Eingezoomt schiebt EIN Finger
+                                                    // den Ausschnitt in BEIDE
+                                                    // Richtungen. Erst wenn der
+                                                    // Ausschnitt senkrecht am
+                                                    // Anschlag ist, geht die
+                                                    // restliche Bewegung an den
+                                                    // Bildlauf der Liste — so
+                                                    // blaettert man eingezoomt
+                                                    // trotzdem weiter.
+                                                    if (d != Offset.Zero) {
+                                                        val neu = clampPan(pan + d, zoom)
+                                                        val bewegt = neu != pan
+                                                        pan = neu
+                                                        if (bewegt) change?.consume()
                                                     }
                                                 }
                                             } while (event.changes.any { it.pressed })

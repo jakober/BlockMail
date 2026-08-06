@@ -427,10 +427,78 @@ fun SettingsScreen(
         }
     }
 
+    // Versteckte Entwickler-Freischaltung: siebenmal auf den Titel tippen
+    // oeffnet ein Code-Feld; der richtige Code schaltet alle Pro-Funktionen
+    // dauerhaft frei (oder wieder aus). Der Code steht nirgends im Klartext,
+    // geprueft wird nur sein SHA-256.
+    var devTaps by remember { mutableStateOf(0) }
+    var devAsk by remember { mutableStateOf(false) }
+    if (devAsk) {
+        var devCode by remember { mutableStateOf("") }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { devAsk = false },
+            title = { Text(stringResource(R.string.settings_dev_title)) },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = devCode,
+                    onValueChange = { devCode = it },
+                    singleLine = true,
+                    visualTransformation =
+                        androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val hash = java.security.MessageDigest.getInstance("SHA-256")
+                        .digest(devCode.trim().toByteArray())
+                        .joinToString("") { "%02x".format(it) }
+                    devAsk = false
+                    if (hash ==
+                        "25b4fa3094dc1f0443152c622f3e943d229a24255b4f1dc0c13c870c9115b74d"
+                    ) {
+                        Prefs.devPro = !Prefs.devPro
+                        com.jakober.klarmail.data.ProAccess.refresh()
+                        scope.launch {
+                            snackbar.showSnackbar(
+                                context.getString(
+                                    if (Prefs.devPro) R.string.settings_dev_on
+                                    else R.string.settings_dev_off
+                                )
+                            )
+                        }
+                    } else {
+                        scope.launch {
+                            snackbar.showSnackbar(
+                                context.getString(R.string.settings_dev_wrong)
+                            )
+                        }
+                    }
+                }) { Text(stringResource(R.string.settings_dev_apply)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { devAsk = false }) {
+                    Text(stringResource(R.string.settings_back))
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
+                title = {
+                    Text(
+                        stringResource(R.string.settings_title),
+                        modifier = Modifier.clickable {
+                            devTaps++
+                            if (devTaps >= 7) {
+                                devTaps = 0
+                                devAsk = true
+                            }
+                        }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
