@@ -144,4 +144,5 @@
     <string name="editor_ai_search">%1$d Treffer — Ergebnisse liegen unter der Lupe.</string>
     <string name="editor_ai_stamp">Datumsstempel gesetzt.</string>
     <string name="editor_ai_saveflow">Alles klar — der Speichern-Dialog öffnet sich gleich.</string>
+    <string name="editor_ai_no_text">Dieses PDF enthält keinen auslesbaren Text (vermutlich ein Scan).</string>
 </resources>

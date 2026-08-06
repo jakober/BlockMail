@@ -143,4 +143,5 @@
     <string name="editor_ai_search">%1$d matches — results are under the magnifier.</string>
     <string name="editor_ai_stamp">Date stamp placed.</string>
     <string name="editor_ai_saveflow">Done — the save dialog opens in a moment.</string>
+    <string name="editor_ai_no_text">This PDF contains no extractable text (probably a scan).</string>
 </resources>

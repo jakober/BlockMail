@@ -1083,6 +1083,33 @@ fun AttachmentEditorScreen(
                 compressAndSave()
                 context.getString(R.string.editor_ai_saveflow)
             }
+            "zusammenfassen" -> {
+                val f = session.file
+                    ?: return context.getString(R.string.editor_ai_fail)
+                val docText = com.jakober.klarmail.data.PdfTextExtract.text(f)
+                if (docText.isBlank()) {
+                    context.getString(R.string.editor_ai_no_text)
+                } else {
+                    com.jakober.klarmail.data.EditorAi.summarize(docText)
+                        ?: context.getString(R.string.editor_ai_fail)
+                }
+            }
+            "frage" -> {
+                val frage = cmd.optString("frage")
+                val f = session.file
+                if (frage.isBlank() || f == null) {
+                    context.getString(R.string.editor_ai_fail)
+                } else {
+                    val docText = com.jakober.klarmail.data.PdfTextExtract.text(f)
+                    if (docText.isBlank()) {
+                        context.getString(R.string.editor_ai_no_text)
+                    } else {
+                        com.jakober.klarmail.data.EditorAi
+                            .answerQuestion(docText, frage)
+                            ?: context.getString(R.string.editor_ai_fail)
+                    }
+                }
+            }
             "keine" -> cmd.optString("antwort")
                 .ifBlank { context.getString(R.string.editor_ai_fail) }
             else -> context.getString(R.string.editor_ai_fail)
@@ -1250,8 +1277,19 @@ fun AttachmentEditorScreen(
                         aiMessages.add(true to q)
                         aiBusy = true
                         scope.launch {
-                            val cmd = com.jakober.klarmail.data.EditorAi
-                                .command(q, pageSizes.size, pageIndex + 1)
+                            // Abkuerzung fuer den haeufigsten Inhalts-Wunsch:
+                            // "fasse zusammen" braucht keine Uebersetzung
+                            // durch das Modell — das spart einen Umweg und
+                            // ist unempfindlich gegen freie Formulierungen
+                            val cmd = if (
+                                Regex("zusammenfass|fasse |summar|fass ")
+                                    .containsMatchIn(q.lowercase())
+                            ) {
+                                org.json.JSONObject().put("aktion", "zusammenfassen")
+                            } else {
+                                com.jakober.klarmail.data.EditorAi
+                                    .command(q, pageSizes.size, pageIndex + 1)
+                            }
                             val answer = if (cmd == null) {
                                 context.getString(R.string.editor_ai_fail)
                             } else {

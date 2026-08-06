@@ -219,6 +219,27 @@ object PdfCompress {
     }
 }
 
+/** Reinen Text aus dem PDF ziehen — Futter für Zusammenfassung & Fragen. */
+object PdfTextExtract {
+
+    suspend fun text(file: File, maxChars: Int = 8000): String =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                PDDocument.load(file, MEM).use { doc ->
+                    val sb = StringBuilder()
+                    val stripper = PDFTextStripper()
+                    for (p in 0 until doc.numberOfPages) {
+                        if (sb.length >= maxChars) break
+                        stripper.startPage = p + 1
+                        stripper.endPage = p + 1
+                        runCatching { sb.append(stripper.getText(doc)).append('\n') }
+                    }
+                    sb.toString().take(maxChars)
+                }
+            }.getOrDefault("")
+        }
+}
+
 /**
  * Findet Textstellen samt POSITION — Grundlage für „markiere alle
  * Geldbeträge/Begriffe“: Die Fundstellen werden dem Editor als Rechtecke
