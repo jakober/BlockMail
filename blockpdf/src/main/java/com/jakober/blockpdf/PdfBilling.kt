@@ -27,12 +27,19 @@ object PdfBilling {
     const val PRODUCT_ID = "blockpdf_pro"
     const val BASE_PLAN = "pdf-199"
 
+    /**
+     * Testphase: Pro fuer ALLE freigeschaltet, damit Tester jede Funktion
+     * ohne Abo pruefen koennen. VOR dem echten Start auf false stellen —
+     * sonst verkauft die App nichts.
+     */
+    const val TEST_UNLOCK = true
+
     private var client: BillingClient? = null
 
     @Volatile
     private var connecting = false
 
-    private val _isPro = MutableStateFlow(false)
+    private val _isPro = MutableStateFlow(TEST_UNLOCK)
     val isProFlow: StateFlow<Boolean> = _isPro
 
     private val _price = MutableStateFlow<String?>(null)
@@ -119,7 +126,7 @@ object PdfBilling {
                     it.purchaseState == Purchase.PurchaseState.PURCHASED
                 }
                 if (active.isEmpty()) {
-                    _isPro.value = false
+                    _isPro.value = TEST_UNLOCK
                 } else {
                     active.forEach { handlePurchase(it) }
                 }
