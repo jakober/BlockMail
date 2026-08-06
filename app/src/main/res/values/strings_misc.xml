@@ -113,7 +113,7 @@
     <string name="editor_prev_page">Vorherige Seite</string>
     <string name="editor_next_page">Nächste Seite</string>
     <string name="editor_hint_view">Blättern und mit zwei Fingern zoomen. Tippe ein Element an, um es auszuwählen — dann kannst du es verschieben, in der Größe ändern oder löschen.</string>
-    <string name="editor_hint_sign">Tippe auf die Stelle, an der die Unterschrift stehen soll. Ziehen verschiebt sie, − und + ändern die Größe.</string>
+    <string name="editor_hint_sign">Tippe auf eine freie Stelle, um die Unterschrift zu setzen. Ein Tipp auf ein vorhandenes Element wählt es aus — verschieben, Größe ändern, löschen.</string>
     <string name="editor_hint_no_signature">Zeichne zuerst einmal deine Unterschrift — danach ist sie dauerhaft gespeichert.</string>
     <string name="editor_create_signature">Unterschrift zeichnen</string>
     <string name="editor_new_signature">Neu zeichnen</string>
@@ -149,8 +149,8 @@
     <string name="editor_hint_highlight">Ziehe über den Text, um ihn zu markieren.</string>
     <string name="editor_hint_eraser">Tippe ein Element an, um es zu entfernen.</string>
     <string name="editor_hint_redact">Ziehe ein Rechteck über die Stelle, die geschwärzt werden soll.</string>
-    <string name="editor_hint_stamp">Tippe dorthin, wo das Zeichen sitzen soll. Ziehen verschiebt es, − und + ändern die Größe.</string>
-    <string name="editor_hint_date">Tippe dorthin, wo das Datum stehen soll. Ziehen verschiebt es, − und + ändern die Größe.</string>
+    <string name="editor_hint_stamp">Tippe auf eine freie Stelle, um das Zeichen zu setzen. Ein Tipp auf ein vorhandenes Element wählt es aus.</string>
+    <string name="editor_hint_date">Tippe auf eine freie Stelle, um das Datum zu setzen. Ein Tipp auf ein vorhandenes Element wählt es aus.</string>
     <string name="editor_menu_save_as">Speichern unter …</string>
     <string name="editor_menu_share">Teilen</string>
     <string name="editor_menu_print">Drucken</string>

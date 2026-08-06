@@ -113,7 +113,7 @@
     <string name="editor_prev_page">Previous page</string>
     <string name="editor_next_page">Next page</string>
     <string name="editor_hint_view">Scroll and pinch to zoom. Tap an element to select it — then move it, resize it or delete it.</string>
-    <string name="editor_hint_sign">Tap where the signature should go. Drag to move it, − and + change its size.</string>
+    <string name="editor_hint_sign">Tap an empty spot to place the signature. Tapping an existing element selects it — move, resize or delete it.</string>
     <string name="editor_hint_no_signature">Draw your signature once — after that it stays saved on your device.</string>
     <string name="editor_create_signature">Draw signature</string>
     <string name="editor_new_signature">Draw again</string>
@@ -149,8 +149,8 @@
     <string name="editor_hint_highlight">Drag across the text to highlight it.</string>
     <string name="editor_hint_eraser">Tap an element to remove it.</string>
     <string name="editor_hint_redact">Drag a rectangle over the area you want to redact.</string>
-    <string name="editor_hint_stamp">Tap where the mark should go. Drag to move it, − and + change its size.</string>
-    <string name="editor_hint_date">Tap where the date should go. Drag to move it, − and + change its size.</string>
+    <string name="editor_hint_stamp">Tap an empty spot to place the mark. Tapping an existing element selects it.</string>
+    <string name="editor_hint_date">Tap an empty spot to place the date. Tapping an existing element selects it.</string>
     <string name="editor_menu_save_as">Save as …</string>
     <string name="editor_menu_share">Share</string>
     <string name="editor_menu_print">Print</string>

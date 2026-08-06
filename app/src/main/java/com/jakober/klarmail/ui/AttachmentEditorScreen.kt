@@ -1298,41 +1298,6 @@ fun AttachmentEditorScreen(
                             }
                         }
                     }
-                    // Groesse aendern — fuer Unterschrift, Haekchen, Kreuz und
-                    // Datum gleichermassen. Wirkt immer auf das ZULETZT
-                    // angefasste Element (Angefasste wandern ans Listenende,
-                    // siehe PageCanvas), egal auf welcher Seite es liegt.
-                    if (mode == "sign" || mode == "check" || mode == "cross" || mode == "date") {
-                        val touched = lastTouched?.let { marks[it] }
-                        val last = touched?.lastOrNull()
-                        val resizable = last is Mark.Sign || last is Mark.Stamp ||
-                            last is Mark.Label
-                        if (touched != null && resizable) {
-                            fun resize(f: Float) {
-                                val i = touched.lastIndex
-                                if (i < 0) return
-                                when (val m = touched[i]) {
-                                    is Mark.Sign -> touched[i] = m.copy(width = m.width * f)
-                                    is Mark.Stamp -> touched[i] = m.copy(size = m.size * f)
-                                    is Mark.Label -> touched[i] = m.copy(sizePx = m.sizePx * f)
-                                    else -> Unit
-                                }
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    stringResource(R.string.editor_size),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                OutlinedButton(onClick = { resize(0.8f) }) { Text("−") }
-                                OutlinedButton(onClick = { resize(1.25f) }) { Text("+") }
-                            }
-                        }
-                    }
                     Spacer(Modifier.height(8.dp))
                     // Ein Hauptknopf, dessen Bedeutung der Herkunft folgt:
                     // Mail-Anhang → zuruecksenden; geteilt → als Mail senden;
@@ -1528,11 +1493,11 @@ private fun PageCanvas(
             .fillMaxSize()
             .onSizeChanged { boxSize = it }
             .pointerInput(mode, selectedIndex, signature, initials, bitmap) {
-                // Ansehen-Modus: Antippen waehlt ein Element aus, Ziehen
-                // verschiebt das ausgewaehlte. Von Hand gebaut, damit der
-                // Bildlauf der Liste nur dann angehalten wird, wenn der
+                // Antippen waehlt ein Element aus (im Ansehen-Modus hier,
+                // in Werkzeug-Modi im Tipp-Block unten), Ziehen verschiebt
+                // das ausgewaehlte — in JEDEM Modus. Von Hand gebaut, damit
+                // der Bildlauf der Liste nur dann angehalten wird, wenn der
                 // Finger wirklich auf dem ausgewaehlten Element liegt.
-                if (mode != "view") return@pointerInput
                 val sigAspect = signature?.let { it.height.toFloat() / it.width }
                 val iniAspect = initials?.let { it.height.toFloat() / it.width }
                 awaitEachGesture {
@@ -1561,7 +1526,7 @@ private fun PageCanvas(
                             change.consume()
                             version++
                         }
-                    } else {
+                    } else if (mode == "view") {
                         // Kein Ziehen abfangen — nur ein ruhiger Tipp waehlt
                         // aus (oder hebt die Auswahl auf)
                         var moved = false
@@ -1617,86 +1582,32 @@ private fun PageCanvas(
                             version++
                         }
                     )
-                    // Vorhandene Unterschrift anfassen und verschieben —
-                    // neue entstehen ausschliesslich durch Tippen
-                    "sign" -> detectDragGestures(
-                        onDragStart = { p ->
-                            val page = toPage(p)
-                            val hit = marks.indexOfLast { m ->
-                                m is Mark.Sign &&
-                                    kotlin.math.abs(m.center.x - page.x) < m.width / 2 &&
-                                    kotlin.math.abs(m.center.y - page.y) < m.width / 2
-                            }
-                            if (hit >= 0) {
-                                onTouched()
-                                if (hit != marks.lastIndex) {
-                                    // Angefasste nach hinten holen — dann wirken
-                                    // −/+ und das Ziehen darauf
-                                    val m = marks.removeAt(hit)
-                                    marks.add(m)
-                                }
-                            }
-                        },
-                        onDrag = { change, drag ->
-                            val s = marks.lastOrNull() as? Mark.Sign ?: return@detectDragGestures
-                            change.consume()
-                            s.center = Offset(
-                                s.center.x + drag.x / scale,
-                                s.center.y + drag.y / scale
-                            )
-                            version++
-                        }
-                    )
-                    // Haekchen, Kreuz und Datum lassen sich wie die
-                    // Unterschrift anfassen und verschieben
-                    "check", "cross", "date" -> detectDragGestures(
-                        onDragStart = { p ->
-                            val page = toPage(p)
-                            val hit = marks.indexOfLast { m ->
-                                (m is Mark.Stamp &&
-                                    kotlin.math.abs(m.center.x - page.x) < m.size &&
-                                    kotlin.math.abs(m.center.y - page.y) < m.size) ||
-                                    (m is Mark.Label &&
-                                        kotlin.math.abs(m.center.x - page.x) <
-                                        m.sizePx * m.text.length * 0.4f &&
-                                        kotlin.math.abs(m.center.y - page.y) < m.sizePx * 1.5f)
-                            }
-                            if (hit >= 0) {
-                                onTouched()
-                                if (hit != marks.lastIndex) {
-                                    val m = marks.removeAt(hit)
-                                    marks.add(m)
-                                }
-                            }
-                        },
-                        onDrag = { change, drag ->
-                            when (val m = marks.lastOrNull()) {
-                                is Mark.Stamp -> {
-                                    change.consume()
-                                    m.center = Offset(
-                                        m.center.x + drag.x / scale,
-                                        m.center.y + drag.y / scale
-                                    )
-                                    version++
-                                }
-                                is Mark.Label -> {
-                                    change.consume()
-                                    m.center = Offset(
-                                        m.center.x + drag.x / scale,
-                                        m.center.y + drag.y / scale
-                                    )
-                                    version++
-                                }
-                                else -> Unit
-                            }
-                        }
-                    )
                     else -> Unit
                 }
             }
             .pointerInput(mode, signature, initials, signSlot, drawColor, bitmap) {
                 detectTapGestures { p ->
                     val page = toPage(p)
+                    val tol = bitmap.width / 40f
+                    if (mode == "eraser") {
+                        val hit = hitMark(marks, page, tol)
+                        if (hit >= 0) {
+                            marks.removeAt(hit)
+                            version++
+                            onErased()
+                        }
+                        return@detectTapGestures
+                    }
+                    if (mode == "view") return@detectTapGestures
+                    // Vorhandenes hat Vorrang: Ein Tipp auf ein bestehendes
+                    // Element waehlt es aus — egal, welches Werkzeug gerade
+                    // aktiv ist. Nur auf freier Flaeche entsteht Neues.
+                    val hit = hitMark(marks, page, tol)
+                    if (hit >= 0) {
+                        onSelect(hit)
+                        onTouched()
+                        return@detectTapGestures
+                    }
                     when (mode) {
                         "sign" -> {
                             val bmp = if (signSlot == 1) initials else signature
@@ -1707,14 +1618,16 @@ private fun PageCanvas(
                             val w = if (signSlot == 1) bitmap.width / 6f else bitmap.width / 3f
                             marks.add(Mark.Sign(page, w, signSlot))
                             onMarkAdded()
+                            // Neu gesetzte sind sofort ausgewaehlt: Ziehen
+                            // und Groesse funktionieren ohne weiteren Tipp
+                            onSelect(marks.lastIndex)
                         }
-                        "check" -> {
-                            marks.add(Mark.Stamp(true, page, bitmap.width / 14f, drawColor))
+                        "check", "cross" -> {
+                            marks.add(
+                                Mark.Stamp(mode == "check", page, bitmap.width / 14f, drawColor)
+                            )
                             onMarkAdded()
-                        }
-                        "cross" -> {
-                            marks.add(Mark.Stamp(false, page, bitmap.width / 14f, drawColor))
-                            onMarkAdded()
+                            onSelect(marks.lastIndex)
                         }
                         "date" -> {
                             val text = java.time.LocalDate.now().format(
@@ -1722,15 +1635,11 @@ private fun PageCanvas(
                             )
                             marks.add(Mark.Label(text, page, bitmap.width / 32f, drawColor))
                             onMarkAdded()
+                            onSelect(marks.lastIndex)
                         }
-                        "eraser" -> {
-                            val hit = hitMark(marks, page, bitmap.width / 40f)
-                            if (hit >= 0) {
-                                marks.removeAt(hit)
-                                version++
-                                onErased()
-                            }
-                        }
+                        // Stift, Marker, Schwaerzen: Tipp auf Freiflaeche
+                        // hebt nur die Auswahl auf — gezeichnet wird gezogen
+                        else -> onSelect(-1)
                     }
                 }
             }
