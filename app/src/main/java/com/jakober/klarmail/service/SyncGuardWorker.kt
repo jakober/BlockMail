@@ -24,6 +24,8 @@ class SyncGuardWorker(
         runCatching { MailChecker.processDueSnoozes(applicationContext) }
         // Fällige geplante Mails auch bei totem Dienst verschicken
         runCatching { MailChecker.processOutbox(applicationContext) }
+        // Wecker fuer die naechste geplante Mail sicherstellen
+        runCatching { OutboxAlarm.arm(applicationContext) }
         // Cache aufräumen — wichtig im Sparmodus, wo der Dienst-Planer nicht läuft
         runCatching { com.jakober.klarmail.data.MailRepository.cleanupBodyCache() }
         // Antwort-Radar (läuft intern höchstens einmal pro Tag)

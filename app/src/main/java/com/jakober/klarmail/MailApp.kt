@@ -41,6 +41,8 @@ class MailApp : Application() {
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)
         // Voll-Index automatisch aufbauen — aber nur bei WLAN + Laden
         com.jakober.klarmail.service.IndexBuildWorker.schedule(this)
+        // Wecker fuer geplante Mails wiederherstellen (z. B. nach Neustart)
+        runCatching { com.jakober.klarmail.service.OutboxAlarm.arm(this) }
         cleanupSenderShortcuts()
         // Arbeitsdateien des Dokument-Editors aufraeumen: Abbrueche und
         // Abstuerze lassen dort sonst dauerhaft Kopien liegen

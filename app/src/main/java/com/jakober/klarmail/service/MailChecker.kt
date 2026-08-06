@@ -82,33 +82,42 @@ object MailChecker {
      * fehlschlägt.
      */
     fun processOutbox(context: Context) {
+        scope.launch { processOutboxNow(context) }
+    }
+
+    /**
+     * Verschickt alle fälligen geplanten Mails SOFORT (wartet auf den
+     * Versand) und stellt danach den Wecker auf die nächste fällige Mail
+     * neu — so bleibt [OutboxAlarm] auch nach Fehlversuchen (15-Minuten-
+     * Wiedervorlage) präzise.
+     */
+    suspend fun processOutboxNow(context: Context) {
         val due = Prefs.outbox().filter { it.sendAt <= System.currentTimeMillis() }
         if (due.isEmpty()) return
-        scope.launch {
-            due.forEach { m ->
-                try {
-                    MailRepository.send(
-                        to = m.to, subject = m.subject, body = m.body,
-                        html = m.html, cc = m.cc, bcc = m.bcc,
-                        account = m.account
-                    )
-                    Prefs.removeOutbox(m.id)
-                    statusNotification(
-                        context,
-                        context.getString(R.string.svc_scheduled_sent, m.subject),
-                        timeoutMs = 15_000
-                    )
-                } catch (e: Exception) {
-                    Prefs.saveOutbox(Prefs.outbox().map {
-                        if (it.id == m.id) it.copy(sendAt = System.currentTimeMillis() + 15 * 60_000) else it
-                    })
-                    statusNotification(
-                        context,
-                        context.getString(R.string.svc_scheduled_failed, m.subject)
-                    )
-                }
+        due.forEach { m ->
+            try {
+                MailRepository.send(
+                    to = m.to, subject = m.subject, body = m.body,
+                    html = m.html, cc = m.cc, bcc = m.bcc,
+                    account = m.account
+                )
+                Prefs.removeOutbox(m.id)
+                statusNotification(
+                    context,
+                    context.getString(R.string.svc_scheduled_sent, m.subject),
+                    timeoutMs = 15_000
+                )
+            } catch (e: Exception) {
+                Prefs.saveOutbox(Prefs.outbox().map {
+                    if (it.id == m.id) it.copy(sendAt = System.currentTimeMillis() + 15 * 60_000) else it
+                })
+                statusNotification(
+                    context,
+                    context.getString(R.string.svc_scheduled_failed, m.subject)
+                )
             }
         }
+        runCatching { OutboxAlarm.arm(context) }
     }
 
     /**

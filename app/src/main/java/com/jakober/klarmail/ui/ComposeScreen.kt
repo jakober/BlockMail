@@ -452,6 +452,12 @@ fun ComposeScreen(
                                             account = fromAccount
                                         )
                                     )
+                                    // Wecker exakt auf die Wunschzeit stellen —
+                                    // die 10-Minuten-Takte sind nur Rueckfall
+                                    runCatching {
+                                        com.jakober.klarmail.service.OutboxAlarm
+                                            .arm(context)
+                                    }
                                     draft?.let { Prefs.removeDraft(it.id) }
                                     onBack()
                                 }

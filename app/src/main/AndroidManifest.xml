@@ -10,6 +10,10 @@
          hat keine FCM-Alternative, weil IMAP direkt zum Anbieter spricht. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Geplantes Senden minutengenau: Auf Android 12 automatisch erteilt,
+         ab 13 kann der Nutzer sie unter "Wecker und Erinnerungen" gewaehren.
+         Ohne sie greift ein Fenster-Wecker (max. 10 Minuten Spielraum). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
@@ -94,6 +98,11 @@
             android:theme="@android:style/Theme.NoDisplay"
             android:excludeFromRecents="true"
             android:noHistory="true" />
+
+        <!-- Weckruf fuer minutengenaues geplantes Senden -->
+        <receiver
+            android:name=".service.OutboxAlarmReceiver"
+            android:exported="false" />
 
         <!-- Homescreen-Widget mit den neuesten Mails -->
         <receiver
