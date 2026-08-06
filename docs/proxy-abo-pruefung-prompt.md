@@ -26,8 +26,8 @@ mit 3 Tagen kostenloser Testphase:
 
 | Basis-Tarif | Preis (brutto) | Enthaltene KI-Anfragen |
 |-------------|----------------|------------------------|
-| `pro-150`   | 4,90 €/Monat   | **150 pro Monat**      |
-| `pro-300`   | 9,00 €/Monat   | **300 pro Monat**      |
+| `pro-150`   | 5,99 €/Monat   | **150 pro Monat**      |
+| `pro-300`   | 10,99 €/Monat  | **300 pro Monat**      |
 
 Bei jeder KI-Anfrage schickt die App zusätzlich:
 
