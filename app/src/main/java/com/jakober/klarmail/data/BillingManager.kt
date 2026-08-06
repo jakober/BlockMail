@@ -83,6 +83,11 @@ object BillingManager {
         refreshPurchases()
     }
 
+    /** Hebt die Totsperre von Hand auf — fuer den Aktualisieren-Knopf. */
+    fun clearDeadToken() {
+        Prefs.deadPurchaseToken = ""
+    }
+
     private fun deadTokenOrEmpty(): String {
         val t = Prefs.deadPurchaseToken
         if (t.isBlank()) return ""
@@ -259,7 +264,8 @@ object BillingManager {
                 }
                 val dead = deadTokenOrEmpty()
                 if (dead.isNotBlank() && active.isNotEmpty() &&
-                    active.all { it.purchaseToken == dead }
+                    active.all { it.purchaseToken == dead } &&
+                    active.none { it.isAutoRenewing }
                 ) {
                     // Die Kaufliste meldet genau den Token als aktiv, den
                     // Play soeben im Kaufdialog abgelehnt hat: Sie ist
@@ -296,9 +302,18 @@ object BillingManager {
         if (purchase.products.none { it == PRODUCT_ID }) return
         val dead = deadTokenOrEmpty()
         if (dead.isNotBlank()) {
-            if (purchase.purchaseToken == dead) return
-            // Ein anderer Token = echter neuer Kauf: Sperre aufheben
-            Prefs.deadPurchaseToken = ""
+            if (purchase.purchaseToken == dead) {
+                // Meldet die Kaufliste den Kauf als NOCH VERLAENGERND, lebt
+                // das Abo offensichtlich — dann war die Ueberfuehrung ein
+                // Fehlalarm (z. B. ein voruebergehendes Server-403) und wird
+                // aufgehoben. Ein abgelaufenes Abo steht dagegen immer auf
+                // "verlaengert nicht mehr" — das bleibt gesperrt.
+                if (!purchase.isAutoRenewing) return
+                Prefs.deadPurchaseToken = ""
+            } else {
+                // Ein anderer Token = echter neuer Kauf: Sperre aufheben
+                Prefs.deadPurchaseToken = ""
+            }
         }
         Prefs.purchaseToken = purchase.purchaseToken
         // Welchen Basis-Tarif der Kauf betrifft, sagt die Kaufantwort nicht.

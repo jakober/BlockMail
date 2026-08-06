@@ -555,7 +555,9 @@ fun SettingsScreen(
             OutlinedButton(onClick = {
                 // Auch den Abo-Stand hart nachpruefen: der Knopf ist die
                 // Selbsthilfe, wenn Play-Geraetecache und Wirklichkeit
-                // auseinanderliegen
+                // auseinanderliegen — inklusive Aufhebung einer
+                // faelschlich gesetzten Token-Sperre
+                runCatching { com.jakober.klarmail.data.BillingManager.clearDeadToken() }
                 runCatching { com.jakober.klarmail.data.BillingManager.refreshPurchases() }
                 scope.launch { com.jakober.klarmail.data.AiQuota.refresh() }
             }) { Text(stringResource(R.string.settings_pro_quota_refresh)) }

@@ -174,16 +174,16 @@ object AiQuota {
             val parsed = runCatching {
                 http.newCall(request).execute().use { resp ->
                     if (resp.code == 403) {
-                        // Der Server hat das Abo über die Play-API geprüft
-                        // und lehnt ab (subscription_required). Der
-                        // mitgeschickte Token wird damit als ungültig
-                        // überführt — die Geräte-Kaufliste darf ihn nicht
-                        // mehr wiederbeleben, denn sie hinkt nach einem
-                        // Ablauf hinterher. Ein ECHTER neuer Kauf (anderer
-                        // Token) hebt die Sperre sofort auf.
-                        val sent = Prefs.purchaseToken
-                        if (sent.isNotBlank()) BillingManager.markTokenDead(sent)
-                        else BillingManager.refreshPurchases()
+                        // Der Server lehnt ab (subscription_required) —
+                        // aber NUR bei Play gegenpruefen, nicht den Token
+                        // ueberfuehren: Der Server kann voruebergehend falsch
+                        // liegen (15-Minuten-Negativ-Cache, Google-Ruckler
+                        // an einer Verlaengerungsgrenze). Ein einziges
+                        // falsches 403 haette sonst ein LAUFENDES Abo fuer
+                        // 48 Stunden ausgesperrt. Ist das Abo wirklich weg,
+                        // raeumt die Play-Abfrage bzw. der Kaufdialog auf —
+                        // und die KI bleibt serverseitig ohnehin gesperrt.
+                        BillingManager.refreshPurchases()
                         return@use null
                     }
                     if (!resp.isSuccessful) return@use null
