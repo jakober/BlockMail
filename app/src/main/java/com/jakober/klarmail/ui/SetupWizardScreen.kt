@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -122,8 +123,37 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
     var provider by remember { mutableStateOf<SetupProvider?>(null) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordAutoFilled by remember { mutableStateOf(false) }
     var testing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+
+    // Abkuerzung fuer App-Passwoerter: Wer bei Google/Yahoo das frisch
+    // erzeugte App-Passwort kopiert und zur App zurueckkehrt, bekommt es
+    // hier automatisch eingetragen (16 Buchstaben, mit oder ohne
+    // Leerzeichen). Der kleine Aufschub ist noetig, weil Android der App
+    // die Zwischenablage erst nach dem Fokuswechsel freigibt.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                scope.launch {
+                    kotlinx.coroutines.delay(400)
+                    if (provider == null || password.isNotBlank()) return@launch
+                    val clip = runCatching {
+                        context.getSystemService(android.content.ClipboardManager::class.java)
+                            ?.primaryClip?.getItemAt(0)?.text?.toString()
+                    }.getOrNull()?.trim().orEmpty()
+                    val compact = clip.replace(" ", "")
+                    if (Regex("^[a-zA-Z]{16}$").matches(compact)) {
+                        password = compact
+                        passwordAutoFilled = true
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         topBar = {
@@ -230,12 +260,29 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = { password = it; passwordAutoFilled = false },
                     label = { Text(stringResource(p.passwordLabelRes)) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (passwordAutoFilled) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            stringResource(R.string.setup_pw_autofilled),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
                 error?.let { err ->
                     Spacer(Modifier.height(10.dp))
                     Text(

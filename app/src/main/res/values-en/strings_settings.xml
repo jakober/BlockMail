@@ -306,4 +306,5 @@
     <string name="settings_more_folders_loading">Loading folders …</string>
     <string name="settings_more_folders_none">No additional folders found.</string>
     <string name="settings_more_folders_failed">Could not load folders: %1$s</string>
+    <string name="setup_pw_autofilled">App password taken from the clipboard.</string>
 </resources>
