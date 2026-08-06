@@ -356,12 +356,18 @@ fun AttachmentEditorScreen(
         loading = false
     }
 
+    // Zaehlt bei jeder Seitenoperation hoch: Ein Renderauftrag, der noch
+    // fuer den ALTEN Dokumentstand lief, darf sein Ergebnis nicht mehr in
+    // den frisch geleerten Speicher legen
+    var docGeneration by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+
     /** Holt eine Seite in den Zwischenspeicher, falls noch nicht da. */
     fun ensurePage(index: Int) {
         if (!isPdf || pageBitmaps.containsKey(index)) return
+        val gen = docGeneration
         scope.launch {
             val bmp = renderPage(index) ?: return@launch
-            pageBitmaps[index] = bmp
+            if (gen == docGeneration) pageBitmaps[index] = bmp
         }
     }
 
@@ -587,6 +593,7 @@ fun AttachmentEditorScreen(
         workFile = outF
         if (old != null && old != outF) runCatching { old.delete() }
         pageIds = session.pageIds
+        docGeneration++
         pageBitmaps.clear()
         pageSizes = (0 until session.pageCount).map { session.pageSize(it) ?: (595 to 842) }
         return true
@@ -1454,7 +1461,11 @@ private fun PageItem(
     selectedIndex: Int,
     onSelect: (Int) -> Unit
 ) {
-    LaunchedEffect(Unit) { onNeeded() }
+    // Nicht nur beim ersten Aufbau anfordern: Nach einer Seitenoperation
+    // (einfuegen, drehen, loeschen) wird der Bildspeicher geleert — eine
+    // bereits sichtbare Seite muss ihr Bild dann ERNEUT anfordern, sonst
+    // bleibt dort fuer immer der Ladekringel stehen.
+    LaunchedEffect(bitmap == null) { if (bitmap == null) onNeeded() }
     Box(
         modifier = Modifier
             .fillMaxWidth()
