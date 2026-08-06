@@ -12,8 +12,8 @@ android {
         applicationId = "com.jakober.klarmail"
         minSdk = 26
         targetSdk = 36
-        versionCode = 232
-        versionName = "4.29"
+        versionCode = 233
+        versionName = "4.30"
 
         // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
         manifestPlaceholders["appAuthRedirectScheme"] =

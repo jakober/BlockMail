@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.Button
@@ -132,6 +133,34 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
     // hier automatisch eingetragen (16 Buchstaben, mit oder ohne
     // Leerzeichen). Der kleine Aufschub ist noetig, weil Android der App
     // die Zwischenablage erst nach dem Fokuswechsel freigibt.
+    // Konto-Waehler des Systems: liefert die E-Mail-Adresse mit einem Tipp,
+    // ganz ohne Berechtigungen (der Nutzer waehlt selbst aus)
+    val accountPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { res ->
+        val name = res.data?.getStringExtra(
+            android.accounts.AccountManager.KEY_ACCOUNT_NAME
+        )
+        if (!name.isNullOrBlank()) email = name.trim()
+    }
+
+    fun pickAccount(onlyGoogle: Boolean) {
+        runCatching {
+            accountPicker.launch(
+                android.accounts.AccountManager.newChooseAccountIntent(
+                    null, null,
+                    if (onlyGoogle) arrayOf("com.google") else null,
+                    null, null, null, null
+                )
+            )
+        }
+    }
+
+    // Bei Gmail direkt anbieten: Konto antippen statt Adresse eintippen
+    androidx.compose.runtime.LaunchedEffect(provider) {
+        if (provider?.id == "gmail" && email.isBlank()) pickAccount(true)
+    }
+
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -255,6 +284,16 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                     onValueChange = { email = it },
                     label = { Text(stringResource(R.string.setup_email_address)) },
                     singleLine = true,
+                    trailingIcon = {
+                        IconButton(onClick = { pickAccount(p.id == "gmail") }) {
+                            Icon(
+                                Icons.Filled.AccountCircle,
+                                contentDescription = stringResource(
+                                    R.string.setup_pick_account
+                                )
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(10.dp))
