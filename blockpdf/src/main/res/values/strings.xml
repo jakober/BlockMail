@@ -16,5 +16,8 @@
     <string name="upsell_text">Ansehen ist kostenlos. Zum Bearbeiten, Unterschreiben und Speichern brauchst du BlockPDF Pro für %1$s im Monat — jederzeit kündbar.</string>
     <string name="upsell_later">Später</string>
     <string name="open_failed">Diese Datei lässt sich nicht öffnen.</string>
+    <string name="home_create_photos">Aus Fotos</string>
+    <string name="home_scan">Scannen</string>
+    <string name="home_create_failed">PDF konnte nicht erstellt werden.</string>
     <string name="back">Zurück</string>
 </resources>

@@ -27,11 +27,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,7 +42,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -127,6 +132,69 @@ class HomeActivity : ComponentActivity() {
             }
         }
 
+        // ---- Neues PDF aus Fotos / Kamera-Scan --------------------------
+        val scope = rememberCoroutineScope()
+        var busyCreate by remember { mutableStateOf(false) }
+
+        fun stamp(): String = java.text.SimpleDateFormat(
+            "yyyyMMdd-HHmm", java.util.Locale.US
+        ).format(java.util.Date())
+
+        fun createFrom(uris: List<Uri>, name: String) {
+            if (uris.isEmpty() || busyCreate) return
+            busyCreate = true
+            scope.launch {
+                val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+                val out = java.io.File(dir, name)
+                val ok = com.jakober.klarmail.data.PdfPageOps
+                    .createFromImages(context, uris, out)
+                busyCreate = false
+                if (ok) {
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        context, "com.jakober.blockpdf.fileprovider", out
+                    )
+                    onOpen(uri, name)
+                    recentList = recents()
+                } else {
+                    android.widget.Toast.makeText(
+                        context, R.string.home_create_failed,
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+
+        val photosPicker = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenMultipleDocuments()
+        ) { uris ->
+            if (!uris.isNullOrEmpty()) createFrom(uris, "Fotos-${stamp()}.pdf")
+        }
+
+        var camTarget by remember { mutableStateOf<Uri?>(null) }
+        val camera = rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture()
+        ) { ok ->
+            val u = camTarget
+            if (ok && u != null) createFrom(listOf(u), "Scan-${stamp()}.pdf")
+        }
+
+        fun launchCamera() {
+            val dir = java.io.File(context.cacheDir, "scans").apply { mkdirs() }
+            val f = java.io.File(dir, "scan_${System.currentTimeMillis()}.jpg")
+            runCatching {
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context, "com.jakober.blockpdf.fileprovider", f
+                )
+                camTarget = uri
+                camera.launch(uri)
+            }.onFailure {
+                android.widget.Toast.makeText(
+                    context, R.string.home_create_failed,
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
         Scaffold { padding ->
             Column(
                 modifier = Modifier
@@ -171,6 +239,27 @@ class HomeActivity : ComponentActivity() {
                     Icon(Icons.Filled.FolderOpen, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.home_open))
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = { photosPicker.launch(arrayOf("image/*")) },
+                        enabled = !busyCreate,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.Image, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.home_create_photos), maxLines = 1)
+                    }
+                    OutlinedButton(
+                        onClick = { launchCamera() },
+                        enabled = !busyCreate,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.PhotoCamera, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.home_scan), maxLines = 1)
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
                 if (!isPro) {

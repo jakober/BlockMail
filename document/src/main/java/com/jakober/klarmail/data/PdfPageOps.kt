@@ -165,26 +165,62 @@ object PdfPageOps {
             runCatching {
                 var added = 0
                 PDDocument.load(src, memory).use { doc ->
-                    images.forEach { uri ->
-                        val bmp = decode(context, uri) ?: return@forEach
-                        val long = 842f
-                        val scale = long / maxOf(bmp.width, bmp.height)
-                        val w = bmp.width * scale
-                        val h = bmp.height * scale
-                        val page = PDPage(PDRectangle(w, h))
-                        doc.addPage(page)
-                        val img = JPEGFactory.createFromImage(doc, bmp, 0.85f)
-                        PDPageContentStream(doc, page).use { cs ->
-                            cs.drawImage(img, 0f, 0f, w, h)
-                        }
-                        bmp.recycle()
-                        added++
-                    }
+                    added = addImagePages(context, doc, images)
                     if (added > 0) doc.save(out)
                 }
                 if (added > 0) added else -1
             }.getOrDefault(-1)
         }
+
+    /** Baut ein NEUES PDF aus Fotos — für „Aus Fotos erstellen“/Scannen. */
+    suspend fun createFromImages(context: Context, images: List<Uri>, out: File): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                var added = 0
+                PDDocument().use { doc ->
+                    added = addImagePages(context, doc, images)
+                    if (added > 0) doc.save(out)
+                }
+                added > 0 && out.length() > 0
+            }.getOrDefault(false)
+        }
+
+    /** Kopiert die Seiten [from]..[to] (einschließlich) in ein neues PDF. */
+    suspend fun extract(src: File, out: File, from: Int, to: Int): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                PDDocument.load(src, memory).use { doc ->
+                    if (from < 0 || to >= doc.numberOfPages || from > to) {
+                        return@withContext false
+                    }
+                    PDDocument().use { dst ->
+                        for (i in from..to) dst.importPage(doc.getPage(i))
+                        dst.save(out)
+                    }
+                }
+                out.length() > 0
+            }.getOrDefault(false)
+        }
+
+    private fun addImagePages(context: Context, doc: PDDocument, images: List<Uri>): Int {
+        var added = 0
+        images.forEach { uri ->
+            val bmp = decode(context, uri) ?: return@forEach
+            val long = 842f
+            val scale = long / maxOf(bmp.width, bmp.height)
+            val w = bmp.width * scale
+            val h = bmp.height * scale
+            val page = PDPage(PDRectangle(w, h))
+            doc.addPage(page)
+            val img = JPEGFactory.createFromImage(doc, bmp, 0.85f)
+            PDPageContentStream(doc, page).use { cs ->
+                cs.drawImage(img, 0f, 0f, w, h)
+            }
+            bmp.recycle()
+            added++
+        }
+        return added
+    }
 
     private fun decode(context: Context, uri: Uri): Bitmap? = runCatching {
         val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }

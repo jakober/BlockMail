@@ -16,5 +16,8 @@
     <string name="upsell_text">Viewing is free. To edit, sign and save you need BlockPDF Pro for %1$s per month — cancel anytime.</string>
     <string name="upsell_later">Later</string>
     <string name="open_failed">This file cannot be opened.</string>
+    <string name="home_create_photos">From photos</string>
+    <string name="home_scan">Scan</string>
+    <string name="home_create_failed">The PDF could not be created.</string>
     <string name="back">Back</string>
 </resources>

@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -339,6 +341,23 @@ fun AttachmentEditorScreen(
     // Seiten-Uebersicht (nur erweiterte Werkzeuge): offen? + Miniaturbilder
     var showPages by remember { mutableStateOf(false) }
     val pageThumbs = remember { androidx.compose.runtime.mutableStateMapOf<Int, Bitmap>() }
+    // Volltextsuche (nur erweiterte Werkzeuge)
+    var searchOpen by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var searchBusy by remember { mutableStateOf(false) }
+    var searchResults by remember {
+        mutableStateOf<List<com.jakober.klarmail.data.PdfTextSearch.Hit>?>(null)
+    }
+    // Formularfelder, Inhaltsverzeichnis, Herausziehen, Passwort, Verkleinern
+    var formAsk by remember { mutableStateOf<com.jakober.klarmail.data.PdfFormOps.Form?>(null) }
+    var outlineAsk by remember {
+        mutableStateOf<List<com.jakober.klarmail.data.PdfOutline.Entry>?>(null)
+    }
+    var extractAsk by remember { mutableStateOf(false) }
+    var protectAsk by remember { mutableStateOf(false) }
+    var compressAsk by remember { mutableStateOf(false) }
+    // Nachtmodus: Seiten invertiert anzeigen (nur Anzeige, nie gespeichert)
+    var nightMode by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var busyOp by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -602,6 +621,64 @@ fun AttachmentEditorScreen(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument(saveMime)
     ) { uri -> if (uri != null) saveToUri(uri) }
 
+    // Abgeleitete Ergebnisse (Auszug, verschluesselt, verkleinert): erst in
+    // den Export-Ordner bauen, dann ueber die Dateiauswahl wegschreiben
+    var pendingPrepared by remember { mutableStateOf<File?>(null) }
+    val preparedSaveLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
+        val prepared = pendingPrepared
+        if (uri != null && prepared != null) {
+            runSaving {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { o ->
+                        prepared.inputStream().use { it.copyTo(o, 64 * 1024) }
+                    } ?: error("Datei nicht beschreibbar")
+                }
+                snackbar.showSnackbar(context.getString(R.string.editor_saved))
+            }
+        }
+    }
+
+    /** Basisname der Quelldatei ohne Endung, fuer abgeleitete Dateinamen. */
+    fun baseName(): String = source.name.substringBeforeLast('.')
+
+    fun extractPages(from: Int, to: Int) = runSaving {
+        // Erst das fertige Dokument MIT allen Aufsaetzen bauen — sonst
+        // fehlen Unterschrift & Co. im Auszug
+        val annotated = produceToExports()
+        val outF = File(annotated.parentFile, "extract_${System.currentTimeMillis()}.pdf")
+        if (!com.jakober.klarmail.data.PdfPageOps.extract(annotated, outF, from, to)) {
+            error(context.getString(R.string.editor_page_op_failed))
+        }
+        pendingPrepared = outF
+        preparedSaveLauncher.launch("${baseName()}-S${from + 1}-${to + 1}.pdf")
+    }
+
+    fun protectAndSave(password: String) = runSaving {
+        val annotated = produceToExports()
+        val outF = File(annotated.parentFile, "locked_${System.currentTimeMillis()}.pdf")
+        if (!com.jakober.klarmail.data.PdfCrypt.protect(annotated, outF, password)) {
+            error(context.getString(R.string.editor_save_failed))
+        }
+        pendingPrepared = outF
+        preparedSaveLauncher.launch(
+            "${baseName()}-${context.getString(R.string.editor_suffix_protected)}.pdf"
+        )
+    }
+
+    fun compressAndSave() = runSaving {
+        val annotated = produceToExports()
+        val outF = File(annotated.parentFile, "small_${System.currentTimeMillis()}.pdf")
+        if (!com.jakober.klarmail.data.PdfCompress.compress(annotated, outF)) {
+            error(context.getString(R.string.editor_save_failed))
+        }
+        pendingPrepared = outF
+        preparedSaveLauncher.launch(
+            "${baseName()}-${context.getString(R.string.editor_suffix_small)}.pdf"
+        )
+    }
+
     // ---- Bild platzieren (nur erweiterte Werkzeuge) --------------------
 
     /**
@@ -816,6 +893,36 @@ fun AttachmentEditorScreen(
         }
     }
 
+    // Kamera-Scan: Foto aufnehmen und als neue Seite anhaengen. Die
+    // Kamera-App braucht ein beschreibbares Ziel ueber den FileProvider.
+    var scanTarget by remember { mutableStateOf<android.net.Uri?>(null) }
+    val scanLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.TakePicture()
+    ) { ok ->
+        val uri = scanTarget
+        if (ok && uri != null) {
+            insertOp(pageIds.size) { s, o ->
+                com.jakober.klarmail.data.PdfPageOps.appendImages(context, s, listOf(uri), o)
+            }
+        }
+    }
+
+    fun launchScan() {
+        val dir = File(context.cacheDir, "scans").apply { mkdirs() }
+        val f = File(dir, "scan_${System.currentTimeMillis()}.jpg")
+        runCatching {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context, DocumentHost.fileProviderAuthority, f
+            )
+            scanTarget = uri
+            scanLauncher.launch(uri)
+        }.onFailure {
+            scope.launch {
+                snackbar.showSnackbar(context.getString(R.string.editor_scan_failed))
+            }
+        }
+    }
+
     // ---- Aktionen mit Schwaerzungs-Warnung ----------------------------
 
     fun executeAction(action: String) {
@@ -920,6 +1027,283 @@ fun AttachmentEditorScreen(
             },
             dismissButton = {
                 TextButton(onClick = { textAsk = null }) {
+                    Text(stringResource(R.string.editor_cancel))
+                }
+            }
+        )
+    }
+
+    if (searchOpen) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { searchOpen = false },
+            title = { Text(stringResource(R.string.editor_search_title)) },
+            text = {
+                Column {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    when {
+                        searchBusy -> CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp), strokeWidth = 2.dp
+                        )
+                        searchResults?.isEmpty() == true -> Text(
+                            stringResource(R.string.editor_search_none),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        else -> searchResults?.let { hits ->
+                            LazyColumn(Modifier.heightIn(max = 340.dp)) {
+                                items(hits) { hit ->
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                searchOpen = false
+                                                scope.launch {
+                                                    listState.scrollToItem(hit.page)
+                                                }
+                                            }
+                                            .padding(vertical = 8.dp)
+                                    ) {
+                                        Text(
+                                            stringResource(
+                                                R.string.editor_search_page, hit.page + 1
+                                            ),
+                                            style = MaterialTheme.typography.labelLarge
+                                        )
+                                        Text(
+                                            hit.snippet,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme
+                                                .onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = searchQuery.trim().length >= 2 && !searchBusy,
+                    onClick = {
+                        scope.launch {
+                            val f = session.file ?: return@launch
+                            searchBusy = true
+                            searchResults = com.jakober.klarmail.data.PdfTextSearch
+                                .search(f, searchQuery)
+                            searchBusy = false
+                        }
+                    }
+                ) { Text(stringResource(R.string.editor_search_go)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { searchOpen = false }) {
+                    Text(stringResource(R.string.editor_cancel))
+                }
+            }
+        )
+    }
+
+    formAsk?.let { form ->
+        val textVals = remember(form) {
+            androidx.compose.runtime.mutableStateMapOf<String, String>().apply {
+                form.texts.forEach { put(it.name, it.value) }
+            }
+        }
+        val checkVals = remember(form) {
+            androidx.compose.runtime.mutableStateMapOf<String, Boolean>().apply {
+                form.checks.forEach { put(it.name, it.checked) }
+            }
+        }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { formAsk = null },
+            title = { Text(stringResource(R.string.editor_form_title)) },
+            text = {
+                LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                    items(form.texts) { t ->
+                        androidx.compose.material3.OutlinedTextField(
+                            value = textVals[t.name].orEmpty(),
+                            onValueChange = { textVals[t.name] = it },
+                            label = { Text(t.label, maxLines = 1) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        )
+                    }
+                    items(form.checks) { cb ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    checkVals[cb.name] = !(checkVals[cb.name] ?: false)
+                                }
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = checkVals[cb.name] ?: false,
+                                onCheckedChange = { checkVals[cb.name] = it }
+                            )
+                            Text(cb.label)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val tv = textVals.toMap()
+                    val cv = checkVals.toMap()
+                    formAsk = null
+                    mutateDoc(newIds = pageIds) { s, o ->
+                        com.jakober.klarmail.data.PdfFormOps.fill(s, o, tv, cv)
+                    }
+                }) { Text(stringResource(R.string.editor_form_apply)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { formAsk = null }) {
+                    Text(stringResource(R.string.editor_cancel))
+                }
+            }
+        )
+    }
+
+    outlineAsk?.let { entries ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { outlineAsk = null },
+            title = { Text(stringResource(R.string.editor_menu_outline)) },
+            text = {
+                LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                    items(entries) { e ->
+                        Text(
+                            e.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    outlineAsk = null
+                                    scope.launch { listState.scrollToItem(e.page) }
+                                }
+                                .padding(
+                                    start = (e.depth * 16).dp,
+                                    top = 10.dp, bottom = 10.dp
+                                )
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { outlineAsk = null }) {
+                    Text(stringResource(R.string.editor_cancel))
+                }
+            }
+        )
+    }
+
+    if (extractAsk) {
+        var fromTxt by remember { mutableStateOf("${pageIndex + 1}") }
+        var toTxt by remember { mutableStateOf("${pageIndex + 1}") }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { extractAsk = false },
+            title = { Text(stringResource(R.string.editor_extract_title)) },
+            text = {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = fromTxt,
+                        onValueChange = { fromTxt = it },
+                        label = { Text(stringResource(R.string.editor_extract_from)) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    androidx.compose.material3.OutlinedTextField(
+                        value = toTxt,
+                        onValueChange = { toTxt = it },
+                        label = { Text(stringResource(R.string.editor_extract_to)) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val from = fromTxt.trim().toIntOrNull()?.minus(1)
+                    val to = toTxt.trim().toIntOrNull()?.minus(1)
+                    if (from == null || to == null || from < 0 ||
+                        to >= pageSizes.size || from > to
+                    ) {
+                        scope.launch {
+                            snackbar.showSnackbar(
+                                context.getString(R.string.editor_extract_invalid)
+                            )
+                        }
+                    } else {
+                        extractAsk = false
+                        extractPages(from, to)
+                    }
+                }) { Text(stringResource(R.string.editor_extract_ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { extractAsk = false }) {
+                    Text(stringResource(R.string.editor_cancel))
+                }
+            }
+        )
+    }
+
+    if (protectAsk) {
+        var pw by remember { mutableStateOf("") }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { protectAsk = false },
+            title = { Text(stringResource(R.string.editor_protect_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.editor_protect_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    androidx.compose.material3.OutlinedTextField(
+                        value = pw,
+                        onValueChange = { pw = it },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = pw.isNotBlank(),
+                    onClick = { protectAsk = false; protectAndSave(pw) }
+                ) { Text(stringResource(R.string.editor_protect_ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { protectAsk = false }) {
+                    Text(stringResource(R.string.editor_cancel))
+                }
+            }
+        )
+    }
+
+    if (compressAsk) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { compressAsk = false },
+            title = { Text(stringResource(R.string.editor_compress_title)) },
+            text = { Text(stringResource(R.string.editor_compress_text)) },
+            confirmButton = {
+                TextButton(onClick = { compressAsk = false; compressAndSave() }) {
+                    Text(stringResource(R.string.editor_compress_ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { compressAsk = false }) {
                     Text(stringResource(R.string.editor_cancel))
                 }
             }
@@ -1101,6 +1485,16 @@ fun AttachmentEditorScreen(
                     }
                 },
                 actions = {
+                    if (DocumentHost.extendedFeatures && isPdf && ready) {
+                        IconButton(onClick = { searchOpen = true }) {
+                            Icon(
+                                Icons.Filled.Search,
+                                contentDescription = stringResource(
+                                    R.string.editor_search_title
+                                )
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = { undo() },
                         enabled = history.isNotEmpty()
@@ -1149,6 +1543,107 @@ fun AttachmentEditorScreen(
                                             Text(stringResource(R.string.editor_menu_pages))
                                         },
                                         onClick = { menuOpen = false; showPages = true }
+                                    )
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = {
+                                            Text(stringResource(R.string.editor_menu_outline))
+                                        },
+                                        onClick = {
+                                            menuOpen = false
+                                            scope.launch {
+                                                val f = session.file ?: return@launch
+                                                val entries =
+                                                    com.jakober.klarmail.data.PdfOutline.read(f)
+                                                if (entries.isEmpty()) {
+                                                    snackbar.showSnackbar(
+                                                        context.getString(
+                                                            R.string.editor_outline_none
+                                                        )
+                                                    )
+                                                } else {
+                                                    outlineAsk = entries
+                                                }
+                                            }
+                                        }
+                                    )
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                stringResource(
+                                                    if (nightMode) {
+                                                        R.string.editor_menu_night_off
+                                                    } else R.string.editor_menu_night_on
+                                                )
+                                            )
+                                        },
+                                        onClick = { menuOpen = false; nightMode = !nightMode }
+                                    )
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = {
+                                            Text(stringResource(R.string.editor_menu_form))
+                                        },
+                                        onClick = {
+                                            menuOpen = false
+                                            if (!isPro) {
+                                                showProUpsell = true
+                                            } else {
+                                                scope.launch {
+                                                    val f = session.file ?: return@launch
+                                                    val form =
+                                                        com.jakober.klarmail.data.PdfFormOps
+                                                            .read(f)
+                                                    if (form.isEmpty) {
+                                                        snackbar.showSnackbar(
+                                                            context.getString(
+                                                                R.string.editor_form_none
+                                                            )
+                                                        )
+                                                    } else {
+                                                        formAsk = form
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    )
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = {
+                                            Text(stringResource(R.string.editor_menu_scan))
+                                        },
+                                        onClick = {
+                                            menuOpen = false
+                                            if (!isPro) showProUpsell = true else launchScan()
+                                        }
+                                    )
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = {
+                                            Text(stringResource(R.string.editor_menu_extract))
+                                        },
+                                        enabled = pageSizes.size > 1,
+                                        onClick = {
+                                            menuOpen = false
+                                            if (!isPro) showProUpsell = true
+                                            else extractAsk = true
+                                        }
+                                    )
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = {
+                                            Text(stringResource(R.string.editor_menu_protect))
+                                        },
+                                        onClick = {
+                                            menuOpen = false
+                                            if (!isPro) showProUpsell = true
+                                            else protectAsk = true
+                                        }
+                                    )
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = {
+                                            Text(stringResource(R.string.editor_menu_compress))
+                                        },
+                                        onClick = {
+                                            menuOpen = false
+                                            if (!isPro) showProUpsell = true
+                                            else compressAsk = true
+                                        }
                                     )
                                 }
                                 androidx.compose.material3.DropdownMenuItem(
@@ -1321,6 +1816,7 @@ fun AttachmentEditorScreen(
                                     },
                                     shapeKind = shapeKind,
                                     onTextAt = { pos -> textAsk = index to pos },
+                                    night = nightMode,
                                     onNeedSignature = { signaturePadSlot = signSlot },
                                     onNeeded = { ensurePage(index) },
                                     onMarkAdded = { noteAdded(index) },
@@ -1772,6 +2268,7 @@ private fun PageItem(
     onNeedImage: () -> Unit,
     shapeKind: String,
     onTextAt: (Offset) -> Unit,
+    night: Boolean,
     onNeedSignature: () -> Unit,
     onNeeded: () -> Unit,
     onMarkAdded: () -> Unit,
@@ -1790,7 +2287,7 @@ private fun PageItem(
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
             .aspectRatio(aspect.coerceIn(0.2f, 5f))
-            .background(Color.White),
+            .background(if (night) Color(0xFF1E1E1E) else Color.White),
         contentAlignment = Alignment.Center
     ) {
         if (bitmap == null) {
@@ -1809,6 +2306,7 @@ private fun PageItem(
                 onNeedImage = onNeedImage,
                 shapeKind = shapeKind,
                 onTextAt = onTextAt,
+                night = night,
                 onNeedSignature = onNeedSignature,
                 onMarkAdded = onMarkAdded,
                 onTouched = onTouched,
@@ -1839,6 +2337,7 @@ private fun PageCanvas(
     onNeedImage: () -> Unit,
     shapeKind: String,
     onTextAt: (Offset) -> Unit,
+    night: Boolean,
     onNeedSignature: () -> Unit,
     onMarkAdded: () -> Unit,
     onTouched: () -> Unit,
@@ -2061,7 +2560,19 @@ private fun PageCanvas(
             val dst = android.graphics.RectF(
                 dx, dy, dx + bitmap.width * scale, dy + bitmap.height * scale
             )
-            c.nativeCanvas.drawBitmap(bitmap, null, dst, null)
+            // Nachtmodus: nur die ANZEIGE invertieren — gespeichert wird
+            // immer das Original
+            val nightPaint = if (night) android.graphics.Paint().apply {
+                colorFilter = android.graphics.ColorMatrixColorFilter(
+                    floatArrayOf(
+                        -1f, 0f, 0f, 0f, 255f,
+                        0f, -1f, 0f, 0f, 255f,
+                        0f, 0f, -1f, 0f, 255f,
+                        0f, 0f, 0f, 1f, 0f
+                    )
+                )
+            } else null
+            c.nativeCanvas.drawBitmap(bitmap, null, dst, nightPaint)
             drawMarks(c.nativeCanvas, marks, signature, scale, dx, dy, initials)
             // Auswahlrahmen: gestrichelt um das angetippte Element
             marks.getOrNull(selectedIndex)?.let { sel ->
