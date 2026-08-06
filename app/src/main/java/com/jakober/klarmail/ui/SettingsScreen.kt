@@ -553,6 +553,10 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = {
+                // Auch den Abo-Stand hart nachpruefen: der Knopf ist die
+                // Selbsthilfe, wenn Play-Geraetecache und Wirklichkeit
+                // auseinanderliegen
+                runCatching { com.jakober.klarmail.data.BillingManager.refreshPurchases() }
                 scope.launch { com.jakober.klarmail.data.AiQuota.refresh() }
             }) { Text(stringResource(R.string.settings_pro_quota_refresh)) }
             }

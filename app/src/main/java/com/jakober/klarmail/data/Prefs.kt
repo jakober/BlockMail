@@ -338,6 +338,22 @@ object Prefs {
         set(v) = sp.edit().putLong("pro_verified_at", v).apply()
 
     /**
+     * Kauf-Token, den Play (oder der Server) als ungültig abgelehnt hat.
+     * Solange die zwischengespeicherte Kaufliste weiter genau diesen Token
+     * als „aktiv“ meldet, wird er nicht mehr geglaubt — sie hinkt nach
+     * einem Ablauf gern stundenlang hinterher. Ein anderer Token oder eine
+     * leere Kaufliste räumen den Merker wieder ab; zur Sicherheit läuft er
+     * zusätzlich nach 48 Stunden ab (siehe BillingManager).
+     */
+    var deadPurchaseToken: String
+        get() = sp.getString("dead_purchase_token", "") ?: ""
+        set(v) = sp.edit().putString("dead_purchase_token", v).apply()
+
+    var deadPurchaseTokenAt: Long
+        get() = sp.getLong("dead_purchase_token_at", 0L)
+        set(v) = sp.edit().putLong("dead_purchase_token_at", v).apply()
+
+    /**
      * Auf dem Gerät mitgezählte KI-Anfragen des laufenden Monats. Damit
      * kennt die App das Kontingent auch ohne Server-Auskunft (siehe
      * [com.jakober.klarmail.data.AiQuota]) — meldet der Server einen Stand,

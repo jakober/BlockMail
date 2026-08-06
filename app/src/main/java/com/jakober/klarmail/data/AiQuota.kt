@@ -174,14 +174,16 @@ object AiQuota {
             val parsed = runCatching {
                 http.newCall(request).execute().use { resp ->
                     if (resp.code == 403) {
-                        // Der Server hat das Abo geprüft und lehnt ab
-                        // (subscription_required). Nicht selbst abschalten —
-                        // massgeblich bleibt Google Play —, aber SOFORT dort
-                        // gegenprüfen: Ist das Abo wirklich weg, räumt
-                        // refreshPurchases() Pro verbindlich ab. So fliegt
-                        // ein gekündigtes Abo spätestens mit der ersten
-                        // KI-Anfrage raus, auch wenn die App tagelang lief.
-                        BillingManager.refreshPurchases()
+                        // Der Server hat das Abo über die Play-API geprüft
+                        // und lehnt ab (subscription_required). Der
+                        // mitgeschickte Token wird damit als ungültig
+                        // überführt — die Geräte-Kaufliste darf ihn nicht
+                        // mehr wiederbeleben, denn sie hinkt nach einem
+                        // Ablauf hinterher. Ein ECHTER neuer Kauf (anderer
+                        // Token) hebt die Sperre sofort auf.
+                        val sent = Prefs.purchaseToken
+                        if (sent.isNotBlank()) BillingManager.markTokenDead(sent)
+                        else BillingManager.refreshPurchases()
                         return@use null
                     }
                     if (!resp.isSuccessful) return@use null

@@ -60,15 +60,38 @@ object BillingManager {
     private var pendingSwitchToken = ""
 
     /**
-     * Token, den Play soeben im Kaufdialog ABGELEHNT hat („Bei uns ist ein
-     * Fehler aufgetreten“). Meldet die zwischengespeicherte Kaufliste
-     * denselben Token weiter als aktiv, ist die Liste veraltet — das Abo
-     * ist in Wahrheit vorbei. Ohne diesen Nachweis liefe ein abgelaufenes
-     * Abo weiter, solange Googles Gerätecache nicht aufwacht (bei
-     * Test-Abos gern stundenlang).
+     * Wie lange ein als ungültig überführter Token unterdrückt wird.
+     * Begrenzt, damit ein fälschlich markierter Token (z. B. Netzfehler
+     * mitten im Wechsel) einen zahlenden Kunden höchstens zwei Tage
+     * kostet — die Kaufliste hat sich bis dahin längst berappelt.
      */
-    @Volatile
-    private var deadToken = ""
+    private const val DEAD_TOKEN_TTL_MS = 48 * 60 * 60 * 1000L
+
+    /**
+     * Überführt einen Kauf-Token als ungültig — weil Play ihn im
+     * Kaufdialog abgelehnt hat oder der Server ihn nach Prüfung über die
+     * Play-API zurückgewiesen hat. Meldet die zwischengespeicherte
+     * Kaufliste weiter genau diesen Token als „aktiv“, wird ihr nicht
+     * mehr geglaubt: Sie hinkt nach einem Ablauf gern stundenlang
+     * hinterher (bei Test-Abos praktisch immer). Ein ANDERER Token — ein
+     * echter neuer Kauf — hebt die Sperre sofort auf.
+     */
+    fun markTokenDead(token: String) {
+        if (token.isBlank()) return
+        Prefs.deadPurchaseToken = token
+        Prefs.deadPurchaseTokenAt = System.currentTimeMillis()
+        refreshPurchases()
+    }
+
+    private fun deadTokenOrEmpty(): String {
+        val t = Prefs.deadPurchaseToken
+        if (t.isBlank()) return ""
+        if (System.currentTimeMillis() - Prefs.deadPurchaseTokenAt > DEAD_TOKEN_TTL_MS) {
+            Prefs.deadPurchaseToken = ""
+            return ""
+        }
+        return t
+    }
 
     /**
      * Wie lange Pro OHNE frische Play-Bestätigung weiterlaufen darf.
@@ -95,14 +118,20 @@ object BillingManager {
             .setListener { result, purchases ->
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
                     purchases?.forEach { handlePurchase(it) }
-                } else if (result.responseCode !=
-                    BillingClient.BillingResponseCode.USER_CANCELED &&
-                    pendingSwitchToken.isNotBlank()
-                ) {
-                    // Play hat den Wechsel mit dem alten Token abgelehnt —
-                    // Nachweis merken und sofort neu abfragen
-                    deadToken = pendingSwitchToken
-                    refreshPurchases()
+                } else {
+                    // Kein Kauf zustande gekommen: Der vorgemerkte
+                    // Wunsch-Tarif ist damit hinfaellig. Ohne dieses
+                    // Verwerfen faerbte er die naechste Kaufabfrage und die
+                    // Anzeige "wechselte" den Tarif trotz Fehlermeldung.
+                    pendingPlan = ""
+                    if (result.responseCode !=
+                        BillingClient.BillingResponseCode.USER_CANCELED &&
+                        pendingSwitchToken.isNotBlank()
+                    ) {
+                        // Play hat den Wechsel mit dem alten Token
+                        // abgelehnt — Token ueberfuehren und neu abfragen
+                        markTokenDead(pendingSwitchToken)
+                    }
                 }
                 pendingSwitchToken = ""
             }
@@ -228,8 +257,7 @@ object BillingManager {
                 val active = purchases.filter {
                     it.purchaseState == Purchase.PurchaseState.PURCHASED
                 }
-                val dead = deadToken
-                deadToken = ""
+                val dead = deadTokenOrEmpty()
                 if (dead.isNotBlank() && active.isNotEmpty() &&
                     active.all { it.purchaseToken == dead }
                 ) {
@@ -246,7 +274,9 @@ object BillingManager {
                 }
                 active.forEach { handlePurchase(it) }
                 if (active.isEmpty()) {
-                    // Play hat verbindlich geantwortet: kein laufendes Abo
+                    // Play hat verbindlich geantwortet: kein laufendes Abo.
+                    // Damit ist auch der Toter-Token-Merker erledigt.
+                    Prefs.deadPurchaseToken = ""
                     Prefs.purchaseToken = ""
                     Prefs.proPlan = ""
                     Prefs.proVerifiedAt = 0L
@@ -264,6 +294,12 @@ object BillingManager {
     private fun handlePurchase(purchase: Purchase) {
         if (purchase.purchaseState != Purchase.PurchaseState.PURCHASED) return
         if (purchase.products.none { it == PRODUCT_ID }) return
+        val dead = deadTokenOrEmpty()
+        if (dead.isNotBlank()) {
+            if (purchase.purchaseToken == dead) return
+            // Ein anderer Token = echter neuer Kauf: Sperre aufheben
+            Prefs.deadPurchaseToken = ""
+        }
         Prefs.purchaseToken = purchase.purchaseToken
         // Welchen Basis-Tarif der Kauf betrifft, sagt die Kaufantwort nicht.
         // Maßgeblich ist deshalb der Tarif, für den der Kaufdialog geöffnet
@@ -329,7 +365,18 @@ object BillingManager {
         pendingPlan = basePlanId
         return runCatching {
             val r = c.launchBillingFlow(activity, builder.build())
-            r.responseCode == BillingClient.BillingResponseCode.OK
+            val ok = r.responseCode == BillingClient.BillingResponseCode.OK
+            if (!ok) {
+                // Der Dialog kam gar nicht erst zustande: Wunsch-Tarif
+                // verwerfen — und wenn ein Wechsel-Token im Spiel war, ihn
+                // ueberfuehren (Play lehnt tote Tokens teils schon hier ab)
+                pendingPlan = ""
+                if (pendingSwitchToken.isNotBlank()) {
+                    markTokenDead(pendingSwitchToken)
+                    pendingSwitchToken = ""
+                }
+            }
+            ok
         }.getOrDefault(false)
     }
 
