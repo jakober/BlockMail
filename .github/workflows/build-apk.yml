@@ -11,6 +11,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Debug-APK ist nur eine Bequemlichkeit — faellt dieser Job aus
+    # (z. B. von GitHub gekappt, waehrend bundle laengst gruen ist),
+    # soll der Lauf NICHT als Fehler gelten und keine Mail ausloesen.
+    # Echte Compile-Fehler meldet weiterhin der bundle-Job.
+    continue-on-error: true
     steps:
       - name: Code auschecken
         uses: actions/checkout@v4
