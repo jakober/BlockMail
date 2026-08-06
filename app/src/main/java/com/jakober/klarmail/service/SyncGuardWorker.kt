@@ -28,6 +28,9 @@ class SyncGuardWorker(
         runCatching { com.jakober.klarmail.data.MailRepository.cleanupBodyCache() }
         // Antwort-Radar (läuft intern höchstens einmal pro Tag)
         runCatching { MailChecker.runReplyRadar(applicationContext) }
+        // Abo-Stand regelmäßig bei Play gegenprüfen: faengt den Fall, dass
+        // die App tagelang offen bleibt und nie neu in den Vordergrund kommt
+        runCatching { com.jakober.klarmail.data.BillingManager.refreshPurchases() }
         // Lokalen Suchindex schonend weiter aufbauen (ein kleiner Batch pro Lauf)
         runCatching {
             if (Prefs.indexEnabled && Prefs.isConfigured) {

@@ -55,6 +55,21 @@ object BillingManager {
     @Volatile
     private var connecting = false
 
+    /** Token, mit dem gerade ein Tarifwechsel im Play-Dialog läuft. */
+    @Volatile
+    private var pendingSwitchToken = ""
+
+    /**
+     * Token, den Play soeben im Kaufdialog ABGELEHNT hat („Bei uns ist ein
+     * Fehler aufgetreten“). Meldet die zwischengespeicherte Kaufliste
+     * denselben Token weiter als aktiv, ist die Liste veraltet — das Abo
+     * ist in Wahrheit vorbei. Ohne diesen Nachweis liefe ein abgelaufenes
+     * Abo weiter, solange Googles Gerätecache nicht aufwacht (bei
+     * Test-Abos gern stundenlang).
+     */
+    @Volatile
+    private var deadToken = ""
+
     /**
      * Wie lange Pro OHNE frische Play-Bestätigung weiterlaufen darf.
      *
@@ -80,7 +95,16 @@ object BillingManager {
             .setListener { result, purchases ->
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
                     purchases?.forEach { handlePurchase(it) }
+                } else if (result.responseCode !=
+                    BillingClient.BillingResponseCode.USER_CANCELED &&
+                    pendingSwitchToken.isNotBlank()
+                ) {
+                    // Play hat den Wechsel mit dem alten Token abgelehnt —
+                    // Nachweis merken und sofort neu abfragen
+                    deadToken = pendingSwitchToken
+                    refreshPurchases()
                 }
+                pendingSwitchToken = ""
             }
             .enablePendingPurchases(
                 PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
@@ -204,6 +228,22 @@ object BillingManager {
                 val active = purchases.filter {
                     it.purchaseState == Purchase.PurchaseState.PURCHASED
                 }
+                val dead = deadToken
+                deadToken = ""
+                if (dead.isNotBlank() && active.isNotEmpty() &&
+                    active.all { it.purchaseToken == dead }
+                ) {
+                    // Die Kaufliste meldet genau den Token als aktiv, den
+                    // Play soeben im Kaufdialog abgelehnt hat: Sie ist
+                    // veraltet, das Abo ist vorbei. Pro verbindlich beenden.
+                    Prefs.purchaseToken = ""
+                    Prefs.proPlan = ""
+                    Prefs.proVerifiedAt = 0L
+                    _activePlan.value = ""
+                    ProAccess.setSubscribed(false)
+                    AiQuota.clear()
+                    return@queryPurchasesAsync
+                }
                 active.forEach { handlePurchase(it) }
                 if (active.isEmpty()) {
                     // Play hat verbindlich geantwortet: kein laufendes Abo
@@ -275,6 +315,7 @@ object BillingManager {
         if (ProAccess.hasSubscription && oldToken.isNotBlank() &&
             Prefs.proPlan.isNotBlank() && Prefs.proPlan != basePlanId
         ) {
+            pendingSwitchToken = oldToken
             builder.setSubscriptionUpdateParams(
                 BillingFlowParams.SubscriptionUpdateParams.newBuilder()
                     .setOldPurchaseToken(oldToken)
