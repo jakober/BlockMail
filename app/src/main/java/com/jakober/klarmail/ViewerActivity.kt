@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.jakober.klarmail.data.AttachmentEditing
 import com.jakober.klarmail.data.MailRepository
 import com.jakober.klarmail.data.Prefs
+import com.jakober.klarmail.document.R as DocR
 
 /**
  * Einstieg von außen: BlockMail als Betrachter und Editor für PDFs und
@@ -156,7 +157,7 @@ class ViewerActivity : ComponentActivity() {
                     finish()
                 }) { Text(stringResource(R.string.editor_open_app)) }
                 TextButton(onClick = { finish() }) {
-                    Text(stringResource(R.string.editor_cancel))
+                    Text(stringResource(DocR.string.editor_cancel))
                 }
             }
         }
@@ -173,12 +174,12 @@ class ViewerActivity : ComponentActivity() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    stringResource(R.string.editor_open_failed),
+                    stringResource(DocR.string.editor_open_failed),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(Modifier.height(16.dp))
                 TextButton(onClick = { finish() }) {
-                    Text(stringResource(R.string.editor_back))
+                    Text(stringResource(DocR.string.editor_back))
                 }
             }
         }
