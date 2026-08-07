@@ -307,17 +307,10 @@ fun ProUpsellDialog(onDismiss: () -> Unit, showLifetime: Boolean = false) {
                     stringResource(R.string.pro_upsell_text),
                     style = MaterialTheme.typography.bodyMedium
                 )
-                ProPlanChooser(
-                    currentPlan = plan,
-                    onPick = { basePlan ->
-                        BillingManager.purchase(context, basePlan)
-                        onDismiss()
-                    }
-                )
                 if (showLifetime) {
-                    // Alternative ohne Abo: Einmalkauf nur fuer den Editor —
-                    // KI bleibt Abo-exklusiv (laufende Serverkosten)
-                    androidx.compose.material3.HorizontalDivider()
+                    // Alternative ohne Abo GANZ OBEN, damit sie ohne
+                    // Blaettern sichtbar ist: Einmalkauf nur fuer den
+                    // Editor — KI bleibt Abo-exklusiv (Serverkosten)
                     androidx.compose.material3.OutlinedButton(
                         onClick = {
                             BillingManager.purchaseLifetime(context)
@@ -338,7 +331,15 @@ fun ProUpsellDialog(onDismiss: () -> Unit, showLifetime: Boolean = false) {
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    androidx.compose.material3.HorizontalDivider()
                 }
+                ProPlanChooser(
+                    currentPlan = plan,
+                    onPick = { basePlan ->
+                        BillingManager.purchase(context, basePlan)
+                        onDismiss()
+                    }
+                )
             }
         },
         confirmButton = {
