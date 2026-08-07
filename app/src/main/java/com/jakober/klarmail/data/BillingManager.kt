@@ -36,6 +36,14 @@ object BillingManager {
     /** Abo-Produkt in der Play Console. */
     const val PRODUCT_ID = "blockmail_pro"
 
+    /**
+     * Einmalkauf „PDF-Editor für immer“: schaltet dauerhaft NUR den
+     * kompletten Dokument-Editor frei (14,99 €), ohne KI — die bleibt
+     * Abo-exklusiv, weil sie laufende Serverkosten hat. Im Play Console
+     * als In-App-Produkt (nicht Abo!) mit genau dieser ID anlegen.
+     */
+    const val LIFETIME_PRODUCT_ID = "pdf_editor_lifetime"
+
     /** Basis-Tarif „Pro“: 150 KI-Anfragen im Monat. */
     const val BASE_PLAN_PRO = "pro-150"
 
@@ -215,7 +223,29 @@ object BillingManager {
                 _productDetails.value = result.productDetailsList.firstOrNull()
             }
         }
+        // Einmalprodukt getrennt abfragen — anderer Produkttyp
+        val lifetimeParams = QueryProductDetailsParams.newBuilder()
+            .setProductList(
+                listOf(
+                    QueryProductDetailsParams.Product.newBuilder()
+                        .setProductId(LIFETIME_PRODUCT_ID)
+                        .setProductType(BillingClient.ProductType.INAPP)
+                        .build()
+                )
+            )
+            .build()
+        runCatching {
+            c.queryProductDetailsAsync(lifetimeParams) { _, result ->
+                _lifetimeDetails.value = result.productDetailsList.firstOrNull()
+            }
+        }
     }
+
+    private val _lifetimeDetails = MutableStateFlow<ProductDetails?>(null)
+
+    /** Preis des Editor-Einmalkaufs, wie Play ihn anzeigt (null = laedt). */
+    fun lifetimePrice(): String? =
+        _lifetimeDetails.value?.oneTimePurchaseOfferDetails?.formattedPrice
 
     /**
      * Angebot eines Basis-Tarifs. Gibt es dazu ein Angebot mit
@@ -292,6 +322,7 @@ object BillingManager {
                     return@queryPurchasesAsync
                 }
                 active.forEach { handlePurchase(it) }
+                refreshLifetime()
                 if (active.isEmpty()) {
                     // Play hat verbindlich geantwortet: kein laufendes Abo.
                     // Damit ist auch der Toter-Token-Merker erledigt.
@@ -310,7 +341,62 @@ object BillingManager {
         }.onFailure { enforceVerifyGrace() }
     }
 
+    /** Prüft den Einmalkauf-Bestand und setzt die Editor-Freischaltung. */
+    private fun refreshLifetime() {
+        val c = client ?: return
+        val params = QueryPurchasesParams.newBuilder()
+            .setProductType(BillingClient.ProductType.INAPP)
+            .build()
+        runCatching {
+            c.queryPurchasesAsync(params) { result, purchases ->
+                if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                    return@queryPurchasesAsync
+                }
+                val owned = purchases.any { p ->
+                    p.purchaseState == Purchase.PurchaseState.PURCHASED &&
+                        p.products.contains(LIFETIME_PRODUCT_ID)
+                }
+                // Play hat verbindlich geantwortet — auch ein Widerruf
+                // (Rueckerstattung) wird so wieder eingesammelt
+                Prefs.pdfLifetime = owned
+                ProAccess.refresh()
+                purchases.filter {
+                    it.purchaseState == Purchase.PurchaseState.PURCHASED &&
+                        !it.isAcknowledged
+                }.forEach { p ->
+                    runCatching {
+                        c.acknowledgePurchase(
+                            AcknowledgePurchaseParams.newBuilder()
+                                .setPurchaseToken(p.purchaseToken)
+                                .build()
+                        ) { }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleLifetimePurchase(purchase: Purchase) {
+        if (purchase.purchaseState != Purchase.PurchaseState.PURCHASED) return
+        Prefs.pdfLifetime = true
+        ProAccess.refresh()
+        if (!purchase.isAcknowledged) {
+            val c = client ?: return
+            runCatching {
+                c.acknowledgePurchase(
+                    AcknowledgePurchaseParams.newBuilder()
+                        .setPurchaseToken(purchase.purchaseToken)
+                        .build()
+                ) { }
+            }
+        }
+    }
+
     private fun handlePurchase(purchase: Purchase) {
+        if (purchase.products.contains(LIFETIME_PRODUCT_ID)) {
+            handleLifetimePurchase(purchase)
+            return
+        }
         if (purchase.purchaseState != Purchase.PurchaseState.PURCHASED) return
         if (purchase.products.none { it == PRODUCT_ID }) return
         val dead = deadTokenOrEmpty()
@@ -355,6 +441,29 @@ object BillingManager {
      * den Restbetrag an). false = Kauf nicht möglich (Play nicht bereit,
      * Angebot noch nicht geladen).
      */
+    /** Öffnet den Play-Kaufdialog für den Editor-Einmalkauf. */
+    fun purchaseLifetime(context: Context): Boolean {
+        val c = client ?: return false
+        val activity = context.findActivity() ?: return false
+        val details = _lifetimeDetails.value ?: run {
+            queryProduct()
+            return false
+        }
+        val params = BillingFlowParams.newBuilder()
+            .setProductDetailsParamsList(
+                listOf(
+                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                        .setProductDetails(details)
+                        .build()
+                )
+            )
+            .build()
+        return runCatching {
+            c.launchBillingFlow(activity, params).responseCode ==
+                BillingClient.BillingResponseCode.OK
+        }.getOrDefault(false)
+    }
+
     fun purchase(context: Context, basePlanId: String): Boolean {
         val c = client ?: return false
         val activity = context.findActivity() ?: return false

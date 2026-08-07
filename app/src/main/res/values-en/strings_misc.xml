@@ -115,4 +115,7 @@
     <string name="detail_unstar">Remove mark</string>
     <string name="detail_starred">Marked as important</string>
     <string name="detail_unstarred">Mark removed</string>
+    <string name="pro_lifetime_button">PDF editor only — one-time %1$s</string>
+    <string name="pro_lifetime_price_fallback">€14.99</string>
+    <string name="pro_lifetime_note">Pay once, keep forever: all editor features without a subscription. AI features remain exclusive to the Pro subscription. A previous purchase is restored automatically.</string>
 </resources>

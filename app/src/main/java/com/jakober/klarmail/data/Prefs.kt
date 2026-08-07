@@ -465,6 +465,11 @@ object Prefs {
         get() = sp.getBoolean("dev_pro", false)
         set(v) = sp.edit().putBoolean("dev_pro", v).apply()
 
+    /** Einmalkauf „PDF-Editor für immer“ vorhanden? (Play ist maßgeblich.) */
+    var pdfLifetime: Boolean
+        get() = sp.getBoolean("pdf_lifetime", false)
+        set(v) = sp.edit().putBoolean("pdf_lifetime", v).apply()
+
     /**
      * Ist der automatische Voll-Aufbau des Suchindex (nachts bei WLAN +
      * Laden, siehe IndexBuildWorker) schon einmal durchgelaufen? Wird bei

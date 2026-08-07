@@ -49,8 +49,16 @@ object ProAccess {
     /** Darf ein Dokument angezeigt werden (Viewer von außen)? */
     val canViewDocuments: Boolean get() = DOCUMENTS_VIEW_FREE || isPro
 
-    /** Dürfen Werkzeuge benutzt und Ergebnisse gespeichert werden? */
-    val canEditDocuments: Boolean get() = isPro
+    /**
+     * Dürfen Werkzeuge benutzt und Ergebnisse gespeichert werden?
+     * Ja mit Pro-Abo ODER dem Editor-Einmalkauf („PDF-Editor für immer“).
+     */
+    val canEditDocuments: Boolean get() = _editorAllowed.value
+
+    private val _editorAllowed = MutableStateFlow(TEST_PHASE_UNLOCK)
+
+    /** Beobachtbare Editor-Freischaltung (Abo ODER Einmalkauf). */
+    val editorAllowedFlow: StateFlow<Boolean> = _editorAllowed
 
     /** Laufendes Play-Abo vorhanden? Wird vom BillingManager gesetzt. */
     private var subscribed = false
@@ -83,5 +91,7 @@ object ProAccess {
     fun refresh() {
         val dev = runCatching { Prefs.devPro }.getOrDefault(false)
         _isPro.value = subscribed || TEST_PHASE_UNLOCK || dev
+        val lifetime = runCatching { Prefs.pdfLifetime }.getOrDefault(false)
+        _editorAllowed.value = _isPro.value || lifetime
     }
 }

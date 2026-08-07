@@ -115,4 +115,7 @@
     <string name="detail_unstar">Markierung entfernen</string>
     <string name="detail_starred">Als wichtig markiert</string>
     <string name="detail_unstarred">Markierung entfernt</string>
+    <string name="pro_lifetime_button">Nur PDF-Editor — einmalig %1$s</string>
+    <string name="pro_lifetime_price_fallback">14,99 €</string>
+    <string name="pro_lifetime_note">Einmal zahlen, für immer behalten: alle Editor-Funktionen ohne Abo. KI-Funktionen bleiben dem Pro-Abo vorbehalten. Ein früherer Kauf wird automatisch wiederhergestellt.</string>
 </resources>

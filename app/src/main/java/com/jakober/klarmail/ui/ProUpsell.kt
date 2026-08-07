@@ -285,7 +285,7 @@ fun AiQuotaExhaustedDialog(onDismiss: () -> Unit) {
  * damit beim Kauf klar ist, was man bekommt.
  */
 @Composable
-fun ProUpsellDialog(onDismiss: () -> Unit) {
+fun ProUpsellDialog(onDismiss: () -> Unit, showLifetime: Boolean = false) {
     val context = LocalContext.current
     val plan by BillingManager.activePlan.collectAsState()
     AlertDialog(
@@ -314,6 +314,31 @@ fun ProUpsellDialog(onDismiss: () -> Unit) {
                         onDismiss()
                     }
                 )
+                if (showLifetime) {
+                    // Alternative ohne Abo: Einmalkauf nur fuer den Editor —
+                    // KI bleibt Abo-exklusiv (laufende Serverkosten)
+                    androidx.compose.material3.HorizontalDivider()
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = {
+                            BillingManager.purchaseLifetime(context)
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            stringResource(
+                                R.string.pro_lifetime_button,
+                                BillingManager.lifetimePrice()
+                                    ?: stringResource(R.string.pro_lifetime_price_fallback)
+                            )
+                        )
+                    }
+                    Text(
+                        stringResource(R.string.pro_lifetime_note),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         confirmButton = {

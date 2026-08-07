@@ -26,10 +26,15 @@ class MailApp : Application() {
         // bekannte Pro-Dialog
         com.jakober.klarmail.data.DocumentHost.fileProviderAuthority =
             "com.jakober.klarmail.fileprovider"
+        // Editor-Freischaltung: Pro-Abo ODER Einmalkauf "PDF-Editor fuer immer"
         com.jakober.klarmail.data.DocumentHost.editAllowedFlow =
-            com.jakober.klarmail.data.ProAccess.isProFlow
+            com.jakober.klarmail.data.ProAccess.editorAllowedFlow
         com.jakober.klarmail.data.DocumentHost.upsell = { onDismiss ->
-            com.jakober.klarmail.ui.ProUpsellDialog(onDismiss = onDismiss)
+            // Im Editor zusaetzlich den Einmalkauf anbieten
+            com.jakober.klarmail.ui.ProUpsellDialog(
+                onDismiss = onDismiss,
+                showLifetime = true
+            )
         }
         // Voller Editor-Umfang auch in BlockMail: Text, Bilder, Formen,
         // Suche, Formulare, Scannen, Auszug, Passwort, Verkleinern,
