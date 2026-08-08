@@ -458,6 +458,10 @@ fun SettingsScreen(
                         "0345d7ff4b547f86aec4e630a737e9ec8f66947bc85f007795e7081d3072378f"
                     ) {
                         Prefs.devPro = !Prefs.devPro
+                        // Den Code selbst (verschlüsselt) merken: Er geht als
+                        // "X-Dev-Key" an den KI-Proxy mit, damit die
+                        // Server-KI auch ohne Play-Abo antwortet
+                        Prefs.devKey = if (Prefs.devPro) devCode.trim() else ""
                         com.jakober.klarmail.data.ProAccess.refresh()
                         scope.launch {
                             snackbar.showSnackbar(

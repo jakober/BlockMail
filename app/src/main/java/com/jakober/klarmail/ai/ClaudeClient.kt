@@ -101,6 +101,11 @@ object ClaudeClient {
                 .apply {
                     val token = Prefs.purchaseToken
                     if (token.isNotBlank()) header("X-Purchase-Token", token)
+                    // Entwickler-Freischaltung: Der Server prüft den SHA-256
+                    // dieses Schlüssels und behandelt die Anfrage dann wie
+                    // ein aktives Pro-Abo (kein Play-Abgleich nötig)
+                    val dev = Prefs.devKey
+                    if (Prefs.devPro && dev.isNotBlank()) header("X-Dev-Key", dev)
                 }
                 .post(payload.toString().toRequestBody("application/json".toMediaType()))
                 .build()

@@ -465,6 +465,16 @@ object Prefs {
         get() = sp.getBoolean("dev_pro", false)
         set(v) = sp.edit().putBoolean("dev_pro", v).apply()
 
+    /**
+     * Der beim Freischalten eingegebene Entwickler-Code (verschlüsselt
+     * gespeichert). Wird dem KI-Proxy als "X-Dev-Key" mitgeschickt, damit
+     * die Server-KI auch ohne Play-Abo antwortet — der Server prüft nur
+     * den SHA-256 des Codes. Im Code der App steht der Klartext nie.
+     */
+    var devKey: String
+        get() = sp.getString("dev_key", "") ?: ""
+        set(v) = sp.edit().putString("dev_key", v).apply()
+
     /** Einmalkauf „PDF-Editor für immer“ vorhanden? (Play ist maßgeblich.) */
     var pdfLifetime: Boolean
         get() = sp.getBoolean("pdf_lifetime", false)

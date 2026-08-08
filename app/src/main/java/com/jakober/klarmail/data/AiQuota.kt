@@ -162,7 +162,10 @@ object AiQuota {
         // Ohne Kauf-Token kann der Server nur ablehnen (403
         // kein_kauf_token) — die Anfrage waere reiner Protokoll-Laerm.
         // Der Zaehler im Geraet gilt dann ohnehin.
-        if (Prefs.purchaseToken.isBlank()) {
+        // Mit Entwickler-Schlüssel darf die Abfrage trotzdem raus — der
+        // Server erkennt den Schlüssel und meldet das Dev-Kontingent
+        val devKey = if (Prefs.devPro) Prefs.devKey else ""
+        if (Prefs.purchaseToken.isBlank() && devKey.isBlank()) {
             ensureLoaded()
             return@withContext false
         }
@@ -175,6 +178,7 @@ object AiQuota {
                 .apply {
                     val token = Prefs.purchaseToken
                     if (token.isNotBlank()) header("X-Purchase-Token", token)
+                    if (devKey.isNotBlank()) header("X-Dev-Key", devKey)
                 }
                 .get()
                 .build()
