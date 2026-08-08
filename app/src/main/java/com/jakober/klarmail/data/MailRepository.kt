@@ -1010,13 +1010,21 @@ object MailRepository {
      * Serverseitige Suche in Betreff, Absender und Mail-Text (Gmail durchsucht
      * den Volltext, ohne dass die Mails heruntergeladen werden müssen).
      */
-    suspend fun search(query: String): List<MailMessage> = withContext(Dispatchers.IO) {
+    /**
+     * Server-Volltextsuche. Liefert neben den Treffern auch den ORDNER, in
+     * dem gesucht wurde — die UIDs gelten nur dort. Wer einen Treffer als
+     * Posteingang öffnet, obwohl in „Alle Nachrichten“ gesucht wurde, läuft
+     * beim Server ins Leere („Nachricht nicht gefunden“).
+     */
+    suspend fun search(query: String): Pair<MailFolder, List<MailMessage>> =
+        withContext(Dispatchers.IO) {
         val store = openStore()
         try {
             // In "Alle Nachrichten" suchen (enthält auch ältere/archivierte Mails);
             // Fallback auf Posteingang, falls der Ordner nicht auffindbar ist.
-            val folder = (resolveFolder(store, MailFolder.ARCHIVE)?.takeIf { it.exists() }
-                ?: store.getFolder("INBOX")) as IMAPFolder
+            val archive = resolveFolder(store, MailFolder.ARCHIVE)?.takeIf { it.exists() }
+            val usedFolder = if (archive != null) MailFolder.ARCHIVE else MailFolder.INBOX
+            val folder = (archive ?: store.getFolder("INBOX")) as IMAPFolder
             folder.open(Folder.READ_ONLY)
             // Echte Volltextsuche: Absender, Betreff UND Mail-Inhalt —
             // die Suche läuft auf dem Server und findet so auch Jahre alte Mails
@@ -1039,7 +1047,7 @@ object MailRepository {
                     )
                 )
             }.takeLast(150).toTypedArray()
-            if (found.isEmpty()) return@withContext emptyList()
+            if (found.isEmpty()) return@withContext usedFolder to emptyList()
             val inbox = folder
             val fp = FetchProfile().apply {
                 add(FetchProfile.Item.ENVELOPE)
@@ -1048,7 +1056,7 @@ object MailRepository {
                 add(UIDFolder.FetchProfileItem.UID)
             }
             inbox.fetch(found, fp)
-            found.mapNotNull { m ->
+            usedFolder to found.mapNotNull { m ->
                 try {
                     toMailMessage(inbox.getUID(m), m)
                 } catch (e: Exception) {

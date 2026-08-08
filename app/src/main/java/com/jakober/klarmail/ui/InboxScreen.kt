@@ -207,6 +207,12 @@ private fun extractAiKeywords(question: String): List<String> {
 private val searchHoldQuery = androidx.compose.runtime.mutableStateOf("")
 private val searchHoldServerResults =
     androidx.compose.runtime.mutableStateOf<List<MailMessage>?>(null)
+// Ordner, in dem die Server-Volltextsuche tatsächlich gesucht hat (meist
+// "Alle Nachrichten"/Archiv): IMAP-UIDs gelten nur je Ordner — wird ein
+// Archiv-Treffer als Posteingang geöffnet, meldet der Server
+// "Nachricht nicht gefunden".
+private val searchHoldServerFolder =
+    androidx.compose.runtime.mutableStateOf(MailRepository.MailFolder.INBOX)
 private val searchHoldAiAnswer =
     androidx.compose.runtime.mutableStateOf<String?>(null)
 private val searchHoldAiHits =
@@ -528,6 +534,7 @@ fun InboxScreen(
     // mit remember wären Suchbegriff und Ergebnisse beim Zurückkommen weg.
     var query by searchHoldQuery
     var serverResults by searchHoldServerResults
+    var serverSearchFolder by searchHoldServerFolder
     var showDraftsDialog by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     var aiAskBusy by remember { mutableStateOf(false) }
@@ -558,6 +565,7 @@ fun InboxScreen(
     fun exitSearch() {
         query = ""
         serverResults = null
+        serverSearchFolder = MailRepository.MailFolder.INBOX
         searching = false
         aiAnswer = null
         aiHits = emptyList()
@@ -579,7 +587,12 @@ fun InboxScreen(
         scope.launch {
             searching = true
             try {
-                serverResults = MailRepository.search(query)
+                // Die Suche meldet den Ordner mit, in dem sie gesucht hat
+                // (Archiv oder Posteingang) — der muss beim Öffnen der
+                // Treffer mitgegeben werden, sonst passt die UID nicht
+                val (usedFolder, found) = MailRepository.search(query)
+                serverSearchFolder = usedFolder
+                serverResults = found
             } catch (e: Exception) {
                 snackbar.showSnackbar(
                     context.getString(
@@ -2173,7 +2186,15 @@ fun InboxScreen(
                     items(results, key = { it.uid }) { mail ->
                         SwipeableMailRow(
                             mail = mail,
-                            onClick = { openFromSearch(mail) },
+                            onClick = {
+                                // Server-Treffer stammen aus dem Such-Ordner
+                                // (Archiv); der Live-Filter aus dem Posteingang
+                                openFromSearch(
+                                    mail,
+                                    if (serverResults != null) serverSearchFolder
+                                    else MailRepository.MailFolder.INBOX
+                                )
+                            },
                             onLongClick = {},
                             selected = false,
                             selectionMode = false,
