@@ -455,7 +455,7 @@ fun SettingsScreen(
                         .joinToString("") { "%02x".format(it) }
                     devAsk = false
                     if (hash ==
-                        "25b4fa3094dc1f0443152c622f3e943d229a24255b4f1dc0c13c870c9115b74d"
+                        "0345d7ff4b547f86aec4e630a737e9ec8f66947bc85f007795e7081d3072378f"
                     ) {
                         Prefs.devPro = !Prefs.devPro
                         com.jakober.klarmail.data.ProAccess.refresh()
