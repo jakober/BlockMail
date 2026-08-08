@@ -172,7 +172,18 @@ fun DetailScreen(
     // Aenderungen nie — der Stern blieb beim Antippen einfach stehen. Der
     // Rueckfall greift jetzt nur noch dafuer, wofuer er gedacht war: Die Mail
     // liegt ausserhalb des geladenen Fensters.
-    val mail = messages.find { it.uid == uid } ?: fallbackMail
+    // WICHTIG: UIDs sind je Konto vergeben — im Sammel-Posteingang kann
+    // dieselbe Nummer mehrfach vorkommen. Ist ein Rueckfall-Objekt da,
+    // zaehlt nur ein Treffer MIT passendem Konto, sonst laedt die Ansicht
+    // die gleichnamige Mail des falschen Kontos ("Nachricht nicht gefunden").
+    fun acctKey(a: String) = a.trim().lowercase()
+        .ifBlank { com.jakober.klarmail.data.Prefs.email.trim().lowercase() }
+    val mail = messages.find {
+        it.uid == uid && (
+            fallbackMail == null ||
+                acctKey(it.account) == acctKey(fallbackMail.account)
+            )
+    } ?: fallbackMail
 
     // remember(uid): In der Zweispalten-Ansicht wechselt die uid im selben
     // Composable — der Zustand muss dann zurückgesetzt werden

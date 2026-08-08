@@ -544,8 +544,14 @@ fun InboxScreen(
     // Fensters liegen (Server-Volltextsuche, Index-Treffer) — dann findet
     // die Detailansicht sie nicht über die Liste. Deshalb wird sie als
     // Rückfall-Objekt mitgegeben ("Nachricht nicht gefunden"-Fix).
-    fun openFromSearch(mail: MailMessage) {
-        MailRepository.pendingOpen = MailRepository.MailFolder.INBOX to mail
+    fun openFromSearch(
+        mail: MailMessage,
+        folder: MailRepository.MailFolder = MailRepository.MailFolder.INBOX
+    ) {
+        // Der ORDNER des Treffers muss mit: Ein Archiv-Treffer, der als
+        // Posteingang geoeffnet wird, laeuft beim Server ins Leere
+        // ("Nachricht nicht gefunden")
+        MailRepository.pendingOpen = folder to mail
         onOpenMail(mail.uid)
     }
 
@@ -2033,7 +2039,7 @@ fun InboxScreen(
                             val mail = hit.mail
                             SwipeableMailBlock(
                                 mail = mail,
-                                onClick = { openFromSearch(mail) },
+                                onClick = { openFromSearch(mail, hit.folder) },
                                 onLongClick = {},
                                 selected = false,
                                 selectionMode = false,
@@ -2059,7 +2065,7 @@ fun InboxScreen(
                             val mail = hit.mail
                             SwipeableMailRow(
                                 mail = mail,
-                                onClick = { openFromSearch(mail) },
+                                onClick = { openFromSearch(mail, hit.folder) },
                                 onLongClick = {},
                                 selected = false,
                                 selectionMode = false,
@@ -2233,7 +2239,7 @@ fun InboxScreen(
                             val mail = hit.mail
                             SwipeableMailRow(
                                 mail = mail,
-                                onClick = { openFromSearch(mail) },
+                                onClick = { openFromSearch(mail, hit.folder) },
                                 onLongClick = {},
                                 selected = false,
                                 selectionMode = false,

@@ -138,13 +138,20 @@ class MainActivity : ComponentActivity() {
                         // Rückfall-Objekt aus Suche/KI-Treffern: Die Mail kann
                         // außerhalb des geladenen Fensters liegen — ohne den
                         // Merker käme "Nachricht nicht gefunden"
-                        val fallback = com.jakober.klarmail.data.MailRepository
-                            .pendingOpen?.second?.takeIf { it.uid == uid }
+                        val pending = com.jakober.klarmail.data.MailRepository.pendingOpen
+                        val fallback = pending?.second?.takeIf { it.uid == uid }
                         DetailScreen(
                             uid = uid,
                             onBack = { nav.popBackStack() },
                             onReply = { nav.navigate("compose?replyTo=$uid") },
                             onForward = { nav.navigate("compose?forward=$uid") },
+                            // Archiv-Treffer im richtigen Ordner laden — sonst
+                            // sucht der Server die UID im Posteingang
+                            folder = pending?.first?.takeIf {
+                                fallback != null &&
+                                    it != com.jakober.klarmail.data.MailRepository
+                                        .MailFolder.INBOX
+                            },
                             fallbackMail = fallback,
                             onEditAttachment = { nav.navigate("editor") }
                         )
