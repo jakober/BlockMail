@@ -41,6 +41,56 @@ class MainActivity : ComponentActivity() {
         // Aus dem Dokument-Editor (ViewerActivity): Verfassen-Fenster mit dem
         // wartenden Anhang oeffnen — den liest ComposeScreen von selbst
         if (intent?.action == ViewerActivity.ACTION_COMPOSE_ATTACH) pendingCompose.value = true
+        // mailto:-Link angetippt oder "per E-Mail senden" geteilt:
+        // Adresse/Betreff/Text uebernehmen und Verfassen-Fenster oeffnen
+        val action = intent?.action
+        if (action == android.content.Intent.ACTION_SENDTO ||
+            (action == android.content.Intent.ACTION_VIEW &&
+                intent.data?.scheme == "mailto") ||
+            (action == android.content.Intent.ACTION_SEND &&
+                intent.type == "message/rfc822")
+        ) {
+            com.jakober.klarmail.data.ComposePrefill.pending = parseMailIntent(intent)
+            pendingCompose.value = true
+        }
+    }
+
+    /**
+     * Liest Empfaenger, Betreff und Text aus einem mailto:-Link bzw. den
+     * Standard-Extras eines "E-Mail senden"-Intents. mailto-URLs sind
+     * prozent-kodiert — android.net.MailTo dekodiert das von selbst.
+     */
+    private fun parseMailIntent(intent: android.content.Intent):
+        com.jakober.klarmail.data.ComposePrefill.Data {
+        var to = ""
+        var cc = ""
+        var bcc = ""
+        var subject = ""
+        var body = ""
+        val uriText = intent.data?.toString().orEmpty()
+        if (android.net.MailTo.isMailTo(uriText)) {
+            runCatching { android.net.MailTo.parse(uriText) }.getOrNull()?.let { m ->
+                to = m.to.orEmpty()
+                cc = m.cc.orEmpty()
+                subject = m.subject.orEmpty()
+                body = m.body.orEmpty()
+                bcc = m.headers?.get("bcc").orEmpty()
+            }
+        }
+        // Extras ergaenzen (Teilen-Weg oder Apps, die nur Extras setzen)
+        intent.getStringArrayExtra(android.content.Intent.EXTRA_EMAIL)
+            ?.takeIf { to.isBlank() }?.let { to = it.joinToString(", ") }
+        intent.getStringArrayExtra(android.content.Intent.EXTRA_CC)
+            ?.takeIf { cc.isBlank() }?.let { cc = it.joinToString(", ") }
+        intent.getStringArrayExtra(android.content.Intent.EXTRA_BCC)
+            ?.takeIf { bcc.isBlank() }?.let { bcc = it.joinToString(", ") }
+        intent.getStringExtra(android.content.Intent.EXTRA_SUBJECT)
+            ?.takeIf { subject.isBlank() }?.let { subject = it }
+        intent.getStringExtra(android.content.Intent.EXTRA_TEXT)
+            ?.takeIf { body.isBlank() }?.let { body = it }
+        return com.jakober.klarmail.data.ComposePrefill.Data(
+            to = to, cc = cc, bcc = bcc, subject = subject, body = body
+        )
     }
 
     override fun onNewIntent(intent: android.content.Intent) {

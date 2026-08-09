@@ -165,16 +165,34 @@ fun ComposeScreen(
         MailRepository.pendingReplyAll = null
         if (original != null) p else null
     }
+    // Von außen hereingereicht (mailto:-Link oder „per E-Mail senden“):
+    // Adresse, Betreff und Text übernehmen — der Merker wird sofort geleert
+    val prefill = remember {
+        val p = com.jakober.klarmail.data.ComposePrefill.pending
+        com.jakober.klarmail.data.ComposePrefill.pending = null
+        p
+    }
 
     var to by remember {
-        mutableStateOf(draft?.to ?: replyAll?.first ?: original?.fromAddress ?: "")
+        mutableStateOf(
+            draft?.to ?: replyAll?.first ?: original?.fromAddress
+                ?: prefill?.to?.takeIf { it.isNotBlank() } ?: ""
+        )
     }
-    var cc by remember { mutableStateOf(draft?.cc ?: replyAll?.second ?: "") }
-    var bcc by remember { mutableStateOf(draft?.bcc ?: "") }
+    var cc by remember {
+        mutableStateOf(
+            draft?.cc ?: replyAll?.second
+                ?: prefill?.cc?.takeIf { it.isNotBlank() } ?: ""
+        )
+    }
+    var bcc by remember {
+        mutableStateOf(draft?.bcc ?: prefill?.bcc?.takeIf { it.isNotBlank() } ?: "")
+    }
     var showCcBcc by remember {
         mutableStateOf(
             (draft != null && (draft.cc.isNotBlank() || draft.bcc.isNotBlank())) ||
-                !replyAll?.second.isNullOrBlank()
+                !replyAll?.second.isNullOrBlank() ||
+                prefill?.cc?.isNotBlank() == true || prefill?.bcc?.isNotBlank() == true
         )
     }
     var subject by remember {
@@ -188,7 +206,8 @@ fun ComposeScreen(
                 ?: original?.let { o ->
                     if (o.subject.startsWith("Re:", ignoreCase = true)) o.subject
                     else "Re: ${o.subject}"
-                } ?: ""
+                }
+                ?: prefill?.subject?.takeIf { it.isNotBlank() } ?: ""
         )
     }
     val editorState = rememberRichTextState()
@@ -220,7 +239,12 @@ fun ComposeScreen(
             fwdAttachments.addAll(body?.attachments.orEmpty())
         } else {
             val sig = Prefs.signature
-            if (sig.isNotBlank() && editorState.annotatedString.text.isBlank()) {
+            val prefillBody = prefill?.body.orEmpty()
+            if (prefillBody.isNotBlank()) {
+                // Text aus dem mailto:-Link ÜBER die Signatur setzen
+                val sigPart = if (sig.isNotBlank()) "<br><br>${plainToHtml(sig)}" else ""
+                editorState.setHtml("${plainToHtml(prefillBody)}$sigPart")
+            } else if (sig.isNotBlank() && editorState.annotatedString.text.isBlank()) {
                 editorState.setHtml("<br><br>${plainToHtml(sig)}")
             }
         }
