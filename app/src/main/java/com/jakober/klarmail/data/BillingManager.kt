@@ -17,14 +17,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Google-Play-Billing für „BlockMail Pro“ mit zwei Stufen.
+ * Google-Play-Billing für „BlockMail Pro“.
  *
- * Beide Stufen sind Basis-Tarife EINES Abo-Produkts (so empfiehlt es
+ * Alle Stufen sind Basis-Tarife EINES Abo-Produkts (so empfiehlt es
  * Google): Damit kann der Nutzer über Play direkt zwischen ihnen wechseln,
  * ohne zu kündigen.
  *
- *  - [BASE_PLAN_PRO]  — 150 KI-Anfragen im Monat
- *  - [BASE_PLAN_PLUS] — 300 KI-Anfragen im Monat
+ *  - [BASE_PLAN_BASIC] — 60 KI-Anfragen im Monat
+ *  - [BASE_PLAN_PRO]   — 150 KI-Anfragen im Monat
+ *  - [BASE_PLAN_PLUS]  — 300 KI-Anfragen im Monat; wird nicht mehr
+ *    angeboten (in der Play Console deaktiviert), Bestandskunden behalten
+ *    ihn aber — deshalb bleibt er hier voll verdrahtet
  *
  * Die Preise kommen IMMER aus dem Play Store (siehe [priceFor]) — niemals
  * fest verdrahtet, sonst stimmen Währung und Steuersatz je Land nicht.
@@ -44,15 +47,30 @@ object BillingManager {
      */
     const val LIFETIME_PRODUCT_ID = "pdf_editor_lifetime"
 
+    /** Basis-Tarif „Basis“: 60 KI-Anfragen im Monat. */
+    const val BASE_PLAN_BASIC = "pro-60"
+
     /** Basis-Tarif „Pro“: 150 KI-Anfragen im Monat. */
     const val BASE_PLAN_PRO = "pro-150"
 
-    /** Basis-Tarif „Pro+“: 300 KI-Anfragen im Monat. */
+    /** Alt-Tarif „Pro+“ (300 Anfragen): nur noch für Bestandskunden. */
     const val BASE_PLAN_PLUS = "pro-300"
 
     /** Enthaltene KI-Anfragen je Tarif (nur zur Anzeige). */
+    const val REQUESTS_BASIC = 60
     const val REQUESTS_PRO = 150
     const val REQUESTS_PLUS = 300
+
+    /**
+     * Preisrang eines Tarifs — bestimmt beim Wechsel die Verrechnungsart
+     * (Aufstieg mit Anrechnung, Abstieg zur nächsten Verlängerung).
+     */
+    private fun rankOf(basePlanId: String): Int = when (basePlanId) {
+        BASE_PLAN_PLUS -> 3
+        BASE_PLAN_PRO -> 2
+        BASE_PLAN_BASIC -> 1
+        else -> 0
+    }
 
     private var client: BillingClient? = null
 
@@ -280,8 +298,11 @@ object BillingManager {
         offerFor(basePlanId)?.pricingPhases?.pricingPhaseList?.lastOrNull()?.formattedPrice
 
     /** Enthaltene Anfragen je Basis-Tarif. */
-    fun requestsFor(basePlanId: String): Int =
-        if (basePlanId == BASE_PLAN_PLUS) REQUESTS_PLUS else REQUESTS_PRO
+    fun requestsFor(basePlanId: String): Int = when (basePlanId) {
+        BASE_PLAN_PLUS -> REQUESTS_PLUS
+        BASE_PLAN_BASIC -> REQUESTS_BASIC
+        else -> REQUESTS_PRO
+    }
 
     fun refreshPurchases() {
         val c = client ?: return
@@ -492,12 +513,12 @@ object BillingManager {
         // sagenden Fehlermeldung ab.
         if (switching) {
             pendingSwitchToken = oldToken
-            // Verrechnungsart nach Richtung: Beim Aufstieg (Pro → Pro+)
-            // rechnet Play den Restbetrag an — das erlaubt es NUR, wenn der
-            // neue Tarif teurer ist. Beim Rueckwechsel greift der neue Tarif
-            // zur naechsten Verlaengerung, ohne Anrechnung — sonst lehnt
-            // Play den Wechsel komplett ab.
-            val upgrade = basePlanId == BASE_PLAN_PLUS
+            // Verrechnungsart nach Richtung: Beim Aufstieg (z. B. Basis →
+            // Pro) rechnet Play den Restbetrag an — das erlaubt es NUR,
+            // wenn der neue Tarif teurer ist. Beim Rueckwechsel greift der
+            // neue Tarif zur naechsten Verlaengerung, ohne Anrechnung —
+            // sonst lehnt Play den Wechsel komplett ab.
+            val upgrade = rankOf(basePlanId) > rankOf(Prefs.proPlan)
             builder.setSubscriptionUpdateParams(
                 BillingFlowParams.SubscriptionUpdateParams.newBuilder()
                     .setOldPurchaseToken(oldToken)

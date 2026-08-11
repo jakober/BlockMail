@@ -60,10 +60,12 @@
     <string name="pro_title">BlockMail Pro</string>
     <string name="pro_upsell_text">Zu BlockMail Pro gehören alle KI-Funktionen — KI-Suche, Zusammenfassen, Tages-Überblick, Antworten und Mails verfassen, Rechtschreibprüfung — und der volle PDF-Editor: unterschreiben, markieren, schwärzen, Seiten ordnen, drucken — auch für PDFs aus anderen Apps, sogar als Standard-PDF-Programm. Wähle deinen Tarif:</string>
     <string name="pro_ok">Später</string>
+    <string name="pro_plan_basic_name">BlockMail Basis</string>
     <string name="pro_plan_pro_name">BlockMail Pro</string>
     <string name="pro_plan_plus_name">BlockMail Pro+</string>
     <string name="pro_plan_requests">%1$d KI-Anfragen pro Monat</string>
     <string name="pro_plan_price_month">%1$s / Monat</string>
+    <string name="pro_plan_basic_price_fallback">1,99 €</string>
     <string name="pro_plan_pro_price_fallback">5,99 €</string>
     <string name="pro_plan_plus_price_fallback">10,99 €</string>
     <string name="pro_plan_current">Dein aktueller Tarif</string>

@@ -56,11 +56,22 @@ fun ProPlanChooser(
     val details by BillingManager.productDetails.collectAsState()
     // details wird bewusst mitgelesen: sobald Play die Angebotsdaten
     // nachliefert, zeichnet Compose die Preise neu
+    val basicPrice = details?.let { BillingManager.priceFor(BillingManager.BASE_PLAN_BASIC) }
+        ?: stringResource(R.string.pro_plan_basic_price_fallback)
     val proPrice = details?.let { BillingManager.priceFor(BillingManager.BASE_PLAN_PRO) }
         ?: stringResource(R.string.pro_plan_pro_price_fallback)
     val plusPrice = details?.let { BillingManager.priceFor(BillingManager.BASE_PLAN_PLUS) }
         ?: stringResource(R.string.pro_plan_plus_price_fallback)
     Column(modifier = modifier.fillMaxWidth()) {
+        ProPlanCard(
+            name = stringResource(R.string.pro_plan_basic_name),
+            price = basicPrice,
+            requests = BillingManager.REQUESTS_BASIC,
+            current = currentPlan == BillingManager.BASE_PLAN_BASIC,
+            hasOther = currentPlan.isNotBlank(),
+            onPick = { onPick(BillingManager.BASE_PLAN_BASIC) }
+        )
+        Spacer(Modifier.height(8.dp))
         ProPlanCard(
             name = stringResource(R.string.pro_plan_pro_name),
             price = proPrice,
@@ -69,15 +80,19 @@ fun ProPlanChooser(
             hasOther = currentPlan.isNotBlank(),
             onPick = { onPick(BillingManager.BASE_PLAN_PRO) }
         )
-        Spacer(Modifier.height(8.dp))
-        ProPlanCard(
-            name = stringResource(R.string.pro_plan_plus_name),
-            price = plusPrice,
-            requests = BillingManager.REQUESTS_PLUS,
-            current = currentPlan == BillingManager.BASE_PLAN_PLUS,
-            hasOther = currentPlan.isNotBlank(),
-            onPick = { onPick(BillingManager.BASE_PLAN_PLUS) }
-        )
+        // Pro+ wird nicht mehr angeboten — die Karte erscheint nur noch
+        // fuer Bestandskunden, die den Tarif gerade laufen haben
+        if (currentPlan == BillingManager.BASE_PLAN_PLUS) {
+            Spacer(Modifier.height(8.dp))
+            ProPlanCard(
+                name = stringResource(R.string.pro_plan_plus_name),
+                price = plusPrice,
+                requests = BillingManager.REQUESTS_PLUS,
+                current = true,
+                hasOther = true,
+                onPick = { onPick(BillingManager.BASE_PLAN_PLUS) }
+            )
+        }
         Spacer(Modifier.height(10.dp))
         Text(
             stringResource(R.string.pro_what_counts),
