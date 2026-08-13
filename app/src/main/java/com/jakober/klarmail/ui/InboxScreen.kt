@@ -1216,21 +1216,6 @@ fun InboxScreen(
                                         onOpenStats()
                                     }
                                 )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            stringResource(R.string.inbox_new_pdf),
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Filled.NoteAdd, null)
-                                    },
-                                    onClick = {
-                                        folderMenuOpen = false
-                                        onNewPdf()
-                                    }
-                                )
                                 // Konten-Wechsler (nur bei mehreren gespeicherten Konten)
                                 val accounts = remember(folderMenuOpen) {
                                     if (folderMenuOpen) {
@@ -1616,6 +1601,14 @@ fun InboxScreen(
                                         )
                                     )
                                 }
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.inbox_new_pdf)) },
+                                    leadingIcon = { Icon(Icons.Filled.NoteAdd, null) },
+                                    onClick = {
+                                        overflowOpen = false
+                                        onNewPdf()
+                                    }
+                                )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.inbox_settings)) },
                                     leadingIcon = { Icon(Icons.Filled.Settings, null) },
