@@ -49,6 +49,11 @@
     <string name="editor_menu_save_as">Speichern unter …</string>
     <string name="editor_menu_share">Teilen</string>
     <string name="editor_menu_print">Drucken</string>
+    <string name="editor_menu_ai_revise">Mit KI überarbeiten</string>
+    <string name="editor_ai_revise_title">Dokument mit KI überarbeiten</string>
+    <string name="editor_ai_revise_hint">Was soll geändert werden? z. B. „Mach den Ton förmlicher“ oder „Ergänze einen Absatz über …“</string>
+    <string name="editor_ai_revise_go">Überarbeiten</string>
+    <string name="editor_ai_revise_busy">Die KI überarbeitet das Dokument …</string>
     <string name="editor_menu_send_mail">Als Mail senden</string>
     <string name="editor_menu_rotate_left">Seite links drehen</string>
     <string name="editor_menu_rotate_right">Seite rechts drehen</string>

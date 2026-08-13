@@ -48,6 +48,11 @@
     <string name="editor_menu_save_as">Save as …</string>
     <string name="editor_menu_share">Share</string>
     <string name="editor_menu_print">Print</string>
+    <string name="editor_menu_ai_revise">Revise with AI</string>
+    <string name="editor_ai_revise_title">Revise document with AI</string>
+    <string name="editor_ai_revise_hint">What should change? e.g. “Make the tone more formal” or “Add a paragraph about …”</string>
+    <string name="editor_ai_revise_go">Revise</string>
+    <string name="editor_ai_revise_busy">The AI is revising the document …</string>
     <string name="editor_menu_send_mail">Send as email</string>
     <string name="editor_menu_rotate_left">Rotate page left</string>
     <string name="editor_menu_rotate_right">Rotate page right</string>

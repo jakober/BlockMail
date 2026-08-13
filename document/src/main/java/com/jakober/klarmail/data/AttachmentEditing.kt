@@ -44,7 +44,12 @@ object AttachmentEditing {
         val uri: android.net.Uri? = null,
         val origin: Origin = Origin.MAIL,
         /** Darf die Ausgangsdatei überschrieben werden? */
-        val canOverwrite: Boolean = false
+        val canOverwrite: Boolean = false,
+        /**
+         * Von der Gast-App per KI erstelltes Dokument? Nur dann bietet der
+         * Editor „Mit KI überarbeiten“ an (siehe [DocumentHost.aiRevise]).
+         */
+        val aiDocument: Boolean = false
     )
 
     /** Fertig bearbeiteter Anhang für das Verfassen-Fenster. */

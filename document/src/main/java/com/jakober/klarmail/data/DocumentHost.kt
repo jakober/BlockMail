@@ -44,4 +44,15 @@ object DocumentHost {
      */
     @Volatile
     var freeSignatureAndSend: Boolean = false
+
+    /**
+     * KI-Überarbeitung des geöffneten Dokuments: bekommt den
+     * Änderungswunsch und die Zieldatei, schreibt das komplett neu
+     * gesetzte PDF hinein und liefert true bei Erfolg. Funktioniert nur
+     * für Dokumente, die die Gast-App selbst per KI erstellt hat (nur da
+     * kennt sie den Quelltext — siehe [AttachmentEditing.Source.aiDocument]).
+     * null = Gast-App bietet keine KI-Überarbeitung an (BlockPDF).
+     */
+    @Volatile
+    var aiRevise: (suspend (changes: String, out: java.io.File) -> Boolean)? = null
 }

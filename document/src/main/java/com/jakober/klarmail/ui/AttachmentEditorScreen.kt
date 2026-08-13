@@ -833,6 +833,64 @@ fun AttachmentEditorScreen(
         }
     }
 
+    /**
+     * KI-Überarbeitung (nur für per KI erstellte Dokumente): Die Gast-App
+     * setzt das Dokument komplett neu — Seitenzahl kann sich ändern,
+     * deshalb frische Kennungen (leere Liste → adopt vergibt neue) und
+     * alle Aufsätze weg, ihre Positionen wären im neuen Satz wertlos.
+     */
+    fun aiReviseDoc(changes: String) {
+        val hook = DocumentHost.aiRevise ?: return
+        if (changes.isBlank()) return
+        // Die KI braucht spuerbar Zeit — ohne Hinweis wirkt der Editor tot
+        scope.launch {
+            snackbar.showSnackbar(context.getString(R.string.editor_ai_revise_busy))
+        }
+        mutateDoc(
+            newIds = emptyList(),
+            before = {
+                marks.clear()
+                history.clear()
+                lastTouched = null
+                selected = null
+            }
+        ) { _, o -> hook(changes, o) }
+    }
+
+    var aiReviseAsk by remember { mutableStateOf(false) }
+    if (aiReviseAsk) {
+        var reviseText by remember { mutableStateOf("") }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { aiReviseAsk = false },
+            title = { Text(stringResource(R.string.editor_ai_revise_title)) },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = reviseText,
+                    onValueChange = { reviseText = it },
+                    minLines = 2,
+                    placeholder = {
+                        Text(stringResource(R.string.editor_ai_revise_hint))
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    enabled = reviseText.isNotBlank(),
+                    onClick = {
+                        aiReviseAsk = false
+                        aiReviseDoc(reviseText.trim())
+                    }
+                ) { Text(stringResource(R.string.editor_ai_revise_go)) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { aiReviseAsk = false }) {
+                    Text(stringResource(R.string.editor_cancel))
+                }
+            }
+        )
+    }
+
     /** Verschiebt Seite [from] an Position [to] — Kennungen wandern mit. */
     fun movePage(from: Int, to: Int) {
         if (!isPro) {
@@ -1940,6 +1998,24 @@ fun AttachmentEditorScreen(
                                 androidx.compose.material3.DropdownMenuItem(
                                     text = { ProMenuText(R.string.editor_menu_send_mail, !isPro && !freeSign) },
                                     onClick = { menuOpen = false; runAction("send_mail") }
+                                )
+                            }
+                            // KI-Ueberarbeiten: nur bei Dokumenten, die die
+                            // App selbst per KI erstellt hat (Quelltext bekannt)
+                            if (isPdf && ready && source.aiDocument &&
+                                DocumentHost.aiRevise != null
+                            ) {
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = {
+                                        ProMenuText(
+                                            R.string.editor_menu_ai_revise, !isPro
+                                        )
+                                    },
+                                    onClick = {
+                                        menuOpen = false
+                                        if (!isPro) showProUpsell = true
+                                        else aiReviseAsk = true
+                                    }
                                 )
                             }
                             if (isPdf && ready) {

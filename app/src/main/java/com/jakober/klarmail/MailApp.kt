@@ -43,6 +43,24 @@ class MailApp : Application() {
         // Frei-Stufe: Unterschreiben + als Antwort senden geht ohne Abo,
         // alle uebrigen Werkzeuge zeigen "(Pro)" und den Kauf-Hinweis
         com.jakober.klarmail.data.DocumentHost.freeSignatureAndSend = true
+        // KI-Ueberarbeitung im Editor: Nur fuer per KI erstellte PDFs —
+        // deren Quelltext liegt in den Einstellungen. Claude setzt das
+        // komplette Dokument neu, PdfTextDoc rendert es in die Zieldatei.
+        com.jakober.klarmail.data.DocumentHost.aiRevise = { changes, out ->
+            runCatching {
+                val (t, b) = com.jakober.klarmail.ai.ClaudeClient.reviseDocument(
+                    com.jakober.klarmail.data.Prefs.aiPdfTitle,
+                    com.jakober.klarmail.data.Prefs.aiPdfBody,
+                    changes
+                )
+                val ok = com.jakober.klarmail.data.PdfTextDoc.create(t, b, out)
+                if (ok) {
+                    com.jakober.klarmail.data.Prefs.aiPdfTitle = t
+                    com.jakober.klarmail.data.Prefs.aiPdfBody = b
+                }
+                ok
+            }.getOrDefault(false)
+        }
         com.jakober.klarmail.data.MailIndex.init(this)
         createChannels()
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)

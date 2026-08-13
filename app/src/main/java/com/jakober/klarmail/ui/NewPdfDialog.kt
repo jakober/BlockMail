@@ -81,11 +81,13 @@ fun NewPdfDialog(
     ).format(java.util.Date())
 
     // Das neue Dokument geht denselben Weg wie ein Mail-Anhang in den
-    // Editor: Bytes in den Merker, der Editor macht daraus die Arbeitsdatei
-    fun openInEditor(file: java.io.File, name: String) {
+    // Editor: Bytes in den Merker, der Editor macht daraus die Arbeitsdatei.
+    // aiDocument: nur KI-Dokumente bekommen im Editor "Mit KI überarbeiten"
+    fun openInEditor(file: java.io.File, name: String, aiDocument: Boolean) {
         com.jakober.klarmail.data.AttachmentEditing.pending =
             com.jakober.klarmail.data.AttachmentEditing.Source(
-                name, "application/pdf", file.readBytes(), null
+                name, "application/pdf", file.readBytes(), null,
+                aiDocument = aiDocument
             )
         onDismiss()
         onOpenEditor()
@@ -101,7 +103,7 @@ fun NewPdfDialog(
             val f = java.io.File(dir, name)
             val ok = com.jakober.klarmail.data.PdfPageOps.createBlank(f)
             busy = false
-            if (ok) openInEditor(f, name)
+            if (ok) openInEditor(f, name, aiDocument = false)
             else error = context.getString(R.string.newpdf_failed)
         }
     }
@@ -118,7 +120,7 @@ fun NewPdfDialog(
         if (ok) {
             LastAiPdf.title = title
             LastAiPdf.body = body
-            openInEditor(f, name)
+            openInEditor(f, name, aiDocument = true)
         } else {
             error = context.getString(R.string.newpdf_failed)
         }
