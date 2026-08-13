@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Feedback
@@ -1936,10 +1937,7 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = onNewPdf) {
-                Icon(
-                    androidx.compose.material.icons.Icons.Filled.NoteAdd,
-                    contentDescription = null
-                )
+                Icon(Icons.Filled.NoteAdd, contentDescription = null)
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(R.string.inbox_new_pdf))
             }
