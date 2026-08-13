@@ -481,6 +481,19 @@ object Prefs {
         set(v) = sp.edit().putBoolean("pdf_lifetime", v).apply()
 
     /**
+     * Letztes per KI erstelltes Dokument (Überschrift + Text) — dauerhaft
+     * gespeichert, damit „Überarbeiten“ im PDF-erstellen-Dialog auch nach
+     * einem App-Neustart angeboten werden kann.
+     */
+    var aiPdfTitle: String
+        get() = sp.getString("ai_pdf_title", "") ?: ""
+        set(v) = sp.edit().putString("ai_pdf_title", v).apply()
+
+    var aiPdfBody: String
+        get() = sp.getString("ai_pdf_body", "") ?: ""
+        set(v) = sp.edit().putString("ai_pdf_body", v).apply()
+
+    /**
      * Ist der automatische Voll-Aufbau des Suchindex (nachts bei WLAN +
      * Laden, siehe IndexBuildWorker) schon einmal durchgelaufen? Wird bei
      * jeder Kontoänderung zurückgesetzt, damit neue Konten nachziehen.

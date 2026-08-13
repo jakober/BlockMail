@@ -35,14 +35,19 @@ import com.jakober.klarmail.R
 import kotlinx.coroutines.launch
 
 /**
- * Letztes per KI erstelltes Dokument (nur im Arbeitsspeicher): Damit lässt
- * es sich beim nächsten Öffnen des Dialogs überarbeiten („mach den Ton
- * förmlicher“, „ergänze …“) — ein PDF speichert keinen bearbeitbaren
- * Textfluss, deshalb läuft Nacharbeit über die KI statt über ein Textfeld.
+ * Letztes per KI erstelltes Dokument: Damit lässt es sich beim nächsten
+ * Öffnen des Dialogs überarbeiten („mach den Ton förmlicher“, „ergänze …“)
+ * — ein PDF speichert keinen bearbeitbaren Textfluss, deshalb läuft
+ * Nacharbeit über die KI statt über ein Textfeld. Dauerhaft in den
+ * Einstellungen abgelegt, damit es einen App-Neustart überlebt.
  */
 private object LastAiPdf {
-    var title: String = ""
-    var body: String = ""
+    var title: String
+        get() = com.jakober.klarmail.data.Prefs.aiPdfTitle
+        set(v) { com.jakober.klarmail.data.Prefs.aiPdfTitle = v }
+    var body: String
+        get() = com.jakober.klarmail.data.Prefs.aiPdfBody
+        set(v) { com.jakober.klarmail.data.Prefs.aiPdfBody = v }
     val hasContent: Boolean get() = title.isNotBlank() || body.isNotBlank()
 }
 
