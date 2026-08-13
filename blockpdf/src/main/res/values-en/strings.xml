@@ -19,6 +19,9 @@
     <string name="home_create_photos">From photos</string>
     <string name="home_scan">Scan</string>
     <string name="home_create_failed">The PDF could not be created.</string>
+    <string name="home_create_blank">Blank PDF</string>
+    <string name="shortcut_newpdf_short">New PDF</string>
+    <string name="shortcut_newpdf_long">Create a blank PDF</string>
     <string name="back">Back</string>
     <string name="dev_title">Developer code</string>
     <string name="dev_apply">Apply</string>

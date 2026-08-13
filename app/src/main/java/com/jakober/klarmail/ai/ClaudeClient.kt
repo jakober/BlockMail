@@ -642,6 +642,38 @@ object ClaudeClient {
         return complete(system, user)
     }
 
+    /**
+     * „PDF mit KI erstellen“: liefert (Überschrift, Fließtext) für ein
+     * neues Dokument. Die erste Antwortzeile ist die Überschrift, der Rest
+     * der Text — gerendert wird beides in [com.jakober.klarmail.data.PdfTextDoc].
+     */
+    suspend fun composeDocument(prompt: String): Pair<String, String> {
+        val system = if (deviceIsGerman) {
+            "Du erstellst den Inhalt eines Dokuments, das als PDF gespeichert " +
+                "wird. Antworte AUSSCHLIESSLICH mit dem Dokumenttext: Die ERSTE " +
+                "Zeile ist die Überschrift (kurz, ohne Anführungszeichen), danach " +
+                "eine Leerzeile, dann der Text in Absätzen. NUR REINER TEXT — " +
+                "kein Markdown, keine Sternchen, keine Aufzählungszeichen aus " +
+                "Sonderzeichen, kein HTML, keine Erklärungen oder Rückfragen. " +
+                todayLineDe()
+        } else {
+            "You create the content of a document that will be saved as a PDF. " +
+                "Reply EXCLUSIVELY with the document text, written in " +
+                "${answerLanguage()}: The FIRST line is the title (short, no " +
+                "quotation marks), then a blank line, then the body in " +
+                "paragraphs. PLAIN TEXT ONLY — no Markdown, no asterisks, no " +
+                "special-character bullets, no HTML, no explanations or " +
+                "follow-up questions. " + todayLineEn()
+        }
+        val user = if (deviceIsGerman) "Erstelle dieses Dokument: $prompt"
+        else "Create this document: $prompt"
+        val raw = complete(system, user).trim()
+        val title = raw.lineSequence().firstOrNull()?.trim().orEmpty()
+        val body = raw.lines().drop(1).joinToString("\n").trim()
+        // Falls das Modell doch alles in eine Zeile packt: keine Überschrift
+        return if (body.isBlank()) "" to raw else title to body
+    }
+
     suspend fun proofread(html: String): String {
         val system = if (deviceIsGerman) {
             "Du bist ein Korrekturleser. Korrigiere Rechtschreibung, Grammatik und " +

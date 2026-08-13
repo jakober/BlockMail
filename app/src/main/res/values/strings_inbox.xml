@@ -38,6 +38,7 @@
     <string name="inbox_folder_switch">Ordner wechseln</string>
     <string name="inbox_attachments">Anhänge</string>
     <string name="inbox_stats">Statistik</string>
+    <string name="inbox_new_pdf">PDF erstellen</string>
 
     <!-- Ansicht &amp; Design -->
     <string name="inbox_focus_enable">Fokus-Blöcke einschalten</string>

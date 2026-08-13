@@ -60,6 +60,14 @@
     <string name="pro_title">BlockMail Pro</string>
     <string name="pro_upsell_text">Zu BlockMail Pro gehören alle KI-Funktionen — KI-Suche, Zusammenfassen, Tages-Überblick, Antworten und Mails verfassen, Rechtschreibprüfung — und der volle PDF-Editor: unterschreiben, markieren, schwärzen, Seiten ordnen, drucken — auch für PDFs aus anderen Apps, sogar als Standard-PDF-Programm. Wähle deinen Tarif:</string>
     <string name="pro_ok">Später</string>
+    <string name="newpdf_title">PDF erstellen</string>
+    <string name="newpdf_blank">Leere Seite</string>
+    <string name="newpdf_ai_label">Oder Inhalt von der KI schreiben lassen:</string>
+    <string name="newpdf_ai_label_pro">Oder Inhalt von der KI schreiben lassen (Pro-Abo):</string>
+    <string name="newpdf_ai_hint">Was soll im Dokument stehen? z. B. „Kündigungsschreiben für meinen Handyvertrag bei …“</string>
+    <string name="newpdf_ai_create">Mit KI erstellen</string>
+    <string name="newpdf_failed">PDF konnte nicht erstellt werden</string>
+    <string name="newpdf_cancel">Abbrechen</string>
     <string name="pro_plan_basic_name">BlockMail Basis</string>
     <string name="pro_plan_pro_name">BlockMail Pro</string>
     <string name="pro_plan_plus_name">BlockMail Pro+</string>

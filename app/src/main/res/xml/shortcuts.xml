@@ -13,6 +13,17 @@
             android:targetClass="com.jakober.klarmail.MainActivity" />
     </shortcut>
     <shortcut
+        android:shortcutId="new_pdf"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_new_pdf"
+        android:shortcutShortLabel="@string/shortcut_newpdf_short"
+        android:shortcutLongLabel="@string/shortcut_newpdf_long">
+        <intent
+            android:action="com.jakober.klarmail.SHORTCUT_NEW_PDF"
+            android:targetPackage="com.jakober.klarmail"
+            android:targetClass="com.jakober.klarmail.MainActivity" />
+    </shortcut>
+    <shortcut
         android:shortcutId="refresh"
         android:enabled="true"
         android:icon="@drawable/ic_shortcut_refresh"

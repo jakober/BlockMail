@@ -7,6 +7,8 @@
     <string name="shortcut_refresh_long">Nach neuen Mails schauen</string>
     <string name="shortcut_compose_short">Neue Mail</string>
     <string name="shortcut_compose_long">Neue Mail verfassen</string>
+    <string name="shortcut_newpdf_short">Neues PDF</string>
+    <string name="shortcut_newpdf_long">Neues PDF erstellen</string>
 
     <!-- Homescreen-Widget -->
     <string name="widget_description">Die neuesten Mails aus dem Posteingang</string>

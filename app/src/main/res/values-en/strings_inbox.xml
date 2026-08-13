@@ -38,6 +38,7 @@
     <string name="inbox_folder_switch">Switch folder</string>
     <string name="inbox_attachments">Attachments</string>
     <string name="inbox_stats">Statistics</string>
+    <string name="inbox_new_pdf">Create PDF</string>
 
     <!-- View &amp; theme -->
     <string name="inbox_focus_enable">Turn on focus blocks</string>

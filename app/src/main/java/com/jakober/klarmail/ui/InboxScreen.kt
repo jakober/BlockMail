@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Drafts
 import androidx.compose.material.icons.filled.Error
@@ -280,7 +281,8 @@ fun InboxScreen(
     onSettings: () -> Unit,
     onOpenDraft: (Long) -> Unit = {},
     onOpenStats: () -> Unit = {},
-    onOpenAttachments: () -> Unit = {}
+    onOpenAttachments: () -> Unit = {},
+    onNewPdf: () -> Unit = {}
 ) {
     val messages by MailRepository.messages.collectAsState()
     val loading by MailRepository.loading.collectAsState()
@@ -1212,6 +1214,21 @@ fun InboxScreen(
                                     onClick = {
                                         folderMenuOpen = false
                                         onOpenStats()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            stringResource(R.string.inbox_new_pdf),
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.NoteAdd, null)
+                                    },
+                                    onClick = {
+                                        folderMenuOpen = false
+                                        onNewPdf()
                                     }
                                 )
                                 // Konten-Wechsler (nur bei mehreren gespeicherten Konten)

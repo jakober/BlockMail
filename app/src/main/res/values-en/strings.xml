@@ -7,6 +7,8 @@
     <string name="shortcut_refresh_long">Check for new mail</string>
     <string name="shortcut_compose_short">Compose</string>
     <string name="shortcut_compose_long">Compose a new email</string>
+    <string name="shortcut_newpdf_short">New PDF</string>
+    <string name="shortcut_newpdf_long">Create a new PDF</string>
 
     <!-- Home screen widget -->
     <string name="widget_description">The latest emails from your inbox</string>

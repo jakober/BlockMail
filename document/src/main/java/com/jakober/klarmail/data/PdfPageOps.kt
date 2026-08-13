@@ -172,6 +172,18 @@ object PdfPageOps {
             }.getOrDefault(-1)
         }
 
+    /** Baut ein NEUES PDF mit [pages] leeren A4-Seiten — für „Leeres PDF“. */
+    suspend fun createBlank(out: File, pages: Int = 1): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                PDDocument().use { doc ->
+                    repeat(pages.coerceAtLeast(1)) { doc.addPage(PDPage(PDRectangle.A4)) }
+                    doc.save(out)
+                }
+                out.length() > 0
+            }.getOrDefault(false)
+        }
+
     /** Baut ein NEUES PDF aus Fotos — für „Aus Fotos erstellen“/Scannen. */
     suspend fun createFromImages(context: Context, images: List<Uri>, out: File): Boolean =
         withContext(Dispatchers.IO) {

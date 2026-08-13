@@ -49,7 +49,8 @@ fun TwoPaneScreen(
     onOpenDraft: (Long) -> Unit = {},
     onOpenStats: () -> Unit = {},
     onOpenAttachments: () -> Unit = {},
-    onEditAttachment: (() -> Unit)? = null
+    onEditAttachment: (() -> Unit)? = null,
+    onNewPdf: () -> Unit = {}
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val density = LocalDensity.current
@@ -70,7 +71,8 @@ fun TwoPaneScreen(
                     onSettings = onSettings,
                     onOpenDraft = onOpenDraft,
                     onOpenStats = onOpenStats,
-                    onOpenAttachments = onOpenAttachments
+                    onOpenAttachments = onOpenAttachments,
+                    onNewPdf = onNewPdf
                 )
             }
             // Verschiebbarer Griff: Bereich im App-Hintergrund (sonst scheint

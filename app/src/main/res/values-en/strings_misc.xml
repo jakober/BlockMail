@@ -60,6 +60,14 @@
     <string name="pro_title">BlockMail Pro</string>
     <string name="pro_upsell_text">BlockMail Pro includes every AI feature — AI search, summaries, daily overview, drafting replies and emails, proofreading — plus the full PDF editor: sign, highlight, redact, reorder pages, print — even for PDFs from other apps, including as your default PDF app. Pick your plan:</string>
     <string name="pro_ok">Later</string>
+    <string name="newpdf_title">Create PDF</string>
+    <string name="newpdf_blank">Blank page</string>
+    <string name="newpdf_ai_label">Or let the AI write the content:</string>
+    <string name="newpdf_ai_label_pro">Or let the AI write the content (Pro subscription):</string>
+    <string name="newpdf_ai_hint">What should the document say? e.g. “Cancellation letter for my phone contract with …”</string>
+    <string name="newpdf_ai_create">Create with AI</string>
+    <string name="newpdf_failed">Could not create the PDF</string>
+    <string name="newpdf_cancel">Cancel</string>
     <string name="pro_plan_basic_name">BlockMail Basic</string>
     <string name="pro_plan_pro_name">BlockMail Pro</string>
     <string name="pro_plan_plus_name">BlockMail Pro+</string>

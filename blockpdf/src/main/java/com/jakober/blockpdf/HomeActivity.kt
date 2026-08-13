@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Image
@@ -59,9 +60,24 @@ import org.json.JSONObject
 /** Startbildschirm: PDF öffnen, zuletzt geöffnete Dokumente, Pro-Karte. */
 class HomeActivity : ComponentActivity() {
 
+    /** Vom Launcher-Shortcut angefordert: sofort ein leeres PDF öffnen. */
+    private val pendingBlank = androidx.compose.runtime.mutableStateOf(false)
+
+    private fun handleShortcut(intent: Intent?) {
+        if (intent?.action == "com.jakober.blockpdf.SHORTCUT_NEW_PDF") {
+            pendingBlank.value = true
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleShortcut(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleShortcut(intent)
         setContent {
             com.jakober.blockpdf.ui.BlockPdfTheme {
                 HomeScreen(
@@ -161,6 +177,40 @@ class HomeActivity : ComponentActivity() {
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
                 }
+            }
+        }
+
+        // Leeres PDF (eine weiße A4-Seite) — auch per Launcher-Shortcut
+        fun createBlank() {
+            if (busyCreate) return
+            busyCreate = true
+            scope.launch {
+                val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+                val name = "Dokument-${stamp()}.pdf"
+                val out = java.io.File(dir, name)
+                val ok = com.jakober.klarmail.data.PdfPageOps.createBlank(out)
+                busyCreate = false
+                if (ok) {
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        context, "com.jakober.blockpdf.fileprovider", out
+                    )
+                    onOpen(uri, name)
+                    recentList = recents()
+                } else {
+                    android.widget.Toast.makeText(
+                        context, R.string.home_create_failed,
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+        // Vom App-Icon-Shortcut angefordert: direkt loslegen (der Schlüssel
+        // ist der Wert selbst, damit auch onNewIntent im laufenden Fenster
+        // den Lauf anstößt)
+        androidx.compose.runtime.LaunchedEffect(pendingBlank.value) {
+            if (pendingBlank.value) {
+                pendingBlank.value = false
+                createBlank()
             }
         }
 
@@ -318,6 +368,16 @@ class HomeActivity : ComponentActivity() {
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.home_scan), maxLines = 1)
                     }
+                }
+                Spacer(Modifier.height(10.dp))
+                OutlinedButton(
+                    onClick = { createBlank() },
+                    enabled = !busyCreate,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.home_create_blank), maxLines = 1)
                 }
                 Spacer(Modifier.height(16.dp))
                 if (!isPro) {

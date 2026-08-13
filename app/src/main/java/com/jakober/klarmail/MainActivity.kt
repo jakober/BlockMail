@@ -34,10 +34,14 @@ class MainActivity : ComponentActivity() {
     /** Vom Launcher-Shortcut angefordert: neue Mail verfassen. */
     private val pendingCompose = androidx.compose.runtime.mutableStateOf(false)
 
+    /** „PDF erstellen“-Dialog anzeigen (Menü oder Launcher-Shortcut). */
+    private val pendingNewPdf = androidx.compose.runtime.mutableStateOf(false)
+
     private fun handleOpenIntent(intent: android.content.Intent?) {
         val uid = intent?.getLongExtra("open_uid", -1L) ?: -1L
         if (uid > 0) pendingOpenUid.value = uid
         if (intent?.action == "com.jakober.klarmail.SHORTCUT_COMPOSE") pendingCompose.value = true
+        if (intent?.action == "com.jakober.klarmail.SHORTCUT_NEW_PDF") pendingNewPdf.value = true
         // Aus dem Dokument-Editor (ViewerActivity): Verfassen-Fenster mit dem
         // wartenden Anhang oeffnen — den liest ComposeScreen von selbst
         if (intent?.action == ViewerActivity.ACTION_COMPOSE_ATTACH) pendingCompose.value = true
@@ -149,6 +153,14 @@ class MainActivity : ComponentActivity() {
                         nav.navigate("welcome")
                     }
                 }
+                // „PDF erstellen“ liegt ueber jeder Route — erreichbar aus
+                // dem Posteingangs-Menue und per Launcher-Shortcut
+                if (pendingNewPdf.value) {
+                    com.jakober.klarmail.ui.NewPdfDialog(
+                        onDismiss = { pendingNewPdf.value = false },
+                        onOpenEditor = { nav.navigate("editor") }
+                    )
+                }
                 NavHost(navController = nav, startDestination = "inbox") {
                     composable("inbox") {
                         val widthDp = androidx.compose.ui.platform.LocalConfiguration
@@ -167,7 +179,8 @@ class MainActivity : ComponentActivity() {
                                 onOpenDraft = { id -> nav.navigate("compose?draft=$id") },
                                 onOpenStats = { nav.navigate("stats") },
                                 onOpenAttachments = { nav.navigate("attachments") },
-                                onEditAttachment = { nav.navigate("editor") }
+                                onEditAttachment = { nav.navigate("editor") },
+                                onNewPdf = { pendingNewPdf.value = true }
                             )
                         } else {
                             InboxScreen(
@@ -176,7 +189,8 @@ class MainActivity : ComponentActivity() {
                                 onSettings = { nav.navigate("settings") },
                                 onOpenDraft = { id -> nav.navigate("compose?draft=$id") },
                                 onOpenStats = { nav.navigate("stats") },
-                                onOpenAttachments = { nav.navigate("attachments") }
+                                onOpenAttachments = { nav.navigate("attachments") },
+                                onNewPdf = { pendingNewPdf.value = true }
                             )
                         }
                     }

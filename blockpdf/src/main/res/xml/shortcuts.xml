@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Statische Launcher-Shortcuts (langes Drücken auf das App-Icon) -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_pdf"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_new_pdf"
+        android:shortcutShortLabel="@string/shortcut_newpdf_short"
+        android:shortcutLongLabel="@string/shortcut_newpdf_long">
+        <intent
+            android:action="com.jakober.blockpdf.SHORTCUT_NEW_PDF"
+            android:targetPackage="com.jakober.blockpdf"
+            android:targetClass="com.jakober.blockpdf.HomeActivity" />
+    </shortcut>
+</shortcuts>
