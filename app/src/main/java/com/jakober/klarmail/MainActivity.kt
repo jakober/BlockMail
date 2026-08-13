@@ -289,6 +289,7 @@ class MainActivity : ComponentActivity() {
                         SettingsScreen(
                             onBack = { nav.popBackStack() },
                             onOpenSetup = { nav.navigate("setup") },
+                            onNewPdf = { pendingNewPdf.value = true },
                             onOpenTour = {
                                 // Live-Tour läuft im Posteingang — dorthin
                                 // zurück und Overlay starten

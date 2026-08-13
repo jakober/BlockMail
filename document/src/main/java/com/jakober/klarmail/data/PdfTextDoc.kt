@@ -31,29 +31,41 @@ object PdfTextDoc {
         withContext(Dispatchers.IO) {
             runCatching {
                 val contentW = (PAGE_W - 2 * MARGIN).toInt()
+                // Durchgehend die Systemschrift (Roboto): neutral und sauber.
+                // Die Serifenschrift von früher wirkte im Ausdruck altbacken.
                 val titlePaint = TextPaint().apply {
                     isAntiAlias = true
-                    textSize = 17f
-                    typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                    textSize = 19f
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                     color = Color.BLACK
                 }
                 val bodyPaint = TextPaint().apply {
                     isAntiAlias = true
-                    textSize = 11.5f
-                    typeface = Typeface.SERIF
+                    textSize = 11f
+                    typeface = Typeface.SANS_SERIF
                     color = Color.BLACK
                 }
 
-                fun layoutOf(text: String, paint: TextPaint): StaticLayout =
+                fun layoutOf(
+                    text: String,
+                    paint: TextPaint,
+                    justify: Boolean
+                ): StaticLayout =
                     StaticLayout.Builder.obtain(text, 0, text.length, paint, contentW)
                         .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                        .setLineSpacing(0f, 1.35f)
+                        .setLineSpacing(0f, 1.45f)
                         .setIncludePad(false)
+                        .apply {
+                            // Blocksatz wie in einem gesetzten Brief
+                            if (justify) setJustificationMode(
+                                Layout.JUSTIFICATION_MODE_INTER_WORD
+                            )
+                        }
                         .build()
 
                 val titleLayout = title.trim().takeIf { it.isNotBlank() }
-                    ?.let { layoutOf(it, titlePaint) }
-                val bodyLayout = layoutOf(body.ifBlank { " " }, bodyPaint)
+                    ?.let { layoutOf(it, titlePaint, justify = false) }
+                val bodyLayout = layoutOf(body.ifBlank { " " }, bodyPaint, justify = true)
 
                 val doc = PdfDocument()
                 try {
@@ -71,7 +83,14 @@ object PdfTextDoc {
                             canvas.translate(MARGIN, y)
                             titleLayout.draw(canvas)
                             canvas.restore()
-                            y += titleLayout.height + 18f
+                            y += titleLayout.height + 12f
+                            // Feine Trennlinie unter der Überschrift
+                            val rule = android.graphics.Paint().apply {
+                                color = Color.rgb(120, 120, 120)
+                                strokeWidth = 0.8f
+                            }
+                            canvas.drawLine(MARGIN, y, PAGE_W - MARGIN, y, rule)
+                            y += 20f
                         }
                         // So viele ganze Zeilen mitnehmen, wie auf die Seite passen
                         val bottom = PAGE_H - MARGIN

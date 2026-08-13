@@ -259,7 +259,8 @@ private fun SwipeActionPicker(title: String, value: String, onSelect: (String) -
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenSetup: () -> Unit = {},
-    onOpenTour: () -> Unit = {}
+    onOpenTour: () -> Unit = {},
+    onNewPdf: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -1927,6 +1928,23 @@ fun SettingsScreen(
                 stringResource(R.string.settings_signature_title), Icons.Filled.Edit,
                 subtitle = stringResource(R.string.settings_signature_subtitle)
             ) {
+            SectionTitle(stringResource(R.string.settings_documents))
+            Text(
+                stringResource(R.string.settings_documents_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onNewPdf) {
+                Icon(
+                    androidx.compose.material.icons.Icons.Filled.NoteAdd,
+                    contentDescription = null
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.inbox_new_pdf))
+            }
+
+            Spacer(Modifier.height(12.dp))
             SectionTitle(stringResource(R.string.settings_signature))
             Text(
                 stringResource(R.string.settings_signature_desc),

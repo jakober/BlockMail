@@ -667,11 +667,52 @@ object ClaudeClient {
         }
         val user = if (deviceIsGerman) "Erstelle dieses Dokument: $prompt"
         else "Create this document: $prompt"
-        val raw = complete(system, user).trim()
-        val title = raw.lineSequence().firstOrNull()?.trim().orEmpty()
-        val body = raw.lines().drop(1).joinToString("\n").trim()
+        return splitDocument(complete(system, user))
+    }
+
+    /**
+     * Überarbeitet ein zuvor per KI erstelltes Dokument: bisheriger Text
+     * plus Änderungswunsch rein, VOLLSTÄNDIG überarbeitetes Dokument raus
+     * (gleiches Format wie [composeDocument]).
+     */
+    suspend fun reviseDocument(
+        title: String,
+        body: String,
+        changes: String
+    ): Pair<String, String> {
+        val system = if (deviceIsGerman) {
+            "Du überarbeitest den Inhalt eines Dokuments, das als PDF " +
+                "gespeichert wird. Antworte AUSSCHLIESSLICH mit dem KOMPLETTEN " +
+                "überarbeiteten Dokumenttext: Die ERSTE Zeile ist die " +
+                "Überschrift (kurz, ohne Anführungszeichen), danach eine " +
+                "Leerzeile, dann der Text in Absätzen. Übernimm alles " +
+                "Unveränderte wörtlich. NUR REINER TEXT — kein Markdown, " +
+                "keine Sternchen, kein HTML, keine Erklärungen. " + todayLineDe()
+        } else {
+            "You revise the content of a document that will be saved as a " +
+                "PDF. Reply EXCLUSIVELY with the COMPLETE revised document " +
+                "text, written in ${answerLanguage()}: The FIRST line is the " +
+                "title (short, no quotation marks), then a blank line, then " +
+                "the body in paragraphs. Keep everything unchanged verbatim. " +
+                "PLAIN TEXT ONLY — no Markdown, no asterisks, no HTML, no " +
+                "explanations. " + todayLineEn()
+        }
+        val user = if (deviceIsGerman) {
+            "Bisheriges Dokument:\n\n$title\n\n$body\n\n" +
+                "Ändere es so: $changes"
+        } else {
+            "Current document:\n\n$title\n\n$body\n\nChange it like this: $changes"
+        }
+        return splitDocument(complete(system, user))
+    }
+
+    /** Erste Zeile = Überschrift, Rest = Text (siehe composeDocument). */
+    private fun splitDocument(raw: String): Pair<String, String> {
+        val text = raw.trim()
+        val title = text.lineSequence().firstOrNull()?.trim().orEmpty()
+        val body = text.lines().drop(1).joinToString("\n").trim()
         // Falls das Modell doch alles in eine Zeile packt: keine Überschrift
-        return if (body.isBlank()) "" to raw else title to body
+        return if (body.isBlank()) "" to text else title to body
     }
 
     suspend fun proofread(html: String): String {

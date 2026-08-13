@@ -35,12 +35,25 @@ import com.jakober.klarmail.R
 import kotlinx.coroutines.launch
 
 /**
+ * Letztes per KI erstelltes Dokument (nur im Arbeitsspeicher): Damit lässt
+ * es sich beim nächsten Öffnen des Dialogs überarbeiten („mach den Ton
+ * förmlicher“, „ergänze …“) — ein PDF speichert keinen bearbeitbaren
+ * Textfluss, deshalb läuft Nacharbeit über die KI statt über ein Textfeld.
+ */
+private object LastAiPdf {
+    var title: String = ""
+    var body: String = ""
+    val hasContent: Boolean get() = title.isNotBlank() || body.isNotBlank()
+}
+
+/**
  * „PDF erstellen“: eine leere A4-Seite sofort, oder — mit Pro-Abo — den
  * Inhalt von der KI schreiben lassen. Das fertige Dokument öffnet direkt
- * im Editor (Unterschrift, Text, Stempel … wie bei jedem Anhang).
+ * im Editor (Unterschrift, Stempel … wie bei jedem Anhang); danach lässt
+ * es sich hier per Änderungswunsch an die KI überarbeiten.
  *
- * Erreichbar über das Posteingangs-Menü und den Launcher-Shortcut
- * „Neues PDF“ (langes Drücken auf das App-Icon).
+ * Erreichbar über das Posteingangs-Menü, die Einstellungen und den
+ * Launcher-Shortcut „Neues PDF“ (langes Drücken auf das App-Icon).
  */
 @Composable
 fun NewPdfDialog(
@@ -88,6 +101,24 @@ fun NewPdfDialog(
         }
     }
 
+    // Gemeinsamer Endweg für Erstellen und Überarbeiten: Text setzen,
+    // fürs nächste Überarbeiten merken, im Editor öffnen
+    suspend fun renderAndOpen(title: String, body: String) {
+        val dir = java.io.File(context.cacheDir, "newpdf").apply { mkdirs() }
+        val safe = title.replace(Regex("[^\\p{L}\\p{N} _-]"), "")
+            .trim().take(40)
+        val name = (safe.ifBlank { "Dokument-${stamp()}" }) + ".pdf"
+        val f = java.io.File(dir, name)
+        val ok = com.jakober.klarmail.data.PdfTextDoc.create(title, body, f)
+        if (ok) {
+            LastAiPdf.title = title
+            LastAiPdf.body = body
+            openInEditor(f, name)
+        } else {
+            error = context.getString(R.string.newpdf_failed)
+        }
+    }
+
     fun createWithAi() {
         if (busy) return
         if (!isPro) {
@@ -101,14 +132,29 @@ fun NewPdfDialog(
             try {
                 val (title, body) = com.jakober.klarmail.ai.ClaudeClient
                     .composeDocument(prompt.trim())
-                val dir = java.io.File(context.cacheDir, "newpdf").apply { mkdirs() }
-                val safe = title.replace(Regex("[^\\p{L}\\p{N} _-]"), "")
-                    .trim().take(40)
-                val name = (safe.ifBlank { "Dokument-${stamp()}" }) + ".pdf"
-                val f = java.io.File(dir, name)
-                val ok = com.jakober.klarmail.data.PdfTextDoc.create(title, body, f)
-                if (ok) openInEditor(f, name)
-                else error = context.getString(R.string.newpdf_failed)
+                renderAndOpen(title, body)
+            } catch (e: Exception) {
+                error = e.message ?: context.getString(R.string.newpdf_failed)
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun reviseWithAi(changes: String) {
+        if (busy) return
+        if (!isPro) {
+            showUpsell = true
+            return
+        }
+        if (changes.isBlank() || !LastAiPdf.hasContent) return
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                val (title, body) = com.jakober.klarmail.ai.ClaudeClient
+                    .reviseDocument(LastAiPdf.title, LastAiPdf.body, changes.trim())
+                renderAndOpen(title, body)
             } catch (e: Exception) {
                 error = e.message ?: context.getString(R.string.newpdf_failed)
             } finally {
@@ -160,6 +206,44 @@ fun NewPdfDialog(
                     Icon(Icons.Filled.AutoAwesome, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.newpdf_ai_create))
+                }
+                // Nacharbeit am letzten KI-Dokument: Änderungswunsch an die
+                // KI („förmlicher“, „ergänze Absatz über …“) — sie liefert
+                // das komplette Dokument neu und der Editor öffnet es
+                if (LastAiPdf.hasContent) {
+                    var changes by remember { mutableStateOf("") }
+                    Spacer(Modifier.height(14.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(14.dp))
+                    val fallbackName = stringResource(R.string.newpdf_title)
+                    Text(
+                        stringResource(
+                            R.string.newpdf_ai_revise_label,
+                            LastAiPdf.title.ifBlank { fallbackName }
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = changes,
+                        onValueChange = { changes = it },
+                        enabled = !busy,
+                        minLines = 2,
+                        placeholder = {
+                            Text(stringResource(R.string.newpdf_ai_revise_hint))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { reviseWithAi(changes) },
+                        enabled = !busy && changes.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.newpdf_ai_revise))
+                    }
                 }
                 if (busy) {
                     Spacer(Modifier.height(12.dp))

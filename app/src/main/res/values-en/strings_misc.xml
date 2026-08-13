@@ -67,6 +67,9 @@
     <string name="newpdf_ai_hint">What should the document say? e.g. “Cancellation letter for my phone contract with …”</string>
     <string name="newpdf_ai_create">Create with AI</string>
     <string name="newpdf_failed">Could not create the PDF</string>
+    <string name="newpdf_ai_revise_label">Revise “%1$s” — what should the AI change?</string>
+    <string name="newpdf_ai_revise_hint">e.g. “Make the tone more formal” or “Add a paragraph about …”</string>
+    <string name="newpdf_ai_revise">Revise with AI</string>
     <string name="newpdf_cancel">Cancel</string>
     <string name="pro_plan_basic_name">BlockMail Basic</string>
     <string name="pro_plan_pro_name">BlockMail Pro</string>

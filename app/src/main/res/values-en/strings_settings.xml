@@ -191,6 +191,8 @@
     <string name="settings_group_writing">Writing</string>
     <string name="settings_signature_title">Signature &amp; templates</string>
     <string name="settings_signature_subtitle">Building blocks for writing</string>
+    <string name="settings_documents">Documents</string>
+    <string name="settings_documents_desc">Create a new PDF — blank or with AI content — and edit it right away. Also available by long-pressing the app icon.</string>
     <string name="settings_signature">Signature</string>
     <string name="settings_signature_desc">Automatically added below your text while composing.</string>
     <string name="settings_signature_label">Signature (empty = none)</string>

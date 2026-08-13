@@ -191,6 +191,8 @@
     <string name="settings_group_writing">Schreiben</string>
     <string name="settings_signature_title">Signatur &amp; Vorlagen</string>
     <string name="settings_signature_subtitle">Bausteine fürs Schreiben</string>
+    <string name="settings_documents">Dokumente</string>
+    <string name="settings_documents_desc">Neues PDF anlegen — leer oder mit KI-Inhalt — und direkt im Editor bearbeiten. Auch über langes Drücken auf das App-Symbol erreichbar.</string>
     <string name="settings_signature">Signatur</string>
     <string name="settings_signature_desc">Wird beim Verfassen automatisch unter den Text gesetzt.</string>
     <string name="settings_signature_label">Signatur (leer = keine)</string>
