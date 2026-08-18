@@ -1250,6 +1250,23 @@ private class FitWebView(ctx: android.content.Context) : WebView(ctx) {
     /** Breite hat sich geändert (Drehen, Fenster-Teilung): neu messen. */
     var onWidthChanged: (() -> Unit)? = null
 
+    /** Aktuelle Seiten-Zoomstufe (via onScaleChanged gepflegt; 0 = unbekannt). */
+    var pageScale = 0f
+
+    /**
+     * Seiten-Zoom auf die Standardstufe zurückstellen: Beim Drehen kann
+     * die WebView eine herausgezoomte Stufe behalten (Chromium passt beim
+     * Layout-Wechsel selbst an) — die verkleinerte dann auch den KOPF.
+     * Die Einpassung des Mail-Inhalts übernimmt allein der CSS-Faktor.
+     */
+    fun resetPageZoom() {
+        val target = resources.displayMetrics.density
+        val cur = pageScale
+        if (cur > 0f && kotlin.math.abs(cur / target - 1f) > 0.02f) {
+            zoomBy((target / cur).coerceIn(0.01f, 100f))
+        }
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         // Drehen/Fenster-Teilung, BEIDE Richtungen: Im Querformat darf die
@@ -1259,8 +1276,11 @@ private class FitWebView(ctx: android.content.Context) : WebView(ctx) {
         // direkte Messung; das Sicherheitsnetz blendet notfalls ein.
         if (oldw > 0 && w != oldw) {
             alpha = 0f
-            post { onWidthChanged?.invoke() }
-            postDelayed({ measureFit() }, 150)
+            post {
+                resetPageZoom()
+                onWidthChanged?.invoke()
+            }
+            postDelayed({ resetPageZoom(); measureFit() }, 180)
             postDelayed({ showWhenReady() }, 1000)
         }
     }
@@ -1352,13 +1372,24 @@ private fun HtmlMailView(
                         return true
                     }
 
+                    override fun onScaleChanged(
+                        view: WebView?,
+                        oldScale: Float,
+                        newScale: Float
+                    ) {
+                        (view as? FitWebView)?.pageScale = newScale
+                    }
+
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        // Zweimal messen: direkt nach dem Aufbau und noch
-                        // einmal, wenn nachgeladene Bilder die Breite
-                        // verändert haben können. Das Sicherheitsnetz
-                        // blendet notfalls auch ohne Messung ein.
+                        // Erst den Seiten-Zoom normalisieren (kann nach
+                        // Drehungen verstellt sein), dann zweimal messen:
+                        // direkt nach dem Aufbau und noch einmal, wenn
+                        // nachgeladene Bilder die Breite verändert haben
+                        // können. Das Sicherheitsnetz blendet notfalls
+                        // auch ohne Messung ein.
                         val fit = view as? FitWebView ?: return
-                        fit.postDelayed({ fit.measureFit() }, 80)
+                        fit.postDelayed({ fit.resetPageZoom() }, 40)
+                        fit.postDelayed({ fit.measureFit() }, 160)
                         fit.postDelayed({ fit.measureFit() }, 700)
                         fit.postDelayed({ fit.showWhenReady() }, 1200)
                     }
