@@ -1239,7 +1239,12 @@ private fun HtmlMailView(
     val wrapped = remember(html) {
         """<!DOCTYPE html><html><head>
            <meta charset="utf-8">
-           <meta name="viewport" content="width=device-width, initial-scale=1.0">
+           <!-- BEWUSST ohne initial-scale: Newsletter mit fester Breite
+                (600-800px-Tabellen) sollen beim Oeffnen herausgezoomt
+                ganz sichtbar sein (loadWithOverviewMode). Ein festes
+                initial-scale=1.0 nagelte die Ansicht auf 100% fest -
+                man sah nur den linken Ausschnitt in Riesenschrift. -->
+           <meta name="viewport" content="width=device-width">
            <style>
              /* Kein Außenrand: Der Kopfbereich (dunkel im Dark Mode) läuft
                 randlos; der Mail-Inhalt bringt sein eigenes Padding mit */
