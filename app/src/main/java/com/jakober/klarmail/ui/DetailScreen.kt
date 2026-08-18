@@ -1228,6 +1228,33 @@ fun DetailScreen(
     }
 }
 
+/**
+ * WebView, die sich nach dem Rendern selbst auf die Inhaltsbreite einpasst.
+ *
+ * Alle CSS-/Viewport-Ansätze sind an Newsletter-Tricks gescheitert
+ * (min-width, nicht schrumpfbare Tabellen, nowrap): Deshalb wird hier die
+ * TATSÄCHLICH gerenderte Breite gemessen (computeHorizontalScrollRange —
+ * dafür braucht es die Unterklasse, die Methode ist protected) und per
+ * zoomBy so weit herausgezoomt, dass alles sichtbar ist — dieselbe
+ * Bewegung wie das manuelle Herauszoomen mit zwei Fingern, nur
+ * automatisch. Kein JavaScript nötig (bleibt aus Sicherheitsgründen aus).
+ */
+private class FitWebView(ctx: android.content.Context) : WebView(ctx) {
+
+    /** Schon eingepasst? (wird beim Laden neuen Inhalts zurückgesetzt) */
+    var fitDone = false
+
+    fun fitToWidth() {
+        if (fitDone) return
+        val range = computeHorizontalScrollRange()
+        // Kleine Toleranz: 8px Überstand ist kein Grund zu zoomen
+        if (width > 0 && range > width + 8) {
+            fitDone = true
+            zoomBy((width.toFloat() / range).coerceIn(0.05f, 1f))
+        }
+    }
+}
+
 /** Stellt HTML-Mails wie in gängigen Mail-Apps dar (eigener Scrollbereich, Links öffnen im Browser). */
 @Composable
 private fun HtmlMailView(
@@ -1263,7 +1290,7 @@ private fun HtmlMailView(
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
-            WebView(ctx).apply {
+            FitWebView(ctx).apply {
                 settings.javaScriptEnabled = false
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = true
@@ -1288,6 +1315,15 @@ private fun HtmlMailView(
                         runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, url)) }
                         return true
                     }
+
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        // Zweimal messen: direkt nach dem Aufbau und noch
+                        // einmal, wenn nachgeladene Bilder die Breite
+                        // verändert haben können
+                        val fit = view as? FitWebView ?: return
+                        fit.postDelayed({ fit.fitToWidth() }, 150)
+                        fit.postDelayed({ fit.fitToWidth() }, 700)
+                    }
                 }
             }
         },
@@ -1296,6 +1332,7 @@ private fun HtmlMailView(
             // die Mail sonst neu rendern (weißes Flackern bis Dauer-Weiß)
             if (webView.tag != wrapped) {
                 webView.tag = wrapped
+                (webView as? FitWebView)?.fitDone = false
                 webView.loadDataWithBaseURL(null, wrapped, "text/html", "utf-8", null)
             }
         }
