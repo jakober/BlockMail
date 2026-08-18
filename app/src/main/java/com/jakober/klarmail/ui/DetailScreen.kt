@@ -1237,14 +1237,30 @@ private fun HtmlMailView(
 ) {
     val currentOnAppLink by androidx.compose.runtime.rememberUpdatedState(onAppLink)
     val wrapped = remember(html) {
+        // Feste Layout-Breite der Mail erkennen (Newsletter bauen auf
+        // 600-800px-Tabellen): Dann bekommt der Viewport GENAU diese
+        // Breite — loadWithOverviewMode zoomt beim Oeffnen so weit
+        // heraus, dass die komplette Mail-Breite sichtbar ist; reinzoomen
+        // geht per Geste. Bei "width=device-width" lief der zu breite
+        // Inhalt dagegen einfach seitlich ueber und wirkte hereingezoomt.
+        // (?<![-\w]) schliesst max-width/min-width aus: Die stehen fuer
+        // RESPONSIVE Layouts, die sich dem Geraet anpassen.
+        val fixedWidth = Regex(
+            """(?<![-\w])width\s*[:=]\s*["']?(\d{3,4})""",
+            RegexOption.IGNORE_CASE
+        )
+            .findAll(html)
+            .mapNotNull { it.groupValues[1].toIntOrNull() }
+            .filter { it in 480..1400 }
+            .maxOrNull()
+        val viewport = if (fixedWidth != null) {
+            "width=${fixedWidth.coerceAtMost(1000)}"
+        } else {
+            "width=device-width"
+        }
         """<!DOCTYPE html><html><head>
            <meta charset="utf-8">
-           <!-- BEWUSST ohne initial-scale: Newsletter mit fester Breite
-                (600-800px-Tabellen) sollen beim Oeffnen herausgezoomt
-                ganz sichtbar sein (loadWithOverviewMode). Ein festes
-                initial-scale=1.0 nagelte die Ansicht auf 100% fest -
-                man sah nur den linken Ausschnitt in Riesenschrift. -->
-           <meta name="viewport" content="width=device-width">
+           <meta name="viewport" content="$viewport">
            <style>
              /* Kein Außenrand: Der Kopfbereich (dunkel im Dark Mode) läuft
                 randlos; der Mail-Inhalt bringt sein eigenes Padding mit */
