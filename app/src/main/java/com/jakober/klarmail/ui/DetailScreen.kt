@@ -1247,6 +1247,24 @@ private class FitWebView(ctx: android.content.Context) : WebView(ctx) {
     /** Rohe Mail, die gerade angezeigt wird (für den Unsichtbar-Start). */
     var rawTag: String? = null
 
+    /** Breite hat sich geändert (Drehen, Fenster-Teilung): neu messen. */
+    var onWidthChanged: (() -> Unit)? = null
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        // Drehen/Fenster-Teilung, BEIDE Richtungen: Im Querformat darf die
+        // eingepasste Mail größer werden, im Hochformat muss die passende
+        // wieder schrumpfen. Unsichtbar zurücksetzen und frisch messen —
+        // war der Faktor schon 1, lädt nichts neu, dann greift die
+        // direkte Messung; das Sicherheitsnetz blendet notfalls ein.
+        if (oldw > 0 && w != oldw) {
+            alpha = 0f
+            post { onWidthChanged?.invoke() }
+            postDelayed({ measureFit() }, 150)
+            postDelayed({ showWhenReady() }, 1000)
+        }
+    }
+
     /**
      * Bis zur ersten abgeschlossenen Messung bleibt die Ansicht
      * unsichtbar (alpha 0, gesetzt beim Laden einer NEUEN Mail) — sonst
@@ -1362,6 +1380,10 @@ private fun HtmlMailView(
             webView.onOverflow = { factor ->
                 bodyZoom = (bodyZoom * factor).coerceIn(0.25f, 1f)
             }
+            // Nach Drehen/Breitenänderung: Faktor verwerfen — das lädt die
+            // Mail in voller Größe (unsichtbar) neu, die Messung passt sie
+            // dann für die NEUE Breite ein und blendet ein
+            webView.onWidthChanged = { bodyZoom = 1f }
             // Nur bei wirklich neuem Inhalt laden: Jede Neuzeichnung würde
             // die Mail sonst neu rendern (weißes Flackern bis Dauer-Weiß)
             if (webView.tag != wrapped) {
