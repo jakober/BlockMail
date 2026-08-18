@@ -922,7 +922,10 @@ fun DetailScreen(
                     // Teil der Seite und scrollt ganz normal mit dem Inhalt
                     val darkTheme = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                     val pageTexts = MailPageTexts(
-                        summarize = stringResource(R.string.detail_summarize_ai),
+                        // Kompakter Chip rechts neben dem Absender: die
+                        // kurze Beschriftung, sonst bricht er auf schmalen
+                        // Geräten zu früh in die eigene Zeile um
+                        summarize = stringResource(R.string.detail_summarize_short),
                         phishingWarning = stringResource(R.string.detail_phishing_warning),
                         phishingAdvice = stringResource(R.string.detail_page_phishing_advice),
                         notPhishingLink = stringResource(R.string.detail_page_not_phishing),
@@ -1506,16 +1509,28 @@ private fun buildMailPageHtml(
     }
     val date = SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.getDefault())
         .format(Date(mail.date))
-    sb.append("<div style=\"display:flex;align-items:center;margin-bottom:12px;\">")
+    // Absenderzeile: Avatar + Name/Adresse/Datum links, KI-Knopf kompakt
+    // rechts im sonst leeren Raum (flex-wrap: auf sehr schmalen Schirmen
+    // rutscht er sauber in eine eigene Zeile darunter)
+    sb.append("<div style=\"display:flex;align-items:center;margin-bottom:12px;")
+        .append("flex-wrap:wrap;row-gap:8px;\">")
         .append(avatar)
-        .append("<div style=\"margin-left:12px;min-width:0;\">")
+        .append("<div style=\"margin-left:12px;min-width:0;flex:1;\">")
         .append("<div style=\"font-size:15px;font-weight:600;color:$titleColor;\">")
         .append(htmlEscape(mail.from)).append("</div>")
         .append("<div style=\"font-size:12.5px;color:$subColor;\">")
         .append(htmlEscape(mail.fromAddress)).append("</div>")
         .append("<div style=\"font-size:12.5px;color:$subColor;\">")
         .append(date).append("</div>")
-        .append("</div></div>")
+        .append("</div>")
+    if (aiAvailable) {
+        sb.append("<a href=\"blockmail://summarize\" style=\"")
+            .append("background:$orange;color:#fff;border-radius:16px;")
+            .append("padding:6px 12px;text-decoration:none;font-size:12.5px;")
+            .append("font-weight:600;white-space:nowrap;margin-left:8px;\">")
+            .append("✨ ").append(htmlEscape(texts.summarize)).append("</a>")
+    }
+    sb.append("</div>")
     if (phishing != null && phishing.suspicious) {
         sb.append("<div style=\"background:#b3261e;color:#fff;border-radius:14px;")
             .append("padding:12px 14px;margin:8px 0;font-size:13px;line-height:1.55;\">")
@@ -1527,17 +1542,6 @@ private fun buildMailPageHtml(
             .append("<a href=\"blockmail://notphishing\" style=\"color:#fff;")
             .append("font-weight:600;\">").append(htmlEscape(texts.notPhishingLink))
             .append("</a>")
-            .append("</div>")
-    }
-    // KI-Knopf (oranges Pill) in eigener Zeile — die Anhänge haengen nicht
-    // mehr daran, sondern stehen darunter als aufklappbare Zeile
-    if (aiAvailable) {
-        sb.append("<div style=\"margin:4px 0 8px 0;\">")
-            .append("<a href=\"blockmail://summarize\" style=\"display:inline-block;")
-            .append("background:$orange;color:#fff;border-radius:20px;")
-            .append("padding:8px 16px;text-decoration:none;font-size:13px;")
-            .append("font-weight:600;\">")
-            .append("✨ ").append(htmlEscape(texts.summarize)).append("</a>")
             .append("</div>")
     }
     // Anhänge: zusammengeklappt nur „N Dateianhänge“ mit Pfeil; Antippen

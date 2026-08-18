@@ -47,6 +47,7 @@
 
     <!-- AI summary -->
     <string name="detail_summarize_ai">Summarize with AI</string>
+    <string name="detail_summarize_short">AI summary</string>
     <string name="detail_summarizing">Summarizing …</string>
     <string name="detail_summary_title">✨ Summary</string>
     <string name="detail_summarize_failed">Summary failed: %1$s</string>

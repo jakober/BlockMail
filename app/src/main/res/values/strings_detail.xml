@@ -47,6 +47,7 @@
 
     <!-- KI-Zusammenfassung -->
     <string name="detail_summarize_ai">Mit KI zusammenfassen</string>
+    <string name="detail_summarize_short">KI-Zusammenfassung</string>
     <string name="detail_summarizing">Wird zusammengefasst …</string>
     <string name="detail_summary_title">✨ Zusammenfassung</string>
     <string name="detail_summarize_failed">Zusammenfassung fehlgeschlagen: %1$s</string>
