@@ -1229,28 +1229,26 @@ fun DetailScreen(
 }
 
 /**
- * WebView, die sich nach dem Rendern selbst auf die Inhaltsbreite einpasst.
+ * WebView, die nach dem Rendern die TATSÄCHLICHE Inhaltsbreite misst
+ * (computeHorizontalScrollRange — dafür braucht es die Unterklasse, die
+ * Methode ist protected). Alle CSS-/Viewport-Ansätze sind an
+ * Newsletter-Tricks gescheitert (min-width, nicht schrumpfbare Tabellen,
+ * nowrap); das Messen nach dem Rendern kann kein Layout austricksen.
  *
- * Alle CSS-/Viewport-Ansätze sind an Newsletter-Tricks gescheitert
- * (min-width, nicht schrumpfbare Tabellen, nowrap): Deshalb wird hier die
- * TATSÄCHLICH gerenderte Breite gemessen (computeHorizontalScrollRange —
- * dafür braucht es die Unterklasse, die Methode ist protected) und per
- * zoomBy so weit herausgezoomt, dass alles sichtbar ist — dieselbe
- * Bewegung wie das manuelle Herauszoomen mit zwei Fingern, nur
- * automatisch. Kein JavaScript nötig (bleibt aus Sicherheitsgründen aus).
+ * Läuft die Mail über, meldet [onOverflow] den Einpass-Faktor —
+ * HtmlMailView legt ihn dann als CSS-zoom NUR auf den Mail-Inhalt
+ * (.bm-mailbody) und lädt neu: Der Seitenkopf behält seine Größe.
+ * Kein JavaScript nötig (bleibt aus Sicherheitsgründen aus).
  */
 private class FitWebView(ctx: android.content.Context) : WebView(ctx) {
 
-    /** Schon eingepasst? (wird beim Laden neuen Inhalts zurückgesetzt) */
-    var fitDone = false
+    var onOverflow: ((Float) -> Unit)? = null
 
-    fun fitToWidth() {
-        if (fitDone) return
+    fun measureFit() {
         val range = computeHorizontalScrollRange()
-        // Kleine Toleranz: 8px Überstand ist kein Grund zu zoomen
+        // Kleine Toleranz: 8px Überstand ist kein Grund zu verkleinern
         if (width > 0 && range > width + 8) {
-            fitDone = true
-            zoomBy((width.toFloat() / range).coerceIn(0.05f, 1f))
+            onOverflow?.invoke((width.toFloat() / range).coerceIn(0.25f, 1f))
         }
     }
 }
@@ -1263,7 +1261,18 @@ private fun HtmlMailView(
     onAppLink: (String) -> Unit = {}
 ) {
     val currentOnAppLink by androidx.compose.runtime.rememberUpdatedState(onAppLink)
-    val wrapped = remember(html) {
+    // Einpass-Faktor für zu breite Mails: 1 = unverändert. Wird nach der
+    // ersten Messung gesetzt (siehe FitWebView) und verkleinert per
+    // CSS-zoom NUR den Mail-Inhalt — der Kopf bleibt in voller Größe.
+    // zoom (statt transform:scale) ändert auch die Layout-Höhe mit, es
+    // bleibt also kein Leerraum unter der verkleinerten Mail.
+    var bodyZoom by remember(html) { mutableStateOf(1f) }
+    val wrapped = remember(html, bodyZoom) {
+        // Locale.US: Der CSS-Wert braucht einen Punkt als Dezimaltrenner
+        val zoomCss = if (bodyZoom < 0.999f) {
+            ".bm-mailbody { zoom: " +
+                String.format(java.util.Locale.US, "%.3f", bodyZoom) + "; }"
+        } else ""
         """<!DOCTYPE html><html><head>
            <meta charset="utf-8">
            <meta name="viewport" content="width=device-width">
@@ -1271,19 +1280,8 @@ private fun HtmlMailView(
              /* Kein Außenrand: Der Kopfbereich (dunkel im Dark Mode) läuft
                 randlos; der Mail-Inhalt bringt sein eigenes Padding mit */
              body { margin: 0; word-wrap: break-word; }
-             /* Mail IMMER auf Bildschirmbreite einpassen: Newsletter setzen
-                feste Breiten (600-800px) auf Tabellen, divs und Zellen —
-                deshalb der Deckel auf ALLEN Elementen, nicht nur auf img/
-                table. Breitere Versuche (Viewport per Breiten-Erkennung,
-                Overview-Zoom) scheiterten, weil jede Mail ihre Breite
-                anders festlegt. box-sizing verhindert, dass Padding den
-                100%-Deckel wieder sprengt. */
-             body * {
-               max-width: 100% !important;
-               box-sizing: border-box !important;
-               word-wrap: break-word;
-             }
-             img { height: auto !important; }
+             img { max-width: 100% !important; height: auto !important; }
+             $zoomCss
            </style>
            </head><body>$html</body></html>"""
     }
@@ -1321,18 +1319,25 @@ private fun HtmlMailView(
                         // einmal, wenn nachgeladene Bilder die Breite
                         // verändert haben können
                         val fit = view as? FitWebView ?: return
-                        fit.postDelayed({ fit.fitToWidth() }, 150)
-                        fit.postDelayed({ fit.fitToWidth() }, 700)
+                        fit.postDelayed({ fit.measureFit() }, 150)
+                        fit.postDelayed({ fit.measureFit() }, 700)
                     }
                 }
             }
         },
         update = { webView ->
+            webView as FitWebView
+            // MULTIPLIZIEREN statt ersetzen: Die Messung läuft immer beim
+            // aktuellen Zoom — ein Rest-Überstand nach dem ersten
+            // Verkleinern justiert so nur nach und konvergiert, statt
+            // zwischen zwei Werten zu pendeln
+            webView.onOverflow = { factor ->
+                bodyZoom = (bodyZoom * factor).coerceIn(0.25f, 1f)
+            }
             // Nur bei wirklich neuem Inhalt laden: Jede Neuzeichnung würde
             // die Mail sonst neu rendern (weißes Flackern bis Dauer-Weiß)
             if (webView.tag != wrapped) {
                 webView.tag = wrapped
-                (webView as? FitWebView)?.fitDone = false
                 webView.loadDataWithBaseURL(null, wrapped, "text/html", "utf-8", null)
             }
         }
@@ -1484,6 +1489,9 @@ private fun buildMailPageHtml(
     sb.append("<hr style=\"border:none;border-top:1px solid $hrColor;")
         .append("margin:6px 0 0 0;\">")
     sb.append("</div>")
-    sb.append("<div style=\"padding:8px;\">").append(body.html ?: "").append("</div>")
+    // class-Marker: HtmlMailView verkleinert bei zu breiten Mails NUR
+    // diesen Container (CSS zoom) — der Kopf darüber behält seine Größe
+    sb.append("<div class=\"bm-mailbody\" style=\"padding:8px;\">")
+        .append(body.html ?: "").append("</div>")
     return sb.toString()
 }
