@@ -1237,36 +1237,26 @@ private fun HtmlMailView(
 ) {
     val currentOnAppLink by androidx.compose.runtime.rememberUpdatedState(onAppLink)
     val wrapped = remember(html) {
-        // Feste Layout-Breite der Mail erkennen (Newsletter bauen auf
-        // 600-800px-Tabellen): Dann bekommt der Viewport GENAU diese
-        // Breite — loadWithOverviewMode zoomt beim Oeffnen so weit
-        // heraus, dass die komplette Mail-Breite sichtbar ist; reinzoomen
-        // geht per Geste. Bei "width=device-width" lief der zu breite
-        // Inhalt dagegen einfach seitlich ueber und wirkte hereingezoomt.
-        // (?<![-\w]) schliesst max-width/min-width aus: Die stehen fuer
-        // RESPONSIVE Layouts, die sich dem Geraet anpassen.
-        val fixedWidth = Regex(
-            """(?<![-\w])width\s*[:=]\s*["']?(\d{3,4})""",
-            RegexOption.IGNORE_CASE
-        )
-            .findAll(html)
-            .mapNotNull { it.groupValues[1].toIntOrNull() }
-            .filter { it in 480..1400 }
-            .maxOrNull()
-        val viewport = if (fixedWidth != null) {
-            "width=${fixedWidth.coerceAtMost(1000)}"
-        } else {
-            "width=device-width"
-        }
         """<!DOCTYPE html><html><head>
            <meta charset="utf-8">
-           <meta name="viewport" content="$viewport">
+           <meta name="viewport" content="width=device-width">
            <style>
              /* Kein Außenrand: Der Kopfbereich (dunkel im Dark Mode) läuft
                 randlos; der Mail-Inhalt bringt sein eigenes Padding mit */
              body { margin: 0; word-wrap: break-word; }
-             img { max-width: 100% !important; height: auto !important; }
-             table { max-width: 100% !important; }
+             /* Mail IMMER auf Bildschirmbreite einpassen: Newsletter setzen
+                feste Breiten (600-800px) auf Tabellen, divs und Zellen —
+                deshalb der Deckel auf ALLEN Elementen, nicht nur auf img/
+                table. Breitere Versuche (Viewport per Breiten-Erkennung,
+                Overview-Zoom) scheiterten, weil jede Mail ihre Breite
+                anders festlegt. box-sizing verhindert, dass Padding den
+                100%-Deckel wieder sprengt. */
+             body * {
+               max-width: 100% !important;
+               box-sizing: border-box !important;
+               word-wrap: break-word;
+             }
+             img { height: auto !important; }
            </style>
            </head><body>$html</body></html>"""
     }
