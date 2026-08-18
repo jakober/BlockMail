@@ -1244,12 +1244,32 @@ private class FitWebView(ctx: android.content.Context) : WebView(ctx) {
 
     var onOverflow: ((Float) -> Unit)? = null
 
+    /** Rohe Mail, die gerade angezeigt wird (für den Unsichtbar-Start). */
+    var rawTag: String? = null
+
+    /**
+     * Bis zur ersten abgeschlossenen Messung bleibt die Ansicht
+     * unsichtbar (alpha 0, gesetzt beim Laden einer NEUEN Mail) — sonst
+     * blitzt eine breite Mail erst kurz in Originalgröße auf, bevor das
+     * eingepasste Neuladen greift. Gezeigt wird mit kurzer Einblendung.
+     */
+    fun showWhenReady() {
+        if (alpha < 1f) animate().alpha(1f).setDuration(120).start()
+    }
+
     fun measureFit() {
         val range = computeHorizontalScrollRange()
         // Kleine Toleranz: 8px Überstand ist kein Grund zu verkleinern
         if (width > 0 && range > width + 8) {
-            onOverflow?.invoke((width.toFloat() / range).coerceIn(0.25f, 1f))
+            val cb = onOverflow
+            if (cb != null) {
+                // Verborgen bleiben: Gleich lädt die eingepasste Fassung,
+                // erst deren Messung blendet ein
+                cb((width.toFloat() / range).coerceIn(0.25f, 1f))
+                return
+            }
         }
+        showWhenReady()
     }
 }
 
@@ -1317,16 +1337,24 @@ private fun HtmlMailView(
                     override fun onPageFinished(view: WebView?, url: String?) {
                         // Zweimal messen: direkt nach dem Aufbau und noch
                         // einmal, wenn nachgeladene Bilder die Breite
-                        // verändert haben können
+                        // verändert haben können. Das Sicherheitsnetz
+                        // blendet notfalls auch ohne Messung ein.
                         val fit = view as? FitWebView ?: return
-                        fit.postDelayed({ fit.measureFit() }, 150)
+                        fit.postDelayed({ fit.measureFit() }, 80)
                         fit.postDelayed({ fit.measureFit() }, 700)
+                        fit.postDelayed({ fit.showWhenReady() }, 1200)
                     }
                 }
             }
         },
         update = { webView ->
             webView as FitWebView
+            // Neue Mail: unsichtbar starten, bis die Messung fertig ist
+            // (das Zoom-Neuladen derselben Mail lässt alpha unangetastet)
+            if (webView.rawTag != html) {
+                webView.rawTag = html
+                webView.alpha = 0f
+            }
             // MULTIPLIZIEREN statt ersetzen: Die Messung läuft immer beim
             // aktuellen Zoom — ein Rest-Überstand nach dem ersten
             // Verkleinern justiert so nur nach und konvergiert, statt
