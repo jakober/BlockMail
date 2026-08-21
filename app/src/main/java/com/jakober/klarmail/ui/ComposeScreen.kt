@@ -151,11 +151,16 @@ fun ComposeScreen(
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
 
-    val original = replyToUid?.let { uid -> MailRepository.messages.value.find { it.uid == uid } }
-    // Weiterleiten: Ausgangs-Mail (Text und Anhänge werden übernommen)
-    val forwardOriginal = forwardFromUid?.let { uid ->
+    // Rückfall auf den Öffnen-Merker: Aus Suche/KI-Treffern geöffnete
+    // Mails liegen oft außerhalb der geladenen Liste — ohne den Merker
+    // ging "Antworten" dort ins Leere (leeres Fenster ohne Empfänger)
+    fun findMail(uid: Long): com.jakober.klarmail.data.MailMessage? =
         MailRepository.messages.value.find { it.uid == uid }
-    }
+            ?: MailRepository.pendingOpen?.second?.takeIf { it.uid == uid }
+
+    val original = replyToUid?.let { uid -> findMail(uid) }
+    // Weiterleiten: Ausgangs-Mail (Text und Anhänge werden übernommen)
+    val forwardOriginal = forwardFromUid?.let { uid -> findMail(uid) }
     val fwdAttachments = remember { mutableStateListOf<MailRepository.MailAttachment>() }
     // Gespeicherten Entwurf fortsetzen?
     val draft = remember { draftId?.let { id -> Prefs.drafts().find { it.id == id } } }
@@ -220,7 +225,14 @@ fun ComposeScreen(
         } else if (forwardOriginal != null) {
             val body = runCatching {
                 MailRepository.loadBodyContent(
-                    forwardOriginal.uid, account = forwardOriginal.account
+                    forwardOriginal.uid,
+                    // Archiv-Treffer aus der Suche: im richtigen Ordner
+                    // laden — IMAP-UIDs gelten nur je Ordner
+                    folder = MailRepository.pendingOpen
+                        ?.takeIf { it.second.uid == forwardOriginal.uid }
+                        ?.first
+                        ?: MailRepository.currentFolder.value,
+                    account = forwardOriginal.account
                 )
             }.getOrNull()
             val dateText = java.text.SimpleDateFormat(
