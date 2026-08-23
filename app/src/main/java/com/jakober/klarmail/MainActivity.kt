@@ -180,7 +180,8 @@ class MainActivity : ComponentActivity() {
                                 onOpenStats = { nav.navigate("stats") },
                                 onOpenAttachments = { nav.navigate("attachments") },
                                 onEditAttachment = { nav.navigate("editor") },
-                                onNewPdf = { pendingNewPdf.value = true }
+                                onNewPdf = { pendingNewPdf.value = true },
+                                onOpenSent = { nav.navigate("nldetail") }
                             )
                         } else {
                             InboxScreen(
@@ -217,7 +218,10 @@ class MainActivity : ComponentActivity() {
                                         .MailFolder.INBOX
                             },
                             fallbackMail = fallback,
-                            onEditAttachment = { nav.navigate("editor") }
+                            onEditAttachment = { nav.navigate("editor") },
+                            // "Antwort ansehen": nldetail zeigt die über
+                            // pendingOpen hereingereichte gesendete Mail
+                            onOpenSent = { nav.navigate("nldetail") }
                         )
                     }
                     composable("editor") {

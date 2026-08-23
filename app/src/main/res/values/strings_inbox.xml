@@ -39,6 +39,7 @@
     <string name="inbox_attachments">Anhänge</string>
     <string name="inbox_stats">Statistik</string>
     <string name="inbox_new_pdf">PDF erstellen</string>
+    <string name="inbox_answered_mail">Beantwortet</string>
 
     <!-- Ansicht &amp; Design -->
     <string name="inbox_focus_enable">Fokus-Blöcke einschalten</string>

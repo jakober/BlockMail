@@ -983,6 +983,7 @@ object MailRepository {
             date = (m.receivedDate ?: m.sentDate)?.time ?: System.currentTimeMillis(),
             seen = m.flags.contains(Flags.Flag.SEEN),
             flagged = m.flags.contains(Flags.Flag.FLAGGED),
+            answered = m.flags.contains(Flags.Flag.ANSWERED),
             hasAttachments = try { containsAttachment(m) } catch (e: Exception) { false }
         )
     }
@@ -1602,6 +1603,81 @@ object MailRepository {
             }
         }
 
+    /**
+     * Markiert eine Mail als beantwortet (IMAP \Answered) — nach dem
+     * erfolgreichen Senden einer Antwort. Das Kennzeichen gilt dadurch
+     * auch in anderen Mail-Programmen; lokal dreht die Anzeige sofort mit.
+     */
+    /**
+     * Feuer-und-vergiss-Variante fürs Verfassen-Fenster: Das Setzen läuft
+     * auf einem App-weiten Scope weiter, auch wenn das Fenster nach dem
+     * Senden sofort geschlossen wird.
+     */
+    fun setAnsweredAsync(uid: Long, account: String = "") {
+        ruleScope.launch { runCatching { setAnswered(uid, account) } }
+    }
+
+    suspend fun setAnswered(uid: Long, account: String = "") =
+        withContext(Dispatchers.IO) {
+            _messages.update { list ->
+                list.map {
+                    if (it.uid == uid && (account.isBlank() || it.account == account.lowercase())) {
+                        it.copy(answered = true)
+                    } else it
+                }
+            }
+            persist()
+            try {
+                val store = openStoreFor(account)
+                try {
+                    val inbox = if (isActiveAccount(account)) {
+                        openCurrentFolder(store, Folder.READ_WRITE)
+                    } else {
+                        (store.getFolder("INBOX") as IMAPFolder)
+                            .apply { open(Folder.READ_WRITE) }
+                    }
+                    inbox.getMessageByUID(uid)?.setFlag(Flags.Flag.ANSWERED, true)
+                } finally {
+                    runCatching { store.close() }
+                }
+            } catch (e: Exception) {
+                // Nur Komfort-Kennzeichen: Fehler nicht in die Oberfläche heben
+            }
+        }
+
+    /**
+     * Sucht die GESENDETE Antwort im Gesendet-Ordner — über die beim Senden
+     * gemerkte Message-ID. null, wenn der Anbieter gesendete Mails nicht
+     * dort ablegt oder die Mail inzwischen gelöscht wurde.
+     */
+    suspend fun findSentByMessageId(
+        messageId: String,
+        account: String = ""
+    ): MailMessage? = withContext(Dispatchers.IO) {
+        if (messageId.isBlank()) return@withContext null
+        runCatching {
+            val store = openStoreFor(account)
+            try {
+                val sent = resolveFolder(store, MailFolder.SENT)
+                    ?.takeIf { it.exists() } as? IMAPFolder
+                    ?: return@withContext null
+                sent.open(Folder.READ_ONLY)
+                try {
+                    val hits = sent.search(
+                        javax.mail.search.MessageIDTerm(messageId)
+                    )
+                    val m = hits.lastOrNull() ?: return@withContext null
+                    toMailMessage(sent.getUID(m), m)
+                        .copy(account = account.trim().lowercase())
+                } finally {
+                    runCatching { sent.close(false) }
+                }
+            } finally {
+                runCatching { store.close() }
+            }
+        }.getOrNull()
+    }
+
     suspend fun setSeenBatch(uids: List<Long>, seen: Boolean) = withContext(Dispatchers.IO) {
         if (uids.isEmpty()) return@withContext
         val set = uids.toSet()
@@ -1879,7 +1955,7 @@ object MailRepository {
         bcc: String = "",
         attachments: List<OutAttachment> = emptyList(),
         account: String = ""
-    ) = withContext(Dispatchers.IO) {
+    ): String? = withContext(Dispatchers.IO) {
         // Absender-Konto auflösen: leer/aktiv = Prefs, sonst gespeichertes Konto
         val acc = if (isActiveAccount(account)) {
             Prefs.Account(
@@ -1958,6 +2034,9 @@ object MailRepository {
                 else -> setText(body, "UTF-8")
             }
         }
+        // saveChanges vergibt u. a. die Message-ID — die brauchen wir, um
+        // die gesendete Antwort später im Gesendet-Ordner wiederzufinden
+        runCatching { msg.saveChanges() }
         val transport = session.getTransport("smtp")
         try {
             transport.connect(acc.smtpHost, acc.email, password)
@@ -1975,6 +2054,7 @@ object MailRepository {
             }
         }
         Prefs.addKnownRecipients(entries)
+        runCatching { msg.messageID }.getOrNull()
     }
 
     /** Content-ID eines Parts ohne spitze Klammern, oder null. */

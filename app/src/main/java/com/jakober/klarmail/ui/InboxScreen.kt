@@ -41,6 +41,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.SubdirectoryArrowRight
 import androidx.compose.material.icons.filled.AccountCircle
@@ -221,6 +222,10 @@ private val searchHoldAiHits =
 
 /** Wartezeit nach der Installation, bevor die Pro-Hinweiskarte erscheint. */
 private const val PRO_AD_DELAY_MS = 10L * 60 * 1000
+
+/** Beantwortet? IMAP-Kennzeichen ODER lokales Antwort-Gedächtnis. */
+private fun isAnswered(mail: MailMessage): Boolean =
+    mail.answered || Prefs.replyRecord(mail.account, mail.uid) != null
 
 /** Mindestabstand zwischen zwei Erscheinen der Pro-Hinweiskarte. */
 private const val PRO_AD_INTERVAL_MS = 7L * 24 * 60 * 60 * 1000
@@ -3526,6 +3531,15 @@ private fun MailRowContent(
                     )
                     Spacer(Modifier.width(3.dp))
                 }
+                if (isAnswered(mail)) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Reply,
+                        contentDescription = stringResource(R.string.inbox_answered_mail),
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.width(3.dp))
+                }
                 if (mail.flagged) {
                     Icon(
                         Icons.Filled.Star,
@@ -3840,6 +3854,15 @@ private fun MailBlock(
                             )
                             Spacer(Modifier.width(4.dp))
                         }
+                        if (isAnswered(mail)) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Reply,
+                                contentDescription = stringResource(R.string.inbox_answered_mail),
+                                modifier = Modifier.size(12.dp),
+                                tint = scheme.primary
+                            )
+                            Spacer(Modifier.width(3.dp))
+                        }
                         if (mail.flagged) {
                             Icon(
                                 Icons.Filled.Star,
@@ -3884,6 +3907,15 @@ private fun MailBlock(
                         contentDescription = stringResource(R.string.inbox_phishing_warning),
                         modifier = Modifier.size(15.dp),
                         tint = scheme.error
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                if (isAnswered(mail)) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Reply,
+                        contentDescription = stringResource(R.string.inbox_answered_mail),
+                        modifier = Modifier.size(15.dp),
+                        tint = scheme.primary
                     )
                     Spacer(Modifier.width(6.dp))
                 }

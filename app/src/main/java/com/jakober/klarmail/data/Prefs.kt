@@ -493,6 +493,43 @@ object Prefs {
         get() = sp.getString("ai_pdf_body", "") ?: ""
         set(v) = sp.edit().putString("ai_pdf_body", v).apply()
 
+    // ---- Antwort-Gedächtnis: wann und womit eine Mail beantwortet wurde.
+    // Ergänzt das IMAP-\Answered-Kennzeichen um Zeitpunkt und Message-ID
+    // der Antwort (fürs "Antwort ansehen" in der Detail-Ansicht). ----
+
+    private var replyCache: JSONObject? = null
+
+    private fun replyObj(): JSONObject {
+        replyCache?.let { return it }
+        val o = runCatching {
+            JSONObject(sp.getString("reply_records", "{}") ?: "{}")
+        }.getOrDefault(JSONObject())
+        replyCache = o
+        return o
+    }
+
+    private fun replyKey(account: String, uid: Long): String =
+        account.trim().lowercase().ifBlank { email.trim().lowercase() } + ":" + uid
+
+    /** (Zeitpunkt, Message-ID der Antwort) — null, wenn hier nie geantwortet. */
+    fun replyRecord(account: String, uid: Long): Pair<Long, String>? {
+        val e = replyObj().optJSONObject(replyKey(account, uid)) ?: return null
+        return e.optLong("at") to e.optString("mid")
+    }
+
+    fun addReplyRecord(account: String, uid: Long, at: Long, messageId: String) {
+        val o = replyObj()
+        o.put(replyKey(account, uid), JSONObject().put("at", at).put("mid", messageId))
+        // Deckel gegen unbegrenztes Wachsen: älteste Einträge verwerfen
+        if (o.length() > 400) {
+            o.keys().asSequence().toList()
+                .sortedBy { o.optJSONObject(it)?.optLong("at") ?: 0L }
+                .take(o.length() - 400)
+                .forEach { o.remove(it) }
+        }
+        sp.edit().putString("reply_records", o.toString()).apply()
+    }
+
     /**
      * Ist der automatische Voll-Aufbau des Suchindex (nachts bei WLAN +
      * Laden, siehe IndexBuildWorker) schon einmal durchgelaufen? Wird bei

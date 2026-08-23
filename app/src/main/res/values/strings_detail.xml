@@ -48,6 +48,10 @@
     <!-- KI-Zusammenfassung -->
     <string name="detail_summarize_ai">Mit KI zusammenfassen</string>
     <string name="detail_summarize_short">KI-Zusammenfassung</string>
+    <string name="detail_replied">Beantwortet</string>
+    <string name="detail_replied_at">Beantwortet am %1$s</string>
+    <string name="detail_view_reply">Antwort ansehen</string>
+    <string name="detail_reply_not_found">Antwort im Gesendet-Ordner nicht gefunden</string>
     <string name="detail_summarizing">Wird zusammengefasst …</string>
     <string name="detail_summary_title">✨ Zusammenfassung</string>
     <string name="detail_summarize_failed">Zusammenfassung fehlgeschlagen: %1$s</string>

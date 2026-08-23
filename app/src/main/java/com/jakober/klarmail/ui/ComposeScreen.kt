@@ -424,7 +424,7 @@ fun ComposeScreen(
                         )
                     }
                 } else emptyList()
-                MailRepository.send(
+                val sentMsgId = MailRepository.send(
                     to = to,
                     subject = subject,
                     body = editorState.annotatedString.text,
@@ -437,7 +437,16 @@ fun ComposeScreen(
                 draft?.let { Prefs.removeDraft(it.id) }
                 // Antwort-Radar füttern: Antwort registrieren bzw. gesendete
                 // Mail für „wartet auf Antwort“ vormerken
-                original?.let { Prefs.addReplied(it.account, it.uid) }
+                original?.let {
+                    Prefs.addReplied(it.account, it.uid)
+                    // Beantwortet-Anzeige: Zeitpunkt + Message-ID merken
+                    // (fürs "Antwort ansehen") und \Answered zum Server
+                    Prefs.addReplyRecord(
+                        it.account, it.uid,
+                        System.currentTimeMillis(), sentMsgId ?: ""
+                    )
+                    MailRepository.setAnsweredAsync(it.uid, it.account)
+                }
                 to.split(',', ';').map { it.trim() }
                     .firstOrNull { it.contains("@") }
                     ?.let { Prefs.addSentLog(it, subject) }

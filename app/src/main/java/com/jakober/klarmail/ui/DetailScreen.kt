@@ -164,7 +164,9 @@ fun DetailScreen(
     fallbackMail: com.jakober.klarmail.data.MailMessage? = null,
     onForward: (() -> Unit)? = null,
     /** Öffnet den Anhang-Editor (Unterschreiben/Zeichnen). */
-    onEditAttachment: (() -> Unit)? = null
+    onEditAttachment: (() -> Unit)? = null,
+    /** Zeigt die GESENDETE Antwort (Route "nldetail" liest pendingOpen). */
+    onOpenSent: (() -> Unit)? = null
 ) {
     val messages by MailRepository.messages.collectAsState()
     // Die Live-Liste hat Vorrang: Der Rueckfall ist eine eingefrorene Kopie
@@ -930,7 +932,8 @@ fun DetailScreen(
                         phishingAdvice = stringResource(R.string.detail_page_phishing_advice),
                         notPhishingLink = stringResource(R.string.detail_page_not_phishing),
                         attachmentsOne = stringResource(R.string.detail_attachments_one),
-                        attachmentsMany = stringResource(R.string.detail_attachments_many)
+                        attachmentsMany = stringResource(R.string.detail_attachments_many),
+                        viewReply = stringResource(R.string.detail_view_reply)
                     )
                     // Absender-Icon vorab in Kotlin auflösen (mit Prüfung,
                     // ob die Quelle wirklich ein Bild liefert) — die WebView
@@ -953,13 +956,35 @@ fun DetailScreen(
                     val accentHex = "#%06X".format(
                         LocalAccent.current.toArgb() and 0xFFFFFF
                     )
+                    // Beantwortet-Zeile: mit Datum aus dem lokalen
+                    // Antwort-Gedächtnis; ohne (nur \Answered vom Server,
+                    // z. B. aus einem anderen Programm) nur das Wort
+                    val replyRec = remember(uid, mailAccount) {
+                        com.jakober.klarmail.data.Prefs.replyRecord(mailAccount, uid)
+                    }
+                    val repliedText: String? = when {
+                        replyRec != null && replyRec.first > 0 ->
+                            stringResource(
+                                R.string.detail_replied_at,
+                                remember(replyRec) {
+                                    SimpleDateFormat(
+                                        "d. MMM yyyy, HH:mm", Locale.getDefault()
+                                    ).format(Date(replyRec.first))
+                                }
+                            )
+                        mail.answered || replyRec != null ->
+                            stringResource(R.string.detail_replied)
+                        else -> null
+                    }
+                    val hasReplyLink = !replyRec?.second.isNullOrBlank()
                     val fullHtml = remember(
                         currentBody, phishingResult, aiAvailable, darkTheme, pageTexts,
-                        senderIconUrl, accentHex
+                        senderIconUrl, accentHex, repliedText, hasReplyLink
                     ) {
                         buildMailPageHtml(
                             mail, currentBody, phishingResult, aiAvailable, darkTheme,
-                            pageTexts, senderIconUrl, accentHex
+                            pageTexts, senderIconUrl, accentHex,
+                            repliedText, hasReplyLink
                         )
                     }
                     HtmlMailView(
@@ -970,6 +995,32 @@ fun DetailScreen(
                         onAppLink = { link ->
                             when {
                                 link == "blockmail://summarize" -> runSummarize()
+                                link == "blockmail://openreply" -> {
+                                    // Gesendete Antwort über die gemerkte
+                                    // Message-ID im Gesendet-Ordner suchen
+                                    // und über die nldetail-Route zeigen
+                                    scope.launch {
+                                        val mid = com.jakober.klarmail.data.Prefs
+                                            .replyRecord(mailAccount, uid)
+                                            ?.second.orEmpty()
+                                        val sent = if (mid.isNotBlank()) {
+                                            MailRepository.findSentByMessageId(
+                                                mid, mailAccount
+                                            )
+                                        } else null
+                                        if (sent != null && onOpenSent != null) {
+                                            MailRepository.pendingOpen =
+                                                MailRepository.MailFolder.SENT to sent
+                                            onOpenSent()
+                                        } else {
+                                            snackbar.showSnackbar(
+                                                context.getString(
+                                                    R.string.detail_reply_not_found
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
                                 link == "blockmail://notphishing" -> {
                                     com.jakober.klarmail.data.Prefs.markNotPhishing(
                                         mailAccount, uid
@@ -1458,7 +1509,9 @@ private data class MailPageTexts(
     val attachmentsMany: String = "",
     val phishingWarning: String,
     val phishingAdvice: String,
-    val notPhishingLink: String
+    val notPhishingLink: String,
+    /** Beschriftung des „Antwort ansehen“-Links in der Beantwortet-Zeile. */
+    val viewReply: String = ""
 )
 
 private fun buildMailPageHtml(
@@ -1471,7 +1524,11 @@ private fun buildMailPageHtml(
     senderIconUrl: String? = null,
     // Akzentfarbe des gewählten Farbschemas (Initialen-Kreis + KI-Knopf) —
     // früher fest Orange, jetzt folgt der Kopf der Design-Einstellung
-    accent: String = "#EE5F0F"
+    accent: String = "#EE5F0F",
+    /** Fertig formatierte Beantwortet-Zeile („Beantwortet am …“) oder null. */
+    repliedText: String? = null,
+    /** „Antwort ansehen“-Link zeigen? (Message-ID der Antwort ist bekannt.) */
+    showReplyLink: Boolean = false
 ): String {
     val orange = accent
     // Fester Kopf-Hintergrund je App-Design: Mails bringen oft eigene
@@ -1531,6 +1588,19 @@ private fun buildMailPageHtml(
             .append("✨ ").append(htmlEscape(texts.summarize)).append("</a>")
     }
     sb.append("</div>")
+    // Beantwortet-Zeile: dezent unter dem Absender; mit Sprung zur
+    // gesendeten Antwort, wenn deren Message-ID bekannt ist
+    if (repliedText != null) {
+        sb.append("<div style=\"margin:0 0 10px 0;font-size:13px;")
+            .append("color:$subColor;\">")
+            .append("↩ ").append(htmlEscape(repliedText))
+        if (showReplyLink) {
+            sb.append(" · <a href=\"blockmail://openreply\" style=\"")
+                .append("color:$orange;font-weight:600;text-decoration:none;\">")
+                .append(htmlEscape(texts.viewReply)).append("</a>")
+        }
+        sb.append("</div>")
+    }
     if (phishing != null && phishing.suspicious) {
         sb.append("<div style=\"background:#b3261e;color:#fff;border-radius:14px;")
             .append("padding:12px 14px;margin:8px 0;font-size:13px;line-height:1.55;\">")

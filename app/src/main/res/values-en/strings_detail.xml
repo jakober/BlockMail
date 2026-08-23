@@ -48,6 +48,10 @@
     <!-- AI summary -->
     <string name="detail_summarize_ai">Summarize with AI</string>
     <string name="detail_summarize_short">AI summary</string>
+    <string name="detail_replied">Answered</string>
+    <string name="detail_replied_at">Answered on %1$s</string>
+    <string name="detail_view_reply">View reply</string>
+    <string name="detail_reply_not_found">Reply not found in the Sent folder</string>
     <string name="detail_summarizing">Summarizing …</string>
     <string name="detail_summary_title">✨ Summary</string>
     <string name="detail_summarize_failed">Summary failed: %1$s</string>

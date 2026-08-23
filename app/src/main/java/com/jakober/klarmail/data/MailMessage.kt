@@ -17,6 +17,12 @@ data class MailMessage(
      * Markierung ist damit auf allen Geräten und Programmen dieselbe.
      */
     val flagged: Boolean = false,
+    /**
+     * Schon beantwortet? Entspricht dem IMAP-Kennzeichen \Answered — wird
+     * gesetzt, wenn aus BlockMail geantwortet wird, und kommt auch von
+     * anderen Programmen (Gmail, Thunderbird …) über den Server mit.
+     */
+    val answered: Boolean = false,
     val snippet: String? = null,
     /** Konto-Zuordnung im Sammel-Posteingang ("" = aktives Konto). */
     val account: String = ""
@@ -30,6 +36,7 @@ data class MailMessage(
         put("seen", seen)
         put("hasAttachments", hasAttachments)
         if (flagged) put("flagged", true)
+        if (answered) put("answered", true)
         snippet?.let { put("snippet", it) }
         if (account.isNotBlank()) put("account", account)
     }
@@ -44,6 +51,7 @@ data class MailMessage(
             seen = o.optBoolean("seen", true),
             hasAttachments = o.optBoolean("hasAttachments", false),
             flagged = o.optBoolean("flagged", false),
+            answered = o.optBoolean("answered", false),
             // has()-Check statt optString: "" würde als "Vorschau vorhanden" gelten
             snippet = if (o.has("snippet")) o.getString("snippet") else null,
             account = o.optString("account")

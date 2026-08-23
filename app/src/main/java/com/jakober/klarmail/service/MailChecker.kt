@@ -394,8 +394,17 @@ object MailChecker {
                 )
                 val subject = if (cleaned.startsWith("Re:", ignoreCase = true)) cleaned
                 else "Re: $cleaned"
-                MailRepository.send(to = address, subject = subject, body = text)
-                if (uid > 0) runCatching { MailRepository.markSeen(uid) }
+                val sentMsgId = MailRepository.send(
+                    to = address, subject = subject, body = text
+                )
+                if (uid > 0) runCatching {
+                    MailRepository.markSeen(uid)
+                    // Beantwortet-Anzeige auch für Schnellantworten
+                    Prefs.addReplyRecord(
+                        "", uid, System.currentTimeMillis(), sentMsgId ?: ""
+                    )
+                    MailRepository.setAnsweredAsync(uid)
+                }
                 context.getString(R.string.svc_reply_sent)
             } catch (e: Exception) {
                 context.getString(

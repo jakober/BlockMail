@@ -50,7 +50,9 @@ fun TwoPaneScreen(
     onOpenStats: () -> Unit = {},
     onOpenAttachments: () -> Unit = {},
     onEditAttachment: (() -> Unit)? = null,
-    onNewPdf: () -> Unit = {}
+    onNewPdf: () -> Unit = {},
+    /** "Antwort ansehen": zeigt die gesendete Antwort (nldetail-Route). */
+    onOpenSent: (() -> Unit)? = null
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val density = LocalDensity.current
@@ -150,7 +152,8 @@ fun TwoPaneScreen(
                             fallbackMail = fallback,
                             // Ohne diese Weiterleitung fehlten auf dem Tablet
                             // die Editor-Eintraege im Anhang-Menue
-                            onEditAttachment = onEditAttachment
+                            onEditAttachment = onEditAttachment,
+                            onOpenSent = onOpenSent
                         )
                     }
                 }
