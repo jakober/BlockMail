@@ -85,6 +85,9 @@
     <string name="settings_token_exchange_failed">Token exchange failed: %1$s</string>
     <string name="settings_manual_alt">Alternative: manually with provider &amp; app password</string>
     <string name="settings_manual">Manually with provider &amp; app password</string>
+    <string name="settings_connected_as">Connected as %1$s</string>
+    <string name="settings_edit_connection">Edit credentials</string>
+    <string name="settings_edit_connection_close">Close editing</string>
     <string name="settings_provider">Provider</string>
     <string name="settings_provider_custom">Custom (IMAP)</string>
     <string name="settings_password_label">Password / app password</string>

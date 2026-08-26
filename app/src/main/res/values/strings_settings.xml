@@ -85,6 +85,9 @@
     <string name="settings_token_exchange_failed">Token-Austausch fehlgeschlagen: %1$s</string>
     <string name="settings_manual_alt">Alternative: manuell mit Anbieter &amp; App-Passwort</string>
     <string name="settings_manual">Manuell mit Anbieter &amp; App-Passwort</string>
+    <string name="settings_connected_as">Verbunden als %1$s</string>
+    <string name="settings_edit_connection">Zugangsdaten bearbeiten</string>
+    <string name="settings_edit_connection_close">Bearbeitung schließen</string>
     <string name="settings_provider">Anbieter</string>
     <string name="settings_provider_custom">Eigenes (IMAP)</string>
     <string name="settings_password_label">Passwort / App-Passwort</string>

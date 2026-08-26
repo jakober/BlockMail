@@ -286,6 +286,8 @@ fun SettingsScreen(
     // Neues Konto im eigenen Popup anlegen (statt in den Feldern des
     // aktiven Kontos — das hatte keinen sichtbaren Speichern-Knopf)
     var showAddAccount by remember { mutableStateOf(false) }
+    // Zugangsdaten-Formular des aktiven Kontos: standardmaessig zugeklappt
+    var editConnection by remember { mutableStateOf(false) }
     var connectedEmail by remember { mutableStateOf(Prefs.email) }
     val selectedScheme by Prefs.colorSchemeFlow.collectAsState()
     val darkMode by Prefs.darkModeFlow.collectAsState()
@@ -859,6 +861,24 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(16.dp))
                 }
+                // Verbundenes Konto nur ANZEIGEN — die ausgefuellten
+                // Eingabefelder standen sonst dauerhaft offen herum und
+                // wirkten nach dem Einrichten wie ein unfertiges Formular.
+                // Bearbeiten klappt das Formular bewusst erst auf.
+                Text(
+                    stringResource(R.string.settings_connected_as, connectedEmail),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(4.dp))
+                OutlinedButton(onClick = { editConnection = !editConnection }) {
+                    Text(
+                        if (editConnection) {
+                            stringResource(R.string.settings_edit_connection_close)
+                        } else stringResource(R.string.settings_edit_connection)
+                    )
+                }
+                if (editConnection) {
+                Spacer(Modifier.height(8.dp))
                 Text(
                     if (devMode) stringResource(R.string.settings_manual_alt)
                     else stringResource(R.string.settings_manual),
@@ -989,6 +1009,7 @@ fun SettingsScreen(
                         )
                     }
                 }
+                } // Ende editConnection (Formular nur beim Bearbeiten sichtbar)
             }
 
             }
@@ -2393,7 +2414,10 @@ fun SettingsScreen(
                 onClick = {
                     // Manuelle Zugangsdaten speichern: im Hinzufügen-Modus auch
                     // dann, wenn gerade ein Google-Konto verbunden ist
-                    val manualSave = (addingAccount || !googleConnected) &&
+                    // Nur speichern, wenn das Formular auch offen war —
+                    // sonst wuerde der Speichern-Knopf unten das aktive
+                    // Konto grundlos neu setzen
+                    val manualSave = (addingAccount || (!googleConnected && editConnection)) &&
                         email.isNotBlank() && password.isNotBlank()
                     if (manualSave) {
                         Prefs.snapshotActiveAccount()
