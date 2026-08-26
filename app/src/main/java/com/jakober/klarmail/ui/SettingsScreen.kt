@@ -407,6 +407,9 @@ fun SettingsScreen(
                 val mail = GoogleAuth.emailFromIdToken(tokenResp.idToken)
                 if (mail != null) Prefs.email = mail
                 Prefs.authMethod = "oauth"
+                // Google meldet sich immer mit der Mail-Adresse an — kein
+                // abweichender Benutzername vom vorherigen Konto übrig lassen
+                Prefs.loginUser = ""
                 // Google-Anmeldung nutzt immer die Gmail-Server
                 Prefs.imapHost = "imap.gmail.com"
                 Prefs.imapPort = 993
@@ -2372,7 +2375,8 @@ fun SettingsScreen(
                                 Prefs.Account(
                                     Prefs.email, Prefs.authMethod, Prefs.appPassword,
                                     Prefs.refreshToken, Prefs.imapHost, Prefs.imapPort,
-                                    Prefs.smtpHost, Prefs.smtpPort
+                                    Prefs.smtpHost, Prefs.smtpPort,
+                                    loginUser = Prefs.loginUser
                                 )
                             )
                         }

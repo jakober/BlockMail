@@ -267,6 +267,8 @@
     <string name="setup_other_provider">Other provider — enter the servers manually in Settings</string>
     <string name="setup_help_open">Open help</string>
     <string name="setup_email_address">Email address</string>
+    <string name="setup_login_user">Username (optional)</string>
+    <string name="setup_login_user_hint">Only fill this in if your provider’s login differs from the email address (e.g. a customer number or handle).</string>
     <string name="setup_connect">Connect</string>
     <string name="setup_testing">Checking connection …</string>
     <string name="setup_connection_failed">Connection failed: %1$s</string>

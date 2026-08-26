@@ -623,6 +623,15 @@ object Prefs {
         get() = sp.getInt("smtp_port", 465)
         set(v) = sp.edit().putInt("smtp_port", v).apply()
 
+    /**
+     * Anmeldename beim Mail-Server, falls er von der Mail-Adresse abweicht
+     * (manche Anbieter/Firmenpostfächer verlangen z. B. eine Kundennummer
+     * oder ein Kürzel). Leer = mit der Mail-Adresse anmelden.
+     */
+    var loginUser: String
+        get() = sp.getString("login_user", "") ?: ""
+        set(v) = sp.edit().putString("login_user", v.trim()).apply()
+
     /** Gespeichertes Mail-Konto (Profil) für den Konten-Wechsler. */
     data class Account(
         val email: String,
@@ -632,8 +641,13 @@ object Prefs {
         val imapHost: String = "imap.gmail.com",
         val imapPort: Int = 993,
         val smtpHost: String = "smtp.gmail.com",
-        val smtpPort: Int = 465
-    )
+        val smtpPort: Int = 465,
+        /** Abweichender Anmeldename ("" = Mail-Adresse). */
+        val loginUser: String = ""
+    ) {
+        /** Name, mit dem sich die App beim Server anmeldet. */
+        fun loginName(): String = loginUser.ifBlank { email }
+    }
 
     fun accounts(): List<Account> = try {
         val arr = org.json.JSONArray(sp.getString("accounts", "[]") ?: "[]")
@@ -647,7 +661,8 @@ object Prefs {
                 imapHost = o.optString("imapHost", "imap.gmail.com"),
                 imapPort = o.optInt("imapPort", 993),
                 smtpHost = o.optString("smtpHost", "smtp.gmail.com"),
-                smtpPort = o.optInt("smtpPort", 465)
+                smtpPort = o.optInt("smtpPort", 465),
+                loginUser = o.optString("loginUser")
             )
         }.filter { it.email.isNotBlank() }
     } catch (e: Exception) {
@@ -662,6 +677,7 @@ object Prefs {
                 put("appPassword", a.appPassword); put("refreshToken", a.refreshToken)
                 put("imapHost", a.imapHost); put("imapPort", a.imapPort)
                 put("smtpHost", a.smtpHost); put("smtpPort", a.smtpPort)
+                if (a.loginUser.isNotBlank()) put("loginUser", a.loginUser)
             })
         }
         sp.edit().putString("accounts", arr.toString()).apply()
@@ -672,7 +688,7 @@ object Prefs {
         if (email.isBlank() || !isConfigured) return
         val acc = Account(
             email, authMethod, appPassword, refreshToken,
-            imapHost, imapPort, smtpHost, smtpPort
+            imapHost, imapPort, smtpHost, smtpPort, loginUser
         )
         saveAccounts(accounts().filter { !it.email.equals(acc.email, ignoreCase = true) } + acc)
         // Kontostand hat sich geaendert: Der naechtliche Voll-Index darf
@@ -694,6 +710,7 @@ object Prefs {
         imapPort = acc.imapPort
         smtpHost = acc.smtpHost
         smtpPort = acc.smtpPort
+        loginUser = acc.loginUser
         accessToken = ""
         accessTokenExpiry = 0
         snoozedFlow.value = snoozes().map { it.uid }.toSet()

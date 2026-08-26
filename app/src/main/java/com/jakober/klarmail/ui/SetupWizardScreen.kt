@@ -147,6 +147,8 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordAutoFilled by remember { mutableStateOf(false) }
+    // Abweichender Anmeldename (Kundennummer, Kürzel …) — leer = Mail-Adresse
+    var loginUser by remember { mutableStateOf("") }
     var testing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -344,6 +346,17 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                         )
                     }
                 }
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = loginUser,
+                    onValueChange = { loginUser = it },
+                    label = { Text(stringResource(R.string.setup_login_user)) },
+                    supportingText = {
+                        Text(stringResource(R.string.setup_login_user_hint))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 error?.let { err ->
                     Spacer(Modifier.height(10.dp))
                     Text(
@@ -360,7 +373,8 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                             testing = true
                             error = null
                             val err = MailRepository.testConnection(
-                                email, password, p.imap, p.imapPort
+                                email, password, p.imap, p.imapPort,
+                                loginUser = loginUser.trim()
                             )
                             if (err == null) {
                                 // Konto speichern und vollständig aktivieren
@@ -372,6 +386,8 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                                 Prefs.smtpHost = p.smtp
                                 Prefs.smtpPort = p.smtpPort
                                 Prefs.authMethod = "password"
+                                // Abweichender Anmeldename (leer = Mail-Adresse)
+                                Prefs.loginUser = loginUser.trim()
                                 // Kein alter Google-Token darf am neuen Konto hängen
                                 Prefs.refreshToken = ""
                                 Prefs.snapshotActiveAccount()
@@ -379,7 +395,8 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                                     Prefs.Account(
                                         Prefs.email, Prefs.authMethod, Prefs.appPassword,
                                         Prefs.refreshToken, Prefs.imapHost, Prefs.imapPort,
-                                        Prefs.smtpHost, Prefs.smtpPort
+                                        Prefs.smtpHost, Prefs.smtpPort,
+                                        loginUser = Prefs.loginUser
                                     )
                                 )
                                 testing = false

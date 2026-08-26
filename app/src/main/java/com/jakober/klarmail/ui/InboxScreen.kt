@@ -533,6 +533,23 @@ fun InboxScreen(
             }
         }
     }
+    // Auch WÄHREND die App offen ist: Kommt beim Aktualisieren (Wischen,
+    // Push) oben eine neue UNGELESENE Mail an, automatisch hochscrollen —
+    // sonst bleibt die Liste an alter Position stehen und niemand sieht,
+    // dass etwas Neues da ist. Erkannt wird das über den Schlüssel der
+    // obersten Mail; die allererste Befüllung scrollt bewusst nicht.
+    val topMailKey = messages.firstOrNull()?.let { "${it.account}:${it.uid}" }
+    var lastTopMailKey by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(topMailKey) {
+        val prev = lastTopMailKey
+        lastTopMailKey = topMailKey
+        if (prev != null && topMailKey != null && topMailKey != prev &&
+            messages.firstOrNull()?.seen == false
+        ) {
+            if (Prefs.inboxLayout.startsWith("blocks")) gridState.animateScrollToItem(0)
+            else listState.animateScrollToItem(0)
+        }
+    }
 
     // Such-/KI-Leiste: Tippen filtert live über die geladenen Mails (die
     // frühere Suchmodus-Logik), Enter stellt die Frage der KI.

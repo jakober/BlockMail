@@ -571,7 +571,8 @@ object MailRepository {
         }
         val session = Session.getInstance(props)
         val store = session.getStore("imaps")
-        store.connect(Prefs.imapHost, Prefs.email, password)
+        // Abweichender Anmeldename (Kundennummer, Kürzel …) hat Vorrang
+        store.connect(Prefs.imapHost, Prefs.loginUser.ifBlank { Prefs.email }, password)
         return store
     }
 
@@ -605,7 +606,7 @@ object MailRepository {
         }
         val session = Session.getInstance(props)
         val store = session.getStore("imaps")
-        store.connect(acc.imapHost, acc.email, password)
+        store.connect(acc.imapHost, acc.loginName(), password)
         return store
     }
 
@@ -617,7 +618,8 @@ object MailRepository {
         email: String,
         password: String,
         host: String,
-        port: Int
+        port: Int,
+        loginUser: String = ""
     ): String? = withContext(Dispatchers.IO) {
         try {
             val props = Properties().apply {
@@ -630,7 +632,7 @@ object MailRepository {
             }
             val session = Session.getInstance(props)
             val store = session.getStore("imaps")
-            store.connect(host, email.trim(), password)
+            store.connect(host, loginUser.ifBlank { email }.trim(), password)
             runCatching { store.close() }
             null
         } catch (e: Exception) {
@@ -1961,7 +1963,7 @@ object MailRepository {
             Prefs.Account(
                 Prefs.email, Prefs.authMethod, Prefs.appPassword,
                 Prefs.refreshToken, Prefs.imapHost, Prefs.imapPort,
-                Prefs.smtpHost, Prefs.smtpPort
+                Prefs.smtpHost, Prefs.smtpPort, loginUser = Prefs.loginUser
             )
         } else {
             Prefs.accounts().firstOrNull { it.email.equals(account, ignoreCase = true) }
@@ -2039,7 +2041,7 @@ object MailRepository {
         runCatching { msg.saveChanges() }
         val transport = session.getTransport("smtp")
         try {
-            transport.connect(acc.smtpHost, acc.email, password)
+            transport.connect(acc.smtpHost, acc.loginName(), password)
             transport.sendMessage(msg, msg.allRecipients)
         } finally {
             runCatching { transport.close() }
