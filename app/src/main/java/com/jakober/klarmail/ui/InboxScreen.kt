@@ -3417,15 +3417,18 @@ private fun MailRow(
                 onClick = onClick
             )
     ) {
-        // Balken vorne: Konto-Farbe (falls gewählt) kennzeichnet das Postfach;
-        // ohne Konto-Farbe zeigt er wie bisher nur Ungelesene in Primärfarbe an.
-        // Im Sammel-Posteingang gilt die Farbe des Kontos der jeweiligen Mail.
+        // Balken vorne: zeigt nur Ungelesene in Primärfarbe an. Die Konto-Farbe
+        // erscheint stattdessen als Ring um den Avatar — und nur im
+        // Sammel-Posteingang „Alle Konten“, wo sie zur Unterscheidung dient.
         val colorsVersion by Prefs.accountColorsFlow.collectAsState()
-        val accountColor = remember(colorsVersion, mail.account) {
-            Prefs.accountColor(mail.account.ifBlank { Prefs.email })?.let { Color(it) }
+        val unified by MailRepository.unified.collectAsState()
+        val accountColor = remember(colorsVersion, mail.account, unified) {
+            if (!unified) null
+            else Prefs.accountColor(mail.account.ifBlank { Prefs.email })
+                ?.let { Color(it) }
         }
-        val barColor = accountColor
-            ?: if (!mail.seen && !selected) MaterialTheme.colorScheme.primary else null
+        val barColor =
+            if (!mail.seen && !selected) MaterialTheme.colorScheme.primary else null
         if (barColor != null) {
             // matchParentSize: erst nach dem Inhalt gemessen, damit der Streifen
             // die volle Kartenhöhe bekommt (fillMaxHeight wäre hier unbegrenzt)
@@ -3438,7 +3441,7 @@ private fun MailRow(
                 )
             }
         }
-        MailRowContent(mail, selected, selectionMode, threadCount)
+        MailRowContent(mail, selected, selectionMode, threadCount, accountColor)
     }
 }
 
@@ -3447,7 +3450,8 @@ private fun MailRowContent(
     mail: MailMessage,
     selected: Boolean,
     selectionMode: Boolean,
-    threadCount: Int? = null
+    threadCount: Int? = null,
+    accountColor: Color? = null
 ) {
     // Schlichtes Design: kompaktere Zeilen (weniger Innenabstand)
     val plain by Prefs.plainDesignFlow.collectAsState()
@@ -3469,6 +3473,21 @@ private fun MailRowContent(
                     Icons.Filled.Check,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        } else if (accountColor != null) {
+            // Sammel-Posteingang: dezenter Ring in der Konto-Farbe um den
+            // Avatar (abgerundetes Quadrat, weil Marken-Logos diese Form haben)
+            Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .size(44.dp)
+                        .border(2.dp, accountColor, RoundedCornerShape(13.dp))
+                )
+                SenderAvatar(
+                    name = mail.from,
+                    address = mail.fromAddress,
+                    size = 36.dp
                 )
             }
         } else {
@@ -3774,9 +3793,14 @@ private fun MailBlock(
         plain -> Modifier.border(0.75.dp, scheme.outlineVariant, MailBlockShape)
         else -> Modifier
     }
+    // Konto-Farbe (Mini-Logo) nur im Sammel-Posteingang „Alle Konten“ —
+    // im Einzelkonto bleibt der Ungelesen-Fallback in Primärfarbe.
     val colorsVersion by Prefs.accountColorsFlow.collectAsState()
-    val accountColor = remember(colorsVersion, mail.account) {
-        Prefs.accountColor(mail.account.ifBlank { Prefs.email })?.let { Color(it) }
+    val unifiedInbox by MailRepository.unified.collectAsState()
+    val accountColor = remember(colorsVersion, mail.account, unifiedInbox) {
+        if (!unifiedInbox) null
+        else Prefs.accountColor(mail.account.ifBlank { Prefs.email })
+            ?.let { Color(it) }
     }
     val chipColor = accountColor
         ?: if (!mail.seen && !selected) scheme.primary else null
