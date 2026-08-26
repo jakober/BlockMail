@@ -3418,7 +3418,7 @@ private fun MailRow(
             )
     ) {
         // Balken vorne: zeigt nur Ungelesene in Primärfarbe an. Die Konto-Farbe
-        // erscheint stattdessen als Ring um den Avatar — und nur im
+        // erscheint stattdessen als kleiner Punkt neben dem Datum — und nur im
         // Sammel-Posteingang „Alle Konten“, wo sie zur Unterscheidung dient.
         val colorsVersion by Prefs.accountColorsFlow.collectAsState()
         val unified by MailRepository.unified.collectAsState()
@@ -3473,21 +3473,6 @@ private fun MailRowContent(
                     Icons.Filled.Check,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-        } else if (accountColor != null) {
-            // Sammel-Posteingang: dezenter Ring in der Konto-Farbe um den
-            // Avatar (abgerundetes Quadrat, weil Marken-Logos diese Form haben)
-            Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier
-                        .size(44.dp)
-                        .border(2.dp, accountColor, RoundedCornerShape(13.dp))
-                )
-                SenderAvatar(
-                    name = mail.from,
-                    address = mail.fromAddress,
-                    size = 36.dp
                 )
             }
         } else {
@@ -3553,6 +3538,16 @@ private fun MailRowContent(
         Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Sammel-Posteingang: kleiner Punkt in der Konto-Farbe zeigt,
+                // zu welchem Postfach die Mail gehört
+                if (accountColor != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(9.dp)
+                            .background(accountColor, CircleShape)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 // Phishing-Wächter: kleines rotes Ausrufezeichen statt Rahmen
                 val phishingSet by Prefs.phishingFlow.collectAsState()
                 val phishingWarning = remember(phishingSet, mail.account, mail.uid) {
