@@ -277,6 +277,8 @@ fun SettingsScreen(
 
     var email by remember { mutableStateOf(Prefs.email) }
     var password by remember { mutableStateOf(Prefs.appPassword) }
+    // Abweichender Anmeldename (Kundennummer, Kürzel …) — leer = Mail-Adresse
+    var loginUserField by remember { mutableStateOf(Prefs.loginUser) }
     var googleConnected by remember {
         mutableStateOf(Prefs.authMethod == "oauth" && Prefs.refreshToken.isNotBlank())
     }
@@ -771,6 +773,7 @@ fun SettingsScreen(
                     addingAccount = true
                     email = ""
                     password = ""
+                    loginUserField = ""
                     providerId = "gmail"
                     imapHostField = "imap.gmail.com"
                     imapPortField = "993"
@@ -788,6 +791,7 @@ fun SettingsScreen(
                         addingAccount = false
                         email = Prefs.email
                         password = Prefs.appPassword
+                        loginUserField = Prefs.loginUser
                         providerId = providerIdFor(Prefs.imapHost)
                         imapHostField = Prefs.imapHost
                         imapPortField = Prefs.imapPort.toString()
@@ -891,6 +895,19 @@ fun SettingsScreen(
                     label = { Text(stringResource(R.string.settings_password_label)) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(10.dp))
+                // Abweichender Anmeldename: nur ausfüllen, wenn der Anbieter
+                // sich NICHT mit der Mail-Adresse anmeldet
+                OutlinedTextField(
+                    value = loginUserField,
+                    onValueChange = { loginUserField = it },
+                    label = { Text(stringResource(R.string.setup_login_user)) },
+                    supportingText = {
+                        Text(stringResource(R.string.setup_login_user_hint))
+                    },
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (providerId == "custom") {
@@ -2363,6 +2380,8 @@ fun SettingsScreen(
                         Prefs.smtpHost = smtpHostField.trim()
                         Prefs.smtpPort = smtpPortField.trim().toIntOrNull() ?: 465
                         Prefs.authMethod = "password"
+                        // Abweichender Anmeldename (leer = Mail-Adresse)
+                        Prefs.loginUser = loginUserField.trim()
                         Prefs.snapshotActiveAccount()
                         googleConnected = false
                         addingAccount = false
