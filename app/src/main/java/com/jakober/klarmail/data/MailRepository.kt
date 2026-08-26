@@ -115,7 +115,8 @@ object MailRepository {
     /**
      * Wechselt zum angegebenen Konto: Zugangsdaten aktivieren, alle Caches des
      * alten Kontos verwerfen, Posteingang des neuen Kontos laden, Push neu
-     * verbinden. Der Push-Dienst überwacht immer das aktive Konto.
+     * synchronisieren. Der Push-Dienst überwacht ALLE gespeicherten Konten;
+     * der Neustart gleicht seine Verbindungen mit der Kontenliste ab.
      */
     suspend fun switchAccount(acc: Prefs.Account) = withContext(Dispatchers.IO) {
         refreshMutex.withLock {
@@ -580,13 +581,18 @@ object MailRepository {
     private fun isActiveAccount(account: String): Boolean =
         account.isBlank() || account.equals(Prefs.email, ignoreCase = true)
 
+    /** Gehören beide Konto-Angaben ("" = aktives Konto) zum selben Postfach? */
+    internal fun sameAccount(a: String, b: String): Boolean =
+        a.ifBlank { Prefs.email }.trim().lowercase() ==
+            b.ifBlank { Prefs.email }.trim().lowercase()
+
     /**
-     * Verbindung zu einem beliebigen gespeicherten Konto (Sammel-Posteingang).
-     * Für das aktive Konto wird der normale Weg genutzt.
+     * Verbindung zu einem beliebigen gespeicherten Konto (Sammel-Posteingang,
+     * Push-Dienst). Für das aktive Konto wird der normale Weg genutzt.
      * internal statt private: auch MailIndex.syncBatch verbindet sich damit.
      */
-    internal fun openStoreFor(account: String): Store {
-        if (isActiveAccount(account)) return openStore()
+    internal fun openStoreFor(account: String, idleMode: Boolean = false): Store {
+        if (isActiveAccount(account)) return openStore(idleMode)
         val acc = Prefs.accounts().firstOrNull { it.email.equals(account, ignoreCase = true) }
             ?: throw IllegalStateException("Konto $account nicht gefunden")
         val props = Properties().apply {
@@ -594,7 +600,8 @@ object MailRepository {
             put("mail.imaps.host", acc.imapHost)
             put("mail.imaps.port", acc.imapPort.toString())
             put("mail.imaps.connectiontimeout", "15000")
-            put("mail.imaps.timeout", "60000")
+            // Für IDLE-Verbindungen dasselbe lange Lese-Timeout wie imapProps()
+            put("mail.imaps.timeout", if (idleMode) "300000" else "60000")
             put("mail.imaps.ssl.enable", "true")
             put("mail.imaps.partialfetch", "false")
         }
@@ -1513,12 +1520,18 @@ object MailRepository {
 
     /**
      * Entfernt die Benachrichtigung einer Mail, z. B. sobald sie in der App
-     * gelesen oder gelöscht wurde. Die ID entspricht der in MailSyncService.
+     * gelesen oder gelöscht wurde. Die ID entspricht der in MailChecker;
+     * das alte UID-Schema wird übergangsweise mit aufgeräumt (Meldungen,
+     * die noch vor dem Update gepostet wurden).
      */
-    fun cancelNotification(uid: Long) {
+    fun cancelNotification(uid: Long, account: String = "") {
         appContext?.let {
-            androidx.core.app.NotificationManagerCompat.from(it)
-                .cancel((uid % Int.MAX_VALUE).toInt())
+            val nm = androidx.core.app.NotificationManagerCompat.from(it)
+            nm.cancel(
+                com.jakober.klarmail.service.MailChecker
+                    .notifIdFor(account.ifBlank { Prefs.email }, uid)
+            )
+            nm.cancel((uid % Int.MAX_VALUE).toInt())
         }
     }
 
@@ -1534,7 +1547,7 @@ object MailRepository {
             }
         )
         persist()
-        if (seen) cancelNotification(uid)
+        if (seen) cancelNotification(uid, account)
         try {
             val store = openStoreFor(account)
             try {
@@ -1687,7 +1700,14 @@ object MailRepository {
         val byAccount = _messages.value.filter { it.uid in set }.groupBy { it.account }
         _messages.value = sort(_messages.value.map { if (it.uid in set) it.copy(seen = seen) else it })
         persist()
-        if (seen) uids.forEach { cancelNotification(it) }
+        if (seen) {
+            // Konto-Zuordnung für die Benachrichtigungs-IDs nutzen; Mails ohne
+            // Listeneintrag laufen über das aktive Konto (leerer Schlüssel)
+            byAccount.forEach { (acct, mails) ->
+                mails.forEach { cancelNotification(it.uid, acct) }
+            }
+            if (byAccount.isEmpty()) uids.forEach { cancelNotification(it) }
+        }
         val groups = byAccount.ifEmpty { mapOf("" to emptyList()) }
         for ((account, mails) in groups) {
             try {
@@ -1721,7 +1741,7 @@ object MailRepository {
             synchronized(bodyCache) {
                 mails.forEach { bodyCache.remove("${folder.name}${accountKeyPart(account)}:${it.uid}") }
             }
-            mails.forEach { diskDeleteBody(folder, it.uid, account); cancelNotification(it.uid) }
+            mails.forEach { diskDeleteBody(folder, it.uid, account); cancelNotification(it.uid, account) }
         }
         val groups = byAccount.ifEmpty { mapOf("" to emptyList()) }
         for ((account, mails) in groups) {
@@ -1789,7 +1809,7 @@ object MailRepository {
         persist()
         synchronized(bodyCache) { bodyCache.remove("${folder.name}${accountKeyPart(account)}:$uid") }
         diskDeleteBody(folder, uid, account)
-        cancelNotification(uid)
+        cancelNotification(uid, account)
         try {
             val store = openStoreFor(account)
             try {
@@ -1859,14 +1879,13 @@ object MailRepository {
      * Übernimmt extern geänderte Lese-Markierungen (z. B. in Spark/Gmail gelesen)
      * in die angezeigte Liste. Nur relevant, wenn gerade der Posteingang offen ist.
      */
-    fun applyRemoteFlags(seenByUid: Map<Long, Boolean>) {
+    fun applyRemoteFlags(seenByUid: Map<Long, Boolean>, account: String = "") {
         if (_currentFolder.value != MailFolder.INBOX) return
-        // Die Flags kommen vom Push-Dienst des AKTIVEN Kontos — im
+        // Die Flags kommen vom Push-Dienst EINES Kontos — im
         // Sammel-Posteingang nur auf dessen Mails anwenden (UID-Kollisionen!)
-        val activeEmail = Prefs.email.trim().lowercase()
         val updated = _messages.value.map { m ->
             val remote = seenByUid[m.uid]
-            val mine = m.account.isBlank() || m.account == activeEmail
+            val mine = sameAccount(m.account, account)
             if (mine && remote != null && remote != m.seen) m.copy(seen = remote) else m
         }
         // Stumm-/Blockier-Regeln haben Vorrang vor den Server-Flags: eine stumme
@@ -1880,12 +1899,14 @@ object MailRepository {
     }
 
     /** Löscht eine Posteingangs-Mail per UID (unabhängig vom aktuell offenen Ordner). */
-    suspend fun deleteInboxByUid(uid: Long) = withContext(Dispatchers.IO) {
-        _messages.value = _messages.value.filter { it.uid != uid }
+    suspend fun deleteInboxByUid(uid: Long, account: String = "") = withContext(Dispatchers.IO) {
+        _messages.value = _messages.value.filter {
+            !(it.uid == uid && sameAccount(it.account, account))
+        }
         persist()
-        cancelNotification(uid)
+        cancelNotification(uid, account)
         try {
-            val store = openStore()
+            val store = openStoreFor(account)
             try {
                 val inbox = store.getFolder("INBOX") as IMAPFolder
                 inbox.open(Folder.READ_WRITE)
@@ -1900,12 +1921,14 @@ object MailRepository {
     }
 
     /** Archiviert eine Posteingangs-Mail per UID (z. B. aus der Benachrichtigung). */
-    suspend fun archiveInboxByUid(uid: Long) = withContext(Dispatchers.IO) {
-        _messages.value = _messages.value.filter { it.uid != uid }
+    suspend fun archiveInboxByUid(uid: Long, account: String = "") = withContext(Dispatchers.IO) {
+        _messages.value = _messages.value.filter {
+            !(it.uid == uid && sameAccount(it.account, account))
+        }
         persist()
-        cancelNotification(uid)
+        cancelNotification(uid, account)
         try {
-            val store = openStore()
+            val store = openStoreFor(account)
             try {
                 val inbox = store.getFolder("INBOX") as IMAPFolder
                 inbox.open(Folder.READ_WRITE)
@@ -1923,9 +1946,13 @@ object MailRepository {
     }
 
     /** Setzt die Lese-Markierung einer Posteingangs-Mail per UID (ordnerunabhängig). */
-    suspend fun setInboxSeenByUid(uid: Long, seen: Boolean = true) = withContext(Dispatchers.IO) {
+    suspend fun setInboxSeenByUid(
+        uid: Long,
+        seen: Boolean = true,
+        account: String = ""
+    ) = withContext(Dispatchers.IO) {
         try {
-            val store = openStore()
+            val store = openStoreFor(account)
             try {
                 val inbox = store.getFolder("INBOX") as IMAPFolder
                 inbox.open(Folder.READ_WRITE)
@@ -1940,8 +1967,11 @@ object MailRepository {
     /** Wird vom Sync-Service aufgerufen, wenn der Server eine neue Mail meldet. */
     fun onNewMessage(msg: MailMessage) {
         if (_currentFolder.value != MailFolder.INBOX) return
+        // Ohne Sammel-Posteingang gehören Mails fremder Konten nicht in die
+        // Liste des aktiven Kontos — sie erscheinen beim Kontowechsel/Refresh
+        if (!_unified.value && !sameAccount(msg.account, "")) return
         val existing = _messages.value
-        if (existing.any { it.uid == msg.uid }) return
+        if (existing.any { it.uid == msg.uid && sameAccount(it.account, msg.account) }) return
         _messages.value = sort(applyRules(existing + msg))
         persist()
     }

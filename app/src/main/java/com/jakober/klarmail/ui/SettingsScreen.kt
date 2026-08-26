@@ -1253,6 +1253,8 @@ fun SettingsScreen(
                             IconButton(onClick = {
                                 Prefs.removeAccount(acc.email)
                                 accountList = Prefs.accounts()
+                                // Push-Verbindung des entfernten Kontos beenden
+                                MailSyncService.restart(context)
                             }) {
                                 Icon(
                                     Icons.Filled.Close,
@@ -1580,38 +1582,21 @@ fun SettingsScreen(
                 subtitle = stringResource(R.string.settings_push_subtitle)
             ) {
             val pushStatus by MailSyncService.pushStatus.collectAsState()
-            // Der Dienst liefert nur den sprachneutralen Zustand — die
-            // Übersetzung passiert hier live in der aktuellen App-Sprache,
-            // damit die Statuszeile auch nach einem Sprachwechsel stimmt
-            val shownPushStatus = when (pushStatus.kind) {
-                MailSyncService.PushKind.NOT_STARTED ->
-                    stringResource(R.string.svc_push_not_started)
-                MailSyncService.PushKind.NO_ACCOUNT ->
-                    stringResource(R.string.svc_no_account)
-                MailSyncService.PushKind.NET_CHANGE ->
-                    stringResource(R.string.svc_push_net_change, pushStatus.time)
-                MailSyncService.PushKind.CONNECTING ->
-                    stringResource(R.string.svc_push_connecting, pushStatus.time)
-                MailSyncService.PushKind.WAITING ->
-                    stringResource(R.string.svc_push_connected_waiting, pushStatus.time)
-                MailSyncService.PushKind.PROCESSED ->
-                    stringResource(R.string.svc_push_connected_processed, pushStatus.time)
-                MailSyncService.PushKind.DISCONNECTED ->
-                    stringResource(R.string.svc_push_disconnected_retry, pushStatus.time)
-                MailSyncService.PushKind.DISCONNECTED_ERROR ->
-                    stringResource(
-                        R.string.svc_push_disconnected_error,
-                        pushStatus.time,
-                        pushStatus.detail.ifBlank { stringResource(R.string.svc_error_generic) },
-                        pushStatus.retrySeconds
+            val perAccount by MailSyncService.pushStatusByAccount.collectAsState()
+            if (perAccount.size > 1) {
+                // Mehrere Postfächer: Zustand jeder Verbindung einzeln zeigen
+                perAccount.entries.sortedBy { it.key }.forEach { (acctEmail, st) ->
+                    Text(
+                        "$acctEmail: ${pushStateText(st)}",
+                        style = MaterialTheme.typography.bodySmall
                     )
-                MailSyncService.PushKind.STOPPED ->
-                    stringResource(R.string.svc_push_stopped)
+                }
+            } else {
+                Text(
+                    pushStateText(pushStatus),
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
-            Text(
-                shownPushStatus,
-                style = MaterialTheme.typography.bodyMedium
-            )
             Spacer(Modifier.height(8.dp))
             Row {
                 OutlinedButton(onClick = {
@@ -2667,4 +2652,35 @@ private fun SectionCard(
         }
     }
     Spacer(Modifier.height(12.dp))
+}
+
+/**
+ * Übersetzt den sprachneutralen Push-Zustand des Dienstes live in die
+ * aktuelle App-Sprache — so bleibt die Statuszeile bei Sprachwechsel korrekt.
+ */
+@Composable
+private fun pushStateText(st: MailSyncService.PushState): String = when (st.kind) {
+    MailSyncService.PushKind.NOT_STARTED ->
+        stringResource(R.string.svc_push_not_started)
+    MailSyncService.PushKind.NO_ACCOUNT ->
+        stringResource(R.string.svc_no_account)
+    MailSyncService.PushKind.NET_CHANGE ->
+        stringResource(R.string.svc_push_net_change, st.time)
+    MailSyncService.PushKind.CONNECTING ->
+        stringResource(R.string.svc_push_connecting, st.time)
+    MailSyncService.PushKind.WAITING ->
+        stringResource(R.string.svc_push_connected_waiting, st.time)
+    MailSyncService.PushKind.PROCESSED ->
+        stringResource(R.string.svc_push_connected_processed, st.time)
+    MailSyncService.PushKind.DISCONNECTED ->
+        stringResource(R.string.svc_push_disconnected_retry, st.time)
+    MailSyncService.PushKind.DISCONNECTED_ERROR ->
+        stringResource(
+            R.string.svc_push_disconnected_error,
+            st.time,
+            st.detail.ifBlank { stringResource(R.string.svc_error_generic) },
+            st.retrySeconds
+        )
+    MailSyncService.PushKind.STOPPED ->
+        stringResource(R.string.svc_push_stopped)
 }

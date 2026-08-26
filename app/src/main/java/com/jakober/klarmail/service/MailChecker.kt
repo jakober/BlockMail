@@ -35,25 +35,52 @@ object MailChecker {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * Eigenständige Einmal-Prüfung mit eigener Verbindung.
-     * Liefert die Anzahl neuer Mails, -1 bei Verbindungsfehler.
+     * Konto-Kennung fürs [com.jakober.klarmail.data.MailMessage.account]-Feld:
+     * leer für das aktive Konto (bestehende Konvention), sonst die Adresse.
+     */
+    fun accountTag(accountEmail: String): String =
+        if (accountEmail.isBlank() || accountEmail.equals(Prefs.email, ignoreCase = true)) ""
+        else accountEmail.trim().lowercase()
+
+    /**
+     * Benachrichtigungs-ID pro Konto UND Mail: UIDs sind nur innerhalb eines
+     * Postfachs eindeutig — ohne Konto-Anteil würden sich Meldungen
+     * verschiedener Konten gegenseitig überschreiben oder wegräumen.
+     */
+    fun notifIdFor(accountEmail: String, uid: Long): Int =
+        ((accountEmail.trim().lowercase().hashCode() * 31 + uid.hashCode()) and 0x7FFFFFFF)
+
+    /**
+     * Eigenständige Einmal-Prüfung ALLER Konten mit eigener Verbindung.
+     * Liefert die Gesamtzahl neuer Mails; -1 nur, wenn ALLE Konten scheitern.
      */
     fun checkOnce(context: Context): Int {
         if (!Prefs.isConfigured) return 0
-        return try {
-            val store = MailRepository.openStore()
-            try {
-                val inbox = store.getFolder("INBOX") as IMAPFolder
-                inbox.open(Folder.READ_ONLY)
-                val newCount = processNewMessages(context, inbox)
-                syncFlags(context, inbox)
-                newCount
-            } finally {
-                runCatching { store.close() }
-            }
-        } catch (_: Exception) {
-            -1
+        val accounts = Prefs.pushAccounts()
+        if (accounts.isEmpty()) return 0
+        var total = 0
+        var failures = 0
+        for (acc in accounts) {
+            val r = checkOnceFor(context, acc.email)
+            if (r < 0) failures++ else total += r
         }
+        return if (failures == accounts.size) -1 else total
+    }
+
+    /** Einmal-Prüfung eines einzelnen Kontos (-1 bei Verbindungsfehler). */
+    fun checkOnceFor(context: Context, accountEmail: String): Int = try {
+        val store = MailRepository.openStoreFor(accountEmail)
+        try {
+            val inbox = store.getFolder("INBOX") as IMAPFolder
+            inbox.open(Folder.READ_ONLY)
+            val newCount = processNewMessages(context, inbox, accountEmail)
+            syncFlags(context, inbox, accountEmail)
+            newCount
+        } finally {
+            runCatching { store.close() }
+        }
+    } catch (_: Exception) {
+        -1
     }
 
     /**
@@ -124,8 +151,10 @@ object MailChecker {
      * Meldet alle Mails mit UID oberhalb der Merkliste und rückt sie vor.
      * Liefert die Anzahl der neu gemeldeten Mails (ohne blockierte).
      */
-    fun processNewMessages(context: Context, inbox: IMAPFolder): Int {
+    fun processNewMessages(context: Context, inbox: IMAPFolder, accountEmail: String = ""): Int {
         var newCount = 0
+        val acctEmail = accountEmail.ifBlank { Prefs.email }
+        val tag = accountTag(acctEmail)
         try {
             val count = inbox.messageCount
             if (count <= 0) return 0
@@ -134,17 +163,17 @@ object MailChecker {
             // aktualisiert — neue Mails blieben damit unsichtbar. Die UID der
             // letzten Nachricht wird dagegen frisch vom Server geholt.
             val maxUid = inbox.getUID(inbox.getMessage(count))
-            val lastUid = Prefs.lastPushUid
+            val lastUid = Prefs.lastPushUidFor(acctEmail)
             if (lastUid <= 0L) {
                 // Erststart: aktuellen Stand merken, ohne alte Mails zu melden
-                Prefs.lastPushUid = maxUid
+                Prefs.setLastPushUidFor(acctEmail, maxUid)
                 return 0
             }
             if (lastUid > maxUid) {
                 // Merkliste passt nicht zum Postfach (Konto gewechselt oder
                 // UIDVALIDITY geändert): zurücksetzen und frisch aufsetzen,
                 // sonst gilt jede neue Mail dauerhaft als "schon gemeldet"
-                Prefs.lastPushUid = maxUid
+                Prefs.setLastPushUidFor(acctEmail, maxUid)
                 return 0
             }
             if (maxUid == lastUid) return 0
@@ -162,17 +191,19 @@ object MailChecker {
                     try {
                         val uid = inbox.getUID(m)
                         if (uid <= lastUid) continue
-                        val mail = MailRepository.toMailMessage(uid, m)
+                        val mail = MailRepository.toMailMessage(uid, m).copy(account = tag)
                         val addr = mail.fromAddress.lowercase()
                         when {
                             Prefs.isBlocked(addr) -> {
                                 // Blockiert: sofort löschen, keine Benachrichtigung
-                                scope.launch { MailRepository.deleteInboxByUid(uid) }
+                                scope.launch { MailRepository.deleteInboxByUid(uid, acctEmail) }
                             }
                             Prefs.isMuted(addr) -> {
                                 // Stumm: als gelesen markieren, keine Benachrichtigung
                                 MailRepository.onNewMessage(mail.copy(seen = true))
-                                scope.launch { MailRepository.setInboxSeenByUid(uid) }
+                                scope.launch {
+                                    MailRepository.setInboxSeenByUid(uid, account = acctEmail)
+                                }
                                 toPrefetch.add(uid)
                                 newCount++
                             }
@@ -184,7 +215,8 @@ object MailChecker {
                                     Prefs.isVip(addr)
                                 if (!mail.seen && notifyAllowed) {
                                     showNewMailNotification(
-                                        context, mail.uid, mail.from, mail.fromAddress, mail.subject
+                                        context, mail.uid, mail.from, mail.fromAddress,
+                                        mail.subject, account = acctEmail
                                     )
                                 }
                                 toPrefetch.add(uid)
@@ -198,11 +230,11 @@ object MailChecker {
                 // nacheinander), damit das Öffnen später sofort aus dem Cache geht.
                 if (toPrefetch.isNotEmpty()) {
                     scope.launch {
-                        toPrefetch.forEach { MailRepository.prefetchBody(it) }
+                        toPrefetch.forEach { MailRepository.prefetchBody(it, account = tag) }
                     }
                 }
             }
-            Prefs.lastPushUid = maxUid
+            Prefs.setLastPushUidFor(acctEmail, maxUid)
         } catch (_: Exception) {
         }
         return newCount
@@ -212,7 +244,8 @@ object MailChecker {
      * Gleicht die Lese-Markierungen der letzten Inbox-Mails ab: extern gelesene
      * Mails werden in der App aktualisiert und ihre Benachrichtigung entfernt.
      */
-    fun syncFlags(context: Context, inbox: IMAPFolder) {
+    fun syncFlags(context: Context, inbox: IMAPFolder, accountEmail: String = "") {
+        val acctEmail = accountEmail.ifBlank { Prefs.email }
         try {
             val count = inbox.messageCount
             if (count <= 0) return
@@ -229,11 +262,13 @@ object MailChecker {
                 val seen = m.flags.contains(javax.mail.Flags.Flag.SEEN)
                 seenByUid[uid] = seen
                 if (seen) {
-                    // Benachrichtigung entfernen, falls die Mail woanders gelesen wurde
+                    // Benachrichtigung entfernen, falls die Mail woanders gelesen
+                    // wurde (altes UID-Schema übergangsweise mit aufräumen)
+                    NotificationManagerCompat.from(context).cancel(notifIdFor(acctEmail, uid))
                     NotificationManagerCompat.from(context).cancel((uid % Int.MAX_VALUE).toInt())
                 }
             }
-            MailRepository.applyRemoteFlags(seenByUid)
+            MailRepository.applyRemoteFlags(seenByUid, accountTag(acctEmail))
         } catch (_: Exception) {
         }
     }
@@ -243,9 +278,11 @@ object MailChecker {
         uid: Long,
         from: String,
         fromAddress: String,
-        subject: String
+        subject: String,
+        account: String = ""
     ) {
-        val notifId = (uid % Int.MAX_VALUE).toInt()
+        val acctEmail = account.ifBlank { Prefs.email }
+        val notifId = notifIdFor(acctEmail, uid)
         // Absender-Avatar wie in der Mail-Liste (lädt ggf. aus dem Netz —
         // wir laufen hier bereits auf einem IO-Thread)
         val avatar = runCatching {
@@ -302,6 +339,7 @@ object MailChecker {
                 action = actionName
                 putExtra("uid", uid)
                 putExtra("notifId", notifId)
+                putExtra("account", accountTag(acctEmail))
             }
             return PendingIntent.getBroadcast(
                 context, requestCode, intent,
@@ -315,6 +353,7 @@ object MailChecker {
             context, notifId,
             Intent(context, MainActivity::class.java).apply {
                 putExtra("open_uid", uid)
+                putExtra("open_account", accountTag(acctEmail))
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -331,6 +370,7 @@ object MailChecker {
             putExtra("address", fromAddress)
             putExtra("subject", subject)
             putExtra("notifId", notifId)
+            putExtra("account", accountTag(acctEmail))
         }
         val replyPending = PendingIntent.getForegroundService(
             context, notifId, replyIntent,
@@ -355,6 +395,8 @@ object MailChecker {
             .setAutoCancel(true)
             .setContentIntent(openPending)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+        // Bei mehreren Postfächern zeigt der Untertitel, wohin die Mail kam
+        if (Prefs.pushAccounts().size > 1) builder.setSubText(acctEmail)
         // Aktions-Knöpfe nach Nutzer-Auswahl (Android zeigt höchstens 3 an)
         Prefs.notifActions.forEach { key ->
             when (key) {
@@ -385,7 +427,8 @@ object MailChecker {
         address: String,
         rawSubject: String,
         text: String,
-        notifId: Int
+        notifId: Int,
+        account: String = ""
     ) {
         scope.launch {
             val result = try {
@@ -395,15 +438,15 @@ object MailChecker {
                 val subject = if (cleaned.startsWith("Re:", ignoreCase = true)) cleaned
                 else "Re: $cleaned"
                 val sentMsgId = MailRepository.send(
-                    to = address, subject = subject, body = text
+                    to = address, subject = subject, body = text, account = account
                 )
                 if (uid > 0) runCatching {
-                    MailRepository.markSeen(uid)
+                    MailRepository.markSeen(uid, account)
                     // Beantwortet-Anzeige auch für Schnellantworten
                     Prefs.addReplyRecord(
-                        "", uid, System.currentTimeMillis(), sentMsgId ?: ""
+                        account, uid, System.currentTimeMillis(), sentMsgId ?: ""
                     )
-                    MailRepository.setAnsweredAsync(uid)
+                    MailRepository.setAnsweredAsync(uid, account)
                 }
                 context.getString(R.string.svc_reply_sent)
             } catch (e: Exception) {

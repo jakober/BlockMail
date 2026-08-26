@@ -28,8 +28,9 @@ class MainActivity : ComponentActivity() {
     private val notifPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
-    /** Von einer Benachrichtigung angeforderte Mail (direkt öffnen). */
-    private val pendingOpenUid = androidx.compose.runtime.mutableStateOf<Long?>(null)
+    /** Von einer Benachrichtigung angeforderte Mail (UID + Konto, direkt öffnen). */
+    private val pendingOpenUid =
+        androidx.compose.runtime.mutableStateOf<Pair<Long, String>?>(null)
 
     /** Vom Launcher-Shortcut angefordert: neue Mail verfassen. */
     private val pendingCompose = androidx.compose.runtime.mutableStateOf(false)
@@ -39,7 +40,9 @@ class MainActivity : ComponentActivity() {
 
     private fun handleOpenIntent(intent: android.content.Intent?) {
         val uid = intent?.getLongExtra("open_uid", -1L) ?: -1L
-        if (uid > 0) pendingOpenUid.value = uid
+        if (uid > 0) {
+            pendingOpenUid.value = uid to intent?.getStringExtra("open_account").orEmpty()
+        }
         if (intent?.action == "com.jakober.klarmail.SHORTCUT_COMPOSE") pendingCompose.value = true
         if (intent?.action == "com.jakober.klarmail.SHORTCUT_NEW_PDF") pendingNewPdf.value = true
         // Aus dem Dokument-Editor (ViewerActivity): Verfassen-Fenster mit dem
@@ -136,7 +139,8 @@ class MainActivity : ComponentActivity() {
                 val openUid = pendingOpenUid.value
                 androidx.compose.runtime.LaunchedEffect(openUid) {
                     if (openUid != null) {
-                        nav.navigate("detail/$openUid")
+                        val acct = android.net.Uri.encode(openUid.second)
+                        nav.navigate("detail/${openUid.first}?acct=$acct")
                         pendingOpenUid.value = null
                     }
                 }
@@ -196,10 +200,19 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     composable(
-                        "detail/{uid}",
-                        arguments = listOf(navArgument("uid") { type = NavType.LongType })
+                        "detail/{uid}?acct={acct}",
+                        arguments = listOf(
+                            navArgument("uid") { type = NavType.LongType },
+                            navArgument("acct") {
+                                type = NavType.StringType
+                                defaultValue = ""
+                            }
+                        )
                     ) { entry ->
                         val uid = entry.arguments?.getLong("uid") ?: return@composable
+                        // Konto aus der Benachrichtigung: Bei mehreren
+                        // Postfächern ist die UID allein nicht eindeutig
+                        val acct = entry.arguments?.getString("acct").orEmpty()
                         // Rückfall-Objekt aus Suche/KI-Treffern: Die Mail kann
                         // außerhalb des geladenen Fensters liegen — ohne den
                         // Merker käme "Nachricht nicht gefunden"
@@ -218,6 +231,7 @@ class MainActivity : ComponentActivity() {
                                         .MailFolder.INBOX
                             },
                             fallbackMail = fallback,
+                            accountHint = acct.takeIf { it.isNotBlank() },
                             onEditAttachment = { nav.navigate("editor") },
                             // "Antwort ansehen": nldetail zeigt die über
                             // pendingOpen hereingereichte gesendete Mail

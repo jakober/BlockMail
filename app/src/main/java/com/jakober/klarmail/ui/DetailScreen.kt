@@ -166,7 +166,13 @@ fun DetailScreen(
     /** Öffnet den Anhang-Editor (Unterschreiben/Zeichnen). */
     onEditAttachment: (() -> Unit)? = null,
     /** Zeigt die GESENDETE Antwort (Route "nldetail" liest pendingOpen). */
-    onOpenSent: (() -> Unit)? = null
+    onOpenSent: (() -> Unit)? = null,
+    /**
+     * Konto der Mail, wenn der Aufrufer es kennt (Benachrichtigungs-Tap):
+     * UIDs sind nur pro Postfach eindeutig — ohne den Hinweis würde bei
+     * mehreren Konten ggf. die gleichnamige Mail des falschen Kontos geladen.
+     */
+    accountHint: String? = null
 ) {
     val messages by MailRepository.messages.collectAsState()
     // Die Live-Liste hat Vorrang: Der Rueckfall ist eine eingefrorene Kopie
@@ -180,10 +186,11 @@ fun DetailScreen(
     // die gleichnamige Mail des falschen Kontos ("Nachricht nicht gefunden").
     fun acctKey(a: String) = a.trim().lowercase()
         .ifBlank { com.jakober.klarmail.data.Prefs.email.trim().lowercase() }
+    val wantedAcct = fallbackMail?.account ?: accountHint
     val mail = messages.find {
         it.uid == uid && (
-            fallbackMail == null ||
-                acctKey(it.account) == acctKey(fallbackMail.account)
+            wantedAcct == null ||
+                acctKey(it.account) == acctKey(wantedAcct)
             )
     } ?: fallbackMail
 
@@ -192,9 +199,9 @@ fun DetailScreen(
     var body by remember(uid) { mutableStateOf<MailRepository.MailBody?>(null) }
     var loadError by remember(uid) { mutableStateOf<String?>(null) }
 
-    // Konto der Mail (Sammel-Posteingang): leitet Laden/Markieren/Löschen
-    // an den richtigen Mail-Server weiter
-    val mailAccount = mail?.account.orEmpty()
+    // Konto der Mail (Sammel-Posteingang/Benachrichtigung): leitet
+    // Laden/Markieren/Löschen an den richtigen Mail-Server weiter
+    val mailAccount = mail?.account?.ifBlank { null } ?: accountHint.orEmpty()
 
     LaunchedEffect(uid) {
         // Nur im normalen Posteingang automatisch als gelesen markieren.

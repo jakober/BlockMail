@@ -595,16 +595,20 @@ object Prefs {
         }
 
     /** Höchste bereits per Push verarbeitete Mail-UID (für Lücken-Nachholung). */
-    // Pro Konto eigene Merkliste (Fallback auf den alten globalen Schlüssel)
-    private fun pushUidKey() = "last_push_uid_" + email.trim().lowercase()
+    // Pro Konto eigene Merkliste; Schlüsselschema unverändert, damit
+    // Bestandswerte nach dem Update weitergelten (keine Doppelmeldungen)
+    private fun pushUidKey(accountEmail: String) =
+        "last_push_uid_" + accountEmail.trim().lowercase()
 
     // KEIN Rückfall auf den alten globalen Schlüssel: Der kann die UID eines
     // anderen Kontos enthalten — dann gilt jede neue Mail als "schon gemeldet"
     // und der Push schweigt dauerhaft. Ohne Eintrag (0) wird beim ersten
     // Verbinden still der aktuelle Stand als Ausgangspunkt gemerkt.
-    var lastPushUid: Long
-        get() = sp.getLong(pushUidKey(), 0L)
-        set(v) = sp.edit().putLong(pushUidKey(), v).apply()
+    fun lastPushUidFor(accountEmail: String): Long =
+        sp.getLong(pushUidKey(accountEmail.ifBlank { email }), 0L)
+
+    fun setLastPushUidFor(accountEmail: String, v: Long) =
+        sp.edit().putLong(pushUidKey(accountEmail.ifBlank { email }), v).apply()
 
     // Mail-Server des aktiven Kontos (Standard: Gmail)
     var imapHost: String
@@ -667,6 +671,22 @@ object Prefs {
         }.filter { it.email.isNotBlank() }
     } catch (e: Exception) {
         emptyList()
+    }
+
+    /**
+     * Konten, die der Push-Dienst überwacht: alle gespeicherten plus das
+     * aktive Konto, falls es (noch) nicht in der Kontenliste steht — die
+     * Liste wird erst beim ersten Kontowechsel/-anlegen befüllt.
+     */
+    fun pushAccounts(): List<Account> {
+        val list = accounts()
+        if (!isConfigured || email.isBlank()) return list
+        val activeInList = list.any { it.email.equals(email, ignoreCase = true) }
+        return if (activeInList) list
+        else list + Account(
+            email, authMethod, appPassword, refreshToken,
+            imapHost, imapPort, smtpHost, smtpPort, loginUser
+        )
     }
 
     private fun saveAccounts(list: List<Account>) {

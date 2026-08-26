@@ -18,6 +18,9 @@ class MarkReadReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val uid = intent.getLongExtra("uid", -1L)
         val notifId = intent.getIntExtra("notifId", -1)
+        // Konto der Mail ("" = aktives Konto) — sonst träfe die Aktion bei
+        // mehreren Postfächern die falsche UID
+        val account = intent.getStringExtra("account").orEmpty()
         if (notifId != -1) {
             NotificationManagerCompat.from(context).cancel(notifId)
         }
@@ -28,10 +31,10 @@ class MarkReadReceiver : BroadcastReceiver() {
             try {
                 when (action) {
                     "com.jakober.klarmail.NOTIF_ARCHIVE" ->
-                        MailRepository.archiveInboxByUid(uid)
+                        MailRepository.archiveInboxByUid(uid, account)
                     "com.jakober.klarmail.NOTIF_DELETE" ->
-                        MailRepository.deleteInboxByUid(uid)
-                    else -> MailRepository.markSeen(uid)
+                        MailRepository.deleteInboxByUid(uid, account)
+                    else -> MailRepository.markSeen(uid, account)
                 }
             } finally {
                 pending.finish()

@@ -24,6 +24,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,17 +34,28 @@ import javax.mail.Store
 import kotlin.math.min
 
 /**
- * Hält eine dauerhafte IMAP-IDLE-Verbindung zu Gmail offen, damit neue Mails
- * sofort (Push) gemeldet werden. Verpasste Mails aus Verbindungslücken werden
- * beim Neuverbinden über eine fortlaufende UID-Merkliste nachgeholt.
+ * Hält pro gespeichertem Konto eine dauerhafte IMAP-IDLE-Verbindung offen,
+ * damit neue Mails ALLER Postfächer sofort (Push) gemeldet werden. Verpasste
+ * Mails aus Verbindungslücken werden beim Neuverbinden über eine
+ * fortlaufende UID-Merkliste pro Konto nachgeholt.
  */
 class MailSyncService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var idleJob: Job? = null
+
+    /** Halter für die Push-Verbindung EINES Kontos: Store gehört nur dem
+     *  eigenen Loop — kein geteilter Zustand, kein Übergabe-Rennen mehr. */
+    private class AccountIdle(val email: String) {
+        @Volatile
+        var store: Store? = null
+        var job: Job? = null
+    }
+
+    /** Serialisiert Stop/Start der Loops (Kontowechsel, Netzwechsel, Button). */
+    private val idleMutex = Mutex()
 
     @Volatile
-    private var activeStore: Store? = null
+    private var idlers: Map<String, AccountIdle> = emptyMap()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -62,9 +75,9 @@ class MailSyncService : Service() {
                 lastNet = network
                 // Beim Registrieren meldet Android sofort das aktuelle Netz —
                 // erst ein echter Wechsel danach löst den Neuaufbau aus
-                if (previous != null && previous != network && idleJob?.isActive == true) {
+                if (previous != null && previous != network && idlers.isNotEmpty()) {
                     pushStatus.value = PushState(PushKind.NET_CHANGE, now())
-                    restartIdleLoop()
+                    restartIdleLoops()
                 }
             }
         }
@@ -87,10 +100,10 @@ class MailSyncService : Service() {
         // angeforderte Aktion und beendet sich danach wieder selbst
         val eco = Prefs.pushMode == "eco"
         fun maybeStartIdle() {
-            if (!eco && idleJob?.isActive != true) startIdleLoop()
+            if (!eco && idlers.values.none { it.job?.isActive == true }) restartIdleLoops()
         }
         when (intent?.action) {
-            ACTION_RESTART -> if (eco) stopSelfClean() else restartIdleLoop()
+            ACTION_RESTART -> if (eco) stopSelfClean() else restartIdleLoops()
             ACTION_CHECK_NOW -> {
                 maybeStartIdle()
                 checkNowAsync(stopAfter = eco)
@@ -120,7 +133,8 @@ class MailSyncService : Service() {
                         address = address,
                         rawSubject = intent?.getStringExtra("subject").orEmpty(),
                         text = text,
-                        notifId = intent?.getIntExtra("notifId", -1) ?: -1
+                        notifId = intent?.getIntExtra("notifId", -1) ?: -1,
+                        account = intent?.getStringExtra("account").orEmpty()
                     )
                 }
                 if (eco) {
@@ -193,12 +207,55 @@ class MailSyncService : Service() {
         }
     }
 
-    /** Erneuert die Verbindung innerhalb des laufenden Dienstes (kein Stopp/Start-Rennen). */
-    private fun restartIdleLoop() {
-        idleJob?.cancel()
-        val store = activeStore
-        Thread { runCatching { store?.close() } }.start()
-        startIdleLoop()
+    /**
+     * Erneuert die Verbindungen ALLER Konten innerhalb des laufenden Dienstes.
+     * Serialisiert über [idleMutex]; wartet per join() auf die finally-Blöcke
+     * der alten Loops, bevor die neuen starten — sonst könnte ein verspätet
+     * sterbender Alt-Loop den Zustand des neuen überschreiben (das war der
+     * frühere Race-Bug mit dem geteilten activeStore-Feld).
+     */
+    private fun restartIdleLoops() {
+        scope.launch {
+            idleMutex.withLock {
+                stopAllLocked()
+                startAllLocked()
+            }
+        }
+    }
+
+    private suspend fun stopAllLocked() {
+        val old = idlers
+        idlers = emptyMap()
+        old.values.forEach { h ->
+            h.job?.cancel()
+            val s = h.store
+            // close() auf eigenem Thread: bricht das blockierende idle() auf
+            Thread { runCatching { s?.close() } }.start()
+        }
+        old.values.forEach { runCatching { it.job?.join() } }
+    }
+
+    private fun startAllLocked() {
+        val accounts = Prefs.pushAccounts()
+        if (accounts.isEmpty()) {
+            pushStatusByAccount.value = emptyMap()
+            pushStatus.value = PushState(PushKind.NO_ACCOUNT)
+            // Noch kein Konto eingerichtet: später erneut versuchen
+            scope.launch {
+                delay(30_000)
+                if (idlers.isEmpty()) restartIdleLoops()
+            }
+            return
+        }
+        val keys = accounts.map { it.email.trim().lowercase() }.toSet()
+        // Status-Einträge entfernter Konten wegräumen (keine Geister-Zeilen)
+        pushStatusByAccount.value = pushStatusByAccount.value.filterKeys { it in keys }
+        idlers = accounts.associate { acc ->
+            val key = acc.email.trim().lowercase()
+            val holder = AccountIdle(key)
+            holder.job = scope.launch { idleLoop(acc, holder) }
+            key to holder
+        }
     }
 
     private fun serviceNotification(): Notification {
@@ -223,52 +280,54 @@ class MailSyncService : Service() {
 
     private fun now(): String = SimpleDateFormat("HH:mm:ss", Locale.GERMAN).format(Date())
 
-    private fun startIdleLoop() {
-        idleJob = scope.launch {
-            val self = kotlin.coroutines.coroutineContext[Job]
-            val stillActive: () -> Boolean = { self?.isActive == true }
-            var backoff = 5_000L
-            while (isActive) {
-                lastAliveMs = System.currentTimeMillis()
-                if (!Prefs.isConfigured) {
-                    pushStatus.value = PushState(PushKind.NO_ACCOUNT)
-                    delay(30_000)
-                    continue
-                }
-                try {
-                    connectAndIdle(stillActive) { backoff = 5_000L }
-                    if (!isActive) break
-                    pushStatus.value = PushState(PushKind.DISCONNECTED, now())
-                    delay(3_000)
-                } catch (e: Exception) {
-                    if (!isActive) break
-                    pushStatus.value = PushState(
+    /** Dauerschleife EINES Kontos: verbinden, lauschen, bei Fehlern Backoff. */
+    private suspend fun idleLoop(acc: Prefs.Account, holder: AccountIdle) {
+        val self = kotlin.coroutines.coroutineContext[Job]
+        val stillActive: () -> Boolean = { self?.isActive == true }
+        var backoff = 5_000L
+        while (stillActive()) {
+            lastAliveMs = System.currentTimeMillis()
+            try {
+                connectAndIdle(acc, holder, stillActive) { backoff = 5_000L }
+                if (!stillActive()) break
+                setStatus(holder.email, PushState(PushKind.DISCONNECTED, now()))
+                delay(3_000)
+            } catch (e: Exception) {
+                if (!stillActive()) break
+                setStatus(
+                    holder.email,
+                    PushState(
                         PushKind.DISCONNECTED_ERROR, now(),
                         detail = e.message?.take(80).orEmpty(),
                         retrySeconds = backoff / 1000
                     )
-                    delay(backoff)
-                    backoff = min(backoff * 2, 120_000L)
-                }
+                )
+                delay(backoff)
+                backoff = min(backoff * 2, 120_000L)
             }
         }
     }
 
-    private fun connectAndIdle(stillActive: () -> Boolean, onConnected: () -> Unit) {
-        pushStatus.value = PushState(PushKind.CONNECTING, now())
-        val store = MailRepository.openStore(idleMode = true)
-        activeStore = store
+    private fun connectAndIdle(
+        acc: Prefs.Account,
+        holder: AccountIdle,
+        stillActive: () -> Boolean,
+        onConnected: () -> Unit
+    ) {
+        setStatus(holder.email, PushState(PushKind.CONNECTING, now()))
+        val store = MailRepository.openStoreFor(acc.email, idleMode = true)
+        holder.store = store
         try {
             val inbox = store.getFolder("INBOX") as IMAPFolder
             inbox.open(Folder.READ_ONLY)
             onConnected()
             lastAliveMs = System.currentTimeMillis()
-            pushStatus.value = PushState(PushKind.WAITING, now())
+            setStatus(holder.email, PushState(PushKind.WAITING, now()))
             // Nachholen, was während einer Verbindungslücke angekommen ist
-            if (MailChecker.processNewMessages(this, inbox) > 0) {
-                pushStatus.value = PushState(PushKind.PROCESSED, now())
+            if (MailChecker.processNewMessages(this, inbox, acc.email) > 0) {
+                setStatus(holder.email, PushState(PushKind.PROCESSED, now()))
             }
-            MailChecker.syncFlags(this, inbox)
+            MailChecker.syncFlags(this, inbox, acc.email)
             // WICHTIG: idle(true) statt idle() — die parameterlose Variante kehrt
             // bei neuen Mails NICHT zurück (sie feuert nur Listener und blockiert
             // weiter, bis die Verbindung abreißt). idle(true) kehrt nach der
@@ -278,15 +337,34 @@ class MailSyncService : Service() {
                 inbox.idle(true)
                 lastAliveMs = System.currentTimeMillis()
                 if (!stillActive()) break
-                if (MailChecker.processNewMessages(this, inbox) > 0) {
-                    pushStatus.value = PushState(PushKind.PROCESSED, now())
+                if (MailChecker.processNewMessages(this, inbox, acc.email) > 0) {
+                    setStatus(holder.email, PushState(PushKind.PROCESSED, now()))
                 }
-                MailChecker.syncFlags(this, inbox)
+                MailChecker.syncFlags(this, inbox, acc.email)
             }
         } finally {
             runCatching { store.close() }
-            activeStore = null
+            holder.store = null
         }
+    }
+
+    /** Zustand eines Kontos eintragen und die Sammel-Anzeige nachführen. */
+    private fun setStatus(email: String, st: PushState) {
+        pushStatusByAccount.value = pushStatusByAccount.value + (email to st)
+        // Einzeilen-Anzeige: der schlechteste Zustand aller Konten gewinnt
+        pushStatus.value = pushStatusByAccount.value.values
+            .maxByOrNull { statusRank(it.kind) } ?: st
+    }
+
+    private fun statusRank(k: PushKind): Int = when (k) {
+        PushKind.DISCONNECTED_ERROR -> 6
+        PushKind.DISCONNECTED -> 5
+        PushKind.NO_ACCOUNT -> 4
+        PushKind.NET_CHANGE -> 3
+        PushKind.CONNECTING -> 2
+        PushKind.PROCESSED -> 1
+        PushKind.WAITING -> 0
+        else -> -1
     }
 
     override fun onDestroy() {
@@ -297,9 +375,10 @@ class MailSyncService : Service() {
             }
         }
         pushStatus.value = PushState(PushKind.STOPPED)
-        // Store schließen, um das blockierende idle() zu beenden
-        val store = activeStore
-        Thread { runCatching { store?.close() } }.start()
+        pushStatusByAccount.value = emptyMap()
+        // Stores schließen, um die blockierenden idle()-Aufrufe zu beenden
+        val old = idlers
+        Thread { old.values.forEach { runCatching { it.store?.close() } } }.start()
         scope.cancel()
         super.onDestroy()
     }
@@ -346,6 +425,9 @@ class MailSyncService : Service() {
          * Ressourcen-Text R.string.svc_push_not_started an.
          */
         val pushStatus = MutableStateFlow(PushState(PushKind.NOT_STARTED))
+
+        /** Zustand je überwachtem Konto (Schlüssel: E-Mail in Kleinbuchstaben). */
+        val pushStatusByAccount = MutableStateFlow<Map<String, PushState>>(emptyMap())
 
         fun start(context: Context) {
             // Sparmodus: keine Dauerverbindung — der Wächter-Worker prüft alle
