@@ -283,6 +283,9 @@ fun SettingsScreen(
         mutableStateOf(Prefs.authMethod == "oauth" && Prefs.refreshToken.isNotBlank())
     }
     var addingAccount by remember { mutableStateOf(false) }
+    // Neues Konto im eigenen Popup anlegen (statt in den Feldern des
+    // aktiven Kontos — das hatte keinen sichtbaren Speichern-Knopf)
+    var showAddAccount by remember { mutableStateOf(false) }
     var connectedEmail by remember { mutableStateOf(Prefs.email) }
     val selectedScheme by Prefs.colorSchemeFlow.collectAsState()
     val darkMode by Prefs.darkModeFlow.collectAsState()
@@ -295,6 +298,28 @@ fun SettingsScreen(
     var imapPortField by remember { mutableStateOf(Prefs.imapPort.toString()) }
     var smtpHostField by remember { mutableStateOf(Prefs.smtpHost) }
     var smtpPortField by remember { mutableStateOf(Prefs.smtpPort.toString()) }
+    if (showAddAccount) {
+        AddAccountDialog(
+            onDismiss = { showAddAccount = false },
+            onDone = {
+                // Das Popup hat das neue Konto bereits aktiviert — die
+                // Formularfelder auf den neuen Stand ziehen
+                showAddAccount = false
+                addingAccount = false
+                googleConnected = false
+                connectedEmail = Prefs.email
+                email = Prefs.email
+                password = Prefs.appPassword
+                loginUserField = Prefs.loginUser
+                providerId = providerIdFor(Prefs.imapHost)
+                imapHostField = Prefs.imapHost
+                imapPortField = Prefs.imapPort.toString()
+                smtpHostField = Prefs.smtpHost
+                smtpPortField = Prefs.smtpPort.toString()
+                accountList = Prefs.accounts()
+            }
+        )
+    }
     var signatureText by remember { mutableStateOf(Prefs.signature) }
     var templates by remember { mutableStateOf(Prefs.mailTemplates()) }
     var showTemplateDialog by remember { mutableStateOf(false) }
@@ -768,19 +793,18 @@ fun SettingsScreen(
                         }) { Text(stringResource(R.string.settings_disconnect)) }
                     }
                 }
-                // Weiteres Konto anlegen, OHNE das aktuelle zu trennen
-                OutlinedButton(onClick = {
-                    addingAccount = true
-                    email = ""
-                    password = ""
-                    loginUserField = ""
-                    providerId = "gmail"
-                    imapHostField = "imap.gmail.com"
-                    imapPortField = "993"
-                    smtpHostField = "smtp.gmail.com"
-                    smtpPortField = "465"
-                }) { Text(stringResource(R.string.settings_add_account)) }
+                // Weiteres Konto anlegen, OHNE das aktuelle zu trennen —
+                // im eigenen Popup mit allen Feldern und Speichern-Knopf
+                OutlinedButton(onClick = { showAddAccount = true }) {
+                    Text(stringResource(R.string.settings_add_account))
+                }
             } else {
+                // Auch ohne Google-Konto: neues Konto im Popup anlegen,
+                // statt die Felder des aktiven Kontos umzuschreiben
+                OutlinedButton(onClick = { showAddAccount = true }) {
+                    Text(stringResource(R.string.settings_add_account))
+                }
+                Spacer(Modifier.height(4.dp))
                 if (addingAccount) {
                     Text(
                         stringResource(R.string.settings_add_account_hint, connectedEmail),

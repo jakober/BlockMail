@@ -264,7 +264,9 @@
     <string name="setup_back">Zurück</string>
     <string name="setup_choose_provider">Wähle deinen E-Mail-Anbieter</string>
     <string name="setup_choose_provider_desc">Server und Ports stellt BlockMail automatisch ein — du brauchst nur E-Mail-Adresse und Passwort.</string>
-    <string name="setup_other_provider">Anderer Anbieter — Server manuell in den Einstellungen eintragen</string>
+    <string name="setup_other_provider">Anderer Anbieter — manuell einrichten</string>
+    <string name="add_account_title">Konto hinzufügen</string>
+    <string name="add_account_connect">Verbinden &amp; speichern</string>
     <string name="setup_help_open">Hilfe öffnen</string>
     <string name="setup_email_address">E-Mail-Adresse</string>
     <string name="setup_login_user">Benutzername (optional)</string>

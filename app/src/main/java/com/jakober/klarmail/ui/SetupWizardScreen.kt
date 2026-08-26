@@ -277,7 +277,19 @@ fun SetupWizardScreen(onDone: () -> Unit, onBack: () -> Unit) {
                     }
                     Spacer(Modifier.height(8.dp))
                 }
-                TextButton(onClick = onBack) {
+                // Eigener Anbieter: gleiches Popup wie in den Einstellungen
+                // (frueher fuehrte der Knopf nur zurueck — verwirrend)
+                var showCustomDialog by remember { mutableStateOf(false) }
+                if (showCustomDialog) {
+                    AddAccountDialog(
+                        onDismiss = { showCustomDialog = false },
+                        onDone = {
+                            showCustomDialog = false
+                            onDone()
+                        }
+                    )
+                }
+                TextButton(onClick = { showCustomDialog = true }) {
                     Text(stringResource(R.string.setup_other_provider))
                 }
                 Spacer(Modifier.height(24.dp))

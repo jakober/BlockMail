@@ -264,7 +264,9 @@
     <string name="setup_back">Back</string>
     <string name="setup_choose_provider">Choose your email provider</string>
     <string name="setup_choose_provider_desc">BlockMail sets servers and ports automatically — all you need is your email address and password.</string>
-    <string name="setup_other_provider">Other provider — enter the servers manually in Settings</string>
+    <string name="setup_other_provider">Other provider — set up manually</string>
+    <string name="add_account_title">Add account</string>
+    <string name="add_account_connect">Connect &amp; save</string>
     <string name="setup_help_open">Open help</string>
     <string name="setup_email_address">Email address</string>
     <string name="setup_login_user">Username (optional)</string>
