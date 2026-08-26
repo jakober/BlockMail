@@ -153,7 +153,14 @@ fun AddAccountDialog(
     }
 
     AlertDialog(
-        onDismissRequest = { if (!testing) onDismiss() },
+        // Eingaben duerfen nicht durch ein versehentliches Tippen NEBEN das
+        // Popup (oder die Zurueck-Geste) verloren gehen: Schliessen geht
+        // ausschliesslich ueber den Abbrechen-Knopf
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        ),
+        onDismissRequest = { },
         title = { Text(stringResource(R.string.add_account_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
