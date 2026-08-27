@@ -41,7 +41,13 @@ import kotlin.math.min
  */
 class MailSyncService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Sicherheitsnetz: Eine unbehandelte Ausnahme in einer der Hintergrund-
+    // Coroutinen (mehrere IDLE-Schleifen, Wartungsläufe) darf niemals den
+    // ganzen App-Prozess abstürzen lassen
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO +
+            kotlinx.coroutines.CoroutineExceptionHandler { _, _ -> }
+    )
 
     /** Halter für die Push-Verbindung EINES Kontos: Store gehört nur dem
      *  eigenen Loop — kein geteilter Zustand, kein Übergabe-Rennen mehr. */
@@ -115,6 +121,33 @@ class MailSyncService : Service() {
                 scope.launch {
                     runCatching {
                         com.jakober.klarmail.data.MailIndex.fullBuild(applicationContext)
+                    }
+                    if (eco) stopSelfClean()
+                }
+            }
+            // Benachrichtigungs-Aktionen (Gelesen/Archivieren/Löschen) laufen
+            // hier statt im BroadcastReceiver: Der bekommt vom System nur
+            // ~10 Sekunden, der IMAP-Verbindungsaufbau darf aber allein 15
+            // Sekunden dauern — das Zeitbudget riss regelmäßig und Android
+            // zeigte "App reagiert nicht". Der Dienst hat kein solches Limit.
+            ACTION_NOTIF_READ, ACTION_NOTIF_ARCHIVE, ACTION_NOTIF_DELETE -> {
+                maybeStartIdle()
+                val action = intent?.action
+                val uid = intent?.getLongExtra("uid", -1L) ?: -1L
+                val account = intent?.getStringExtra("account").orEmpty()
+                val notifId = intent?.getIntExtra("notifId", -1) ?: -1
+                if (notifId != -1) {
+                    androidx.core.app.NotificationManagerCompat.from(this).cancel(notifId)
+                }
+                scope.launch {
+                    if (uid > 0) runCatching {
+                        when (action) {
+                            ACTION_NOTIF_ARCHIVE ->
+                                MailRepository.archiveInboxByUid(uid, account)
+                            ACTION_NOTIF_DELETE ->
+                                MailRepository.deleteInboxByUid(uid, account)
+                            else -> MailRepository.markSeen(uid, account)
+                        }
                     }
                     if (eco) stopSelfClean()
                 }
@@ -410,6 +443,9 @@ class MailSyncService : Service() {
         const val ACTION_CHECK_NOW = "com.jakober.klarmail.CHECK_NOW"
         const val ACTION_BUILD_INDEX = "com.jakober.klarmail.BUILD_INDEX"
         const val ACTION_SEND_REPLY = "com.jakober.klarmail.SEND_REPLY"
+        const val ACTION_NOTIF_READ = "com.jakober.klarmail.SVC_NOTIF_READ"
+        const val ACTION_NOTIF_ARCHIVE = "com.jakober.klarmail.SVC_NOTIF_ARCHIVE"
+        const val ACTION_NOTIF_DELETE = "com.jakober.klarmail.SVC_NOTIF_DELETE"
         const val KEY_QUICK_REPLY = "quick_reply"
 
         /** Startet den Dienst mit einer bestimmten Aktion (Launcher-Shortcuts). */

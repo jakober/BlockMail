@@ -309,7 +309,9 @@ object MailRepository {
     private var bodyCacheDir: File? = null
 
     private val ruleScope = kotlinx.coroutines.CoroutineScope(
-        kotlinx.coroutines.SupervisorJob() + Dispatchers.Default
+        kotlinx.coroutines.SupervisorJob() + Dispatchers.Default +
+            // Regel-/Server-Nacharbeiten dürfen bei Fehlern nie den Prozess reißen
+            kotlinx.coroutines.CoroutineExceptionHandler { _, _ -> }
     )
 
     /** Wendet Stumm-/Blockier-/Snooze-Regeln auf eine Posteingangs-Liste an (nur Anzeige). */

@@ -32,7 +32,12 @@ object MailChecker {
 
     private const val STATUS_NOTIF_ID = 4300
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Sicherheitsnetz wie im Sync-Dienst: Fehler in Feuer-und-vergessen-
+    // Coroutinen dürfen den App-Prozess nicht abstürzen lassen
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO +
+            kotlinx.coroutines.CoroutineExceptionHandler { _, _ -> }
+    )
 
     /**
      * Konto-Kennung fürs [com.jakober.klarmail.data.MailMessage.account]-Feld:
@@ -332,23 +337,25 @@ object MailChecker {
             androidx.core.app.Person.Builder().setName(context.getString(R.string.svc_me)).build()
         ).addMessage(subject, System.currentTimeMillis(), senderPerson)
 
-        // Aktionen über den Mehrzweck-Receiver: Archivieren und Löschen direkt
-        // aus der Benachrichtigung (eigene requestCodes je Aktion!)
+        // Aktionen über den Vordergrund-Dienst (wie die Schnellantwort):
+        // Er hat kein 10-Sekunden-Zeitbudget wie ein BroadcastReceiver —
+        // langsame Server-Verbindungen führen so nicht mehr zu "App
+        // reagiert nicht" (eigene requestCodes je Aktion!)
         fun actionPending(actionName: String, requestCode: Int): PendingIntent {
-            val intent = Intent(context, MarkReadReceiver::class.java).apply {
+            val intent = Intent(context, MailSyncService::class.java).apply {
                 action = actionName
                 putExtra("uid", uid)
                 putExtra("notifId", notifId)
                 putExtra("account", accountTag(acctEmail))
             }
-            return PendingIntent.getBroadcast(
+            return PendingIntent.getForegroundService(
                 context, requestCode, intent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
         }
-        val archivePending = actionPending("com.jakober.klarmail.NOTIF_ARCHIVE", notifId + 1)
-        val deletePending = actionPending("com.jakober.klarmail.NOTIF_DELETE", notifId + 2)
-        val readPending = actionPending("com.jakober.klarmail.NOTIF_READ", notifId + 3)
+        val archivePending = actionPending(MailSyncService.ACTION_NOTIF_ARCHIVE, notifId + 1)
+        val deletePending = actionPending(MailSyncService.ACTION_NOTIF_DELETE, notifId + 2)
+        val readPending = actionPending(MailSyncService.ACTION_NOTIF_READ, notifId + 3)
         val openPending = PendingIntent.getActivity(
             context, notifId,
             Intent(context, MainActivity::class.java).apply {
