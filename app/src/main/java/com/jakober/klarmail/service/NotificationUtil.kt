@@ -45,9 +45,28 @@ object NotificationUtil {
 
     private val http by lazy {
         okhttp3.OkHttpClient.Builder()
-            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(4, java.util.concurrent.TimeUnit.SECONDS)
             .build()
+    }
+
+    /**
+     * Sofort verfügbarer Avatar OHNE Netzzugriff: Cache-Treffer oder
+     * Initialen-Kreis. Damit kann die Benachrichtigung ohne Wartezeit
+     * erscheinen; das echte Logo wird danach im Hintergrund nachgeladen.
+     */
+    fun quickAvatar(name: String, address: String): Bitmap {
+        val key = address.lowercase().ifBlank { name.lowercase() }
+        synchronized(avatarCache) { avatarCache[key] }?.let { return it }
+        return initialBitmap(name)
+    }
+
+    /** Lohnt sich für diese Adresse noch ein Netz-Nachladen des Logos? */
+    fun mayHaveRemoteAvatar(name: String, address: String): Boolean {
+        val key = address.lowercase().ifBlank { name.lowercase() }
+        val domain = address.substringAfterLast("@", "").lowercase().trim()
+        if (domain.isBlank() || domain in freemailDomains) return false
+        synchronized(avatarCache) { return key !in avatarCache }
     }
 
     /**
@@ -60,11 +79,8 @@ object NotificationUtil {
         val domain = address.substringAfterLast("@", "").lowercase().trim()
         var bmp: Bitmap? = null
         if (domain.isNotBlank() && domain !in freemailDomains) {
-            val sources = listOf(
-                "https://logo.clearbit.com/$domain?size=256",
-                "https://www.google.com/s2/favicons?domain=$domain&sz=256"
-            )
-            for (url in sources) {
+            // Gemeinsame Quellenliste mit der Mail-Detailansicht/Liste
+            for (url in com.jakober.klarmail.data.SenderIcon.candidatesFor(domain)) {
                 bmp = fetchBitmap(url)?.takeIf { it.width >= 32 }
                 if (bmp != null) break
             }
@@ -92,10 +108,10 @@ object NotificationUtil {
         return bmp
     }
 
-    /** Absender-Avatar als Icon für Konversations-Benachrichtigungen (Person). */
-    fun senderAvatarIcon(name: String, address: String): androidx.core.graphics.drawable.IconCompat =
+    /** Fertige Bitmap als Icon für Konversations-Benachrichtigungen (Person). */
+    fun avatarIcon(bitmap: Bitmap): androidx.core.graphics.drawable.IconCompat =
         androidx.core.graphics.drawable.IconCompat.createWithAdaptiveBitmap(
-            padToAdaptive(senderAvatarBitmap(name, address))
+            padToAdaptive(bitmap)
         )
 
     private fun fetchBitmap(url: String): Bitmap? = try {

@@ -288,11 +288,42 @@ object MailChecker {
     ) {
         val acctEmail = account.ifBlank { Prefs.email }
         val notifId = notifIdFor(acctEmail, uid)
-        // Absender-Avatar wie in der Mail-Liste (lädt ggf. aus dem Netz —
-        // wir laufen hier bereits auf einem IO-Thread)
-        val avatar = runCatching {
-            NotificationUtil.senderAvatarBitmap(from, fromAddress)
-        }.getOrNull() ?: NotificationUtil.logoBitmap(context)
+        // SOFORT anzeigen — mit Cache-Avatar oder Initialen-Kreis. Das
+        // Absender-Logo aus dem Netz kostete vorher bis zu ~25 Sekunden
+        // (mehrere Quellen mit eigenen Timeouts) und verzögerte die
+        // Benachrichtigung genau um diese Zeit.
+        val quick = NotificationUtil.quickAvatar(from, fromAddress)
+        postMailNotification(context, uid, from, fromAddress, subject, acctEmail, notifId, quick)
+        // Logo im Hintergrund nachladen und die Meldung lautlos aktualisieren
+        // (setOnlyAlertOnce: kein zweiter Ton). Nur wenn sie noch angezeigt
+        // wird — sonst würde eine bereits weggeräumte Meldung wiederbelebt.
+        if (NotificationUtil.mayHaveRemoteAvatar(from, fromAddress)) {
+            scope.launch {
+                runCatching {
+                    val loaded = NotificationUtil.senderAvatarBitmap(from, fromAddress)
+                    val nm = context.getSystemService(android.app.NotificationManager::class.java)
+                    val stillShown = nm?.activeNotifications?.any { it.id == notifId } == true
+                    if (stillShown) {
+                        postMailNotification(
+                            context, uid, from, fromAddress, subject, acctEmail, notifId, loaded
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun postMailNotification(
+        context: Context,
+        uid: Long,
+        from: String,
+        fromAddress: String,
+        subject: String,
+        acctEmail: String,
+        notifId: Int,
+        avatarBitmap: android.graphics.Bitmap?
+    ) {
+        val avatar = avatarBitmap ?: NotificationUtil.logoBitmap(context)
 
         // Konversations-Benachrichtigung (Android 11+): Der Absender-Avatar
         // erscheint damit groß LINKS, das App-Icon nur als kleines Abzeichen.
@@ -301,7 +332,7 @@ object MailChecker {
             fromAddress.ifBlank { context.getString(R.string.svc_sender_fallback) }
         }
         val personIcon = runCatching {
-            NotificationUtil.senderAvatarIcon(senderName, fromAddress)
+            avatar?.let { NotificationUtil.avatarIcon(it) }
         }.getOrNull()
         val senderPerson = androidx.core.app.Person.Builder()
             .setName(senderName)
@@ -402,6 +433,9 @@ object MailChecker {
             .setAutoCancel(true)
             .setContentIntent(openPending)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            // Nur beim ersten Anzeigen Ton/Vibration — das spätere
+            // Logo-Update derselben Meldung bleibt lautlos
+            .setOnlyAlertOnce(true)
         // Bei mehreren Postfächern zeigt der Untertitel, wohin die Mail kam
         if (Prefs.pushAccounts().size > 1) builder.setSubText(acctEmail)
         // Aktions-Knöpfe nach Nutzer-Auswahl (Android zeigt höchstens 3 an)
