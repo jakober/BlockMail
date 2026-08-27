@@ -55,6 +55,16 @@ class MailSyncService : Service() {
         @Volatile
         var store: Store? = null
         var job: Job? = null
+
+        /**
+         * Letztes Lebenszeichen DIESER Verbindung (Verbindungsaufbau oder
+         * Rückkehr aus idle()). Bleibt der Wert länger stehen, als das
+         * Lese-Timeout erlaubt, hängt die Verbindung als "Zombie" — der
+         * Server hat sie still fallen gelassen (NAT/Funkloch), die App
+         * wartet auf eine Meldung, die nie kommt.
+         */
+        @Volatile
+        var lastWakeMs: Long = System.currentTimeMillis()
     }
 
     /** Serialisiert Stop/Start der Loops (Kontowechsel, Netzwechsel, Button). */
@@ -181,6 +191,7 @@ class MailSyncService : Service() {
             else -> if (eco) stopSelfClean() else maybeStartIdle()
         }
         if (!eco && cleanerJob?.isActive != true) startMaintenanceScheduler()
+        if (!eco && watchdogJob?.isActive != true) startIdleWatchdog()
         return START_STICKY
     }
 
@@ -211,6 +222,33 @@ class MailSyncService : Service() {
     }
 
     private var cleanerJob: Job? = null
+    private var watchdogJob: Job? = null
+
+    /**
+     * Wachhund gegen Zombie-Verbindungen: Das Lese-Timeout der IDLE-Verbindung
+     * beträgt 5 Minuten — meldet sich eine Verbindung deutlich länger nicht
+     * (weder Server-Nachricht noch Timeout), hängt sie in einem toten Socket.
+     * Dann wird ihr Store von außen geschlossen: das blockierende idle()
+     * bricht mit Fehler ab, die Schleife verbindet neu und holt verpasste
+     * Mails über die UID-Merkliste nach.
+     */
+    private fun startIdleWatchdog() {
+        watchdogJob = scope.launch {
+            while (isActive) {
+                delay(2 * 60_000)
+                val now = System.currentTimeMillis()
+                idlers.values.forEach { h ->
+                    if (now - h.lastWakeMs > 7 * 60_000) {
+                        // Zeitstempel vorrücken, damit nicht jede Runde
+                        // erneut geschlossen wird, während der Loop neu aufbaut
+                        h.lastWakeMs = now
+                        val s = h.store
+                        Thread { runCatching { s?.close() } }.start()
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * Wiederkehrende Hintergrundarbeiten (alle 10 Minuten): Cache aufräumen,
@@ -320,6 +358,7 @@ class MailSyncService : Service() {
         var backoff = 5_000L
         while (stillActive()) {
             lastAliveMs = System.currentTimeMillis()
+            holder.lastWakeMs = lastAliveMs
             try {
                 connectAndIdle(acc, holder, stillActive) { backoff = 5_000L }
                 if (!stillActive()) break
@@ -355,6 +394,7 @@ class MailSyncService : Service() {
             inbox.open(Folder.READ_ONLY)
             onConnected()
             lastAliveMs = System.currentTimeMillis()
+            holder.lastWakeMs = lastAliveMs
             setStatus(holder.email, PushState(PushKind.WAITING, now()))
             // Nachholen, was während einer Verbindungslücke angekommen ist
             if (MailChecker.processNewMessages(this, inbox, acc.email) > 0) {
@@ -366,12 +406,25 @@ class MailSyncService : Service() {
             // weiter, bis die Verbindung abreißt). idle(true) kehrt nach der
             // ersten Server-Meldung zurück, sodass die Schleife die neue Mail
             // sofort verarbeitet und danach wieder in den Wartemodus geht.
-            while (stillActive() && inbox.isOpen) {
+            // Zusätzlich wird die Verbindung spätestens alle 15 Minuten planmäßig
+            // frisch aufgebaut: Router/Mobilfunk-NAT werfen still stehende
+            // Verbindungen gern lautlos weg — beim Neuaufbau liefert der Server
+            // den echten Stand, und Verpasstes wird über die UID-Merkliste
+            // nachgeholt.
+            val connectedAt = System.currentTimeMillis()
+            while (stillActive() && inbox.isOpen &&
+                System.currentTimeMillis() - connectedAt < 15 * 60_000
+            ) {
                 inbox.idle(true)
                 lastAliveMs = System.currentTimeMillis()
+                holder.lastWakeMs = lastAliveMs
                 if (!stillActive()) break
                 if (MailChecker.processNewMessages(this, inbox, acc.email) > 0) {
                     setStatus(holder.email, PushState(PushKind.PROCESSED, now()))
+                } else {
+                    // Herzschlag: Zeitstempel rückt bei jedem Lebenszeichen vor —
+                    // so ist in den Einstellungen sichtbar, dass die Verbindung lebt
+                    setStatus(holder.email, PushState(PushKind.WAITING, now()))
                 }
                 MailChecker.syncFlags(this, inbox, acc.email)
             }
