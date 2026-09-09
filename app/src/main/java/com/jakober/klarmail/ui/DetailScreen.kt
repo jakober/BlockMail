@@ -1386,6 +1386,10 @@ private fun HtmlMailView(
     // zoom (statt transform:scale) ändert auch die Layout-Höhe mit, es
     // bleibt also kein Leerraum unter der verkleinerten Mail.
     var bodyZoom by remember(html) { mutableStateOf(1f) }
+    // Stirbt der WebView-Renderer (Speicherdruck, System-WebView-Update),
+    // bleibt die alte Instanz für immer leer/weiß — dann baut ein neuer
+    // Generationszähler eine frische WebView auf, die den Inhalt neu lädt
+    var webGeneration by remember { mutableStateOf(0) }
     val wrapped = remember(html, bodyZoom) {
         // Locale.US: Der CSS-Wert braucht einen Punkt als Dezimaltrenner
         val zoomCss = if (bodyZoom < 0.999f) {
@@ -1404,6 +1408,7 @@ private fun HtmlMailView(
            </style>
            </head><body>$html</body></html>"""
     }
+    androidx.compose.runtime.key(webGeneration) {
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
@@ -1454,6 +1459,18 @@ private fun HtmlMailView(
                         fit.postDelayed({ fit.measureFit() }, 700)
                         fit.postDelayed({ fit.showWhenReady() }, 1200)
                     }
+
+                    override fun onRenderProcessGone(
+                        view: WebView?,
+                        detail: android.webkit.RenderProcessGoneDetail?
+                    ): Boolean {
+                        // Die WebView ist ab jetzt unbrauchbar (bliebe für
+                        // immer weiß). true = App nicht abstürzen lassen;
+                        // der Generationswechsel ersetzt sie durch eine
+                        // frische, die den Inhalt neu lädt.
+                        webGeneration++
+                        return true
+                    }
                 }
             }
         },
@@ -1481,9 +1498,14 @@ private fun HtmlMailView(
             if (webView.tag != wrapped) {
                 webView.tag = wrapped
                 webView.loadDataWithBaseURL(null, wrapped, "text/html", "utf-8", null)
+                // Absolutes Sicherheitsnetz DIREKT am Ladeaufruf: Feuert
+                // onPageFinished nie (verklemmter Renderer), wird trotzdem
+                // eingeblendet — lieber uneingepasst als für immer weiß
+                webView.postDelayed({ webView.showWhenReady() }, 1600)
             }
         }
     )
+    }
 }
 
 private fun htmlEscape(s: String): String = s
