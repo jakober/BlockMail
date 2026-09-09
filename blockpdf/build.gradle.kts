@@ -15,8 +15,8 @@ android {
         applicationId = "com.jakober.blockpdf"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.12"
+        versionCode = 14
+        versionName = "1.13"
     }
 
     // Gleicher Schluessel wie BlockMail: fuer Debug-Builds der geteilte
@@ -45,7 +45,14 @@ android {
             signingConfig = signingConfigs.getByName("shared")
         }
         release {
-            isMinifyEnabled = false
+            // R8 wie bei BlockMail (Play-Vorgabe "App-Optimierung");
+            // PDFBox-Schutzregeln in proguard-rules.pro
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = signingConfigs.getByName(
                 if (uploadKeystorePath != null) "upload" else "shared"
             )

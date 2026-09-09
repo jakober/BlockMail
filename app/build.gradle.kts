@@ -12,8 +12,8 @@ android {
         applicationId = "com.jakober.klarmail"
         minSdk = 26
         targetSdk = 36
-        versionCode = 276
-        versionName = "4.73"
+        versionCode = 277
+        versionName = "4.74"
 
         // Redirect-Schema fuer den Google-OAuth-Ruecksprung (umgekehrte Client-ID)
         manifestPlaceholders["appAuthRedirectScheme"] =
@@ -49,7 +49,17 @@ android {
             signingConfig = signingConfigs.getByName("shared")
         }
         release {
-            isMinifyEnabled = false
+            // R8: Code verkleinern + verschleiern und ungenutzte Ressourcen
+            // entfernen — Play-Vorgabe "App-Optimierung" (Verschleierung 0 %
+            // wurde im Play-Dashboard mit Frist bemängelt). Bibliotheken,
+            // die per Reflexion arbeiten (Jakarta Mail, PDFBox, AppAuth),
+            // schützt proguard-rules.pro vor dem Wegkürzen.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = signingConfigs.getByName(
                 if (uploadKeystorePath != null) "upload" else "shared"
             )
