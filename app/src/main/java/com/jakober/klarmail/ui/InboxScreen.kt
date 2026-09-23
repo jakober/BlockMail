@@ -209,12 +209,12 @@ private fun extractAiKeywords(question: String): List<String> {
 private val searchHoldQuery = androidx.compose.runtime.mutableStateOf("")
 private val searchHoldServerResults =
     androidx.compose.runtime.mutableStateOf<List<MailMessage>?>(null)
-// Ordner, in dem die Server-Volltextsuche tatsächlich gesucht hat (meist
-// "Alle Nachrichten"/Archiv): IMAP-UIDs gelten nur je Ordner — wird ein
-// Archiv-Treffer als Posteingang geöffnet, meldet der Server
-// "Nachricht nicht gefunden".
-private val searchHoldServerFolder =
-    androidx.compose.runtime.mutableStateOf(MailRepository.MailFolder.INBOX)
+// Ordner, in dem die Server-Volltextsuche je Konto tatsächlich gesucht hat
+// (meist "Alle Nachrichten"/Archiv): IMAP-UIDs gelten nur je Ordner — wird
+// ein Archiv-Treffer als Posteingang geöffnet, meldet der Server
+// "Nachricht nicht gefunden". Schlüssel = MailMessage.account-Kennung.
+private val searchHoldServerFolders =
+    androidx.compose.runtime.mutableStateOf<Map<String, MailRepository.MailFolder>>(emptyMap())
 private val searchHoldAiAnswer =
     androidx.compose.runtime.mutableStateOf<String?>(null)
 private val searchHoldAiHits =
@@ -558,7 +558,7 @@ fun InboxScreen(
     // mit remember wären Suchbegriff und Ergebnisse beim Zurückkommen weg.
     var query by searchHoldQuery
     var serverResults by searchHoldServerResults
-    var serverSearchFolder by searchHoldServerFolder
+    var serverSearchFolders by searchHoldServerFolders
     var showDraftsDialog by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     var aiAskBusy by remember { mutableStateOf(false) }
@@ -589,7 +589,7 @@ fun InboxScreen(
     fun exitSearch() {
         query = ""
         serverResults = null
-        serverSearchFolder = MailRepository.MailFolder.INBOX
+        serverSearchFolders = emptyMap()
         searching = false
         aiAnswer = null
         aiHits = emptyList()
@@ -611,11 +611,11 @@ fun InboxScreen(
         scope.launch {
             searching = true
             try {
-                // Die Suche meldet den Ordner mit, in dem sie gesucht hat
-                // (Archiv oder Posteingang) — der muss beim Öffnen der
-                // Treffer mitgegeben werden, sonst passt die UID nicht
-                val (usedFolder, found) = MailRepository.search(query)
-                serverSearchFolder = usedFolder
+                // Die Suche meldet je Konto den Ordner mit, in dem sie
+                // gesucht hat (Archiv oder Posteingang) — der muss beim
+                // Öffnen der Treffer mitgegeben werden, sonst passt die UID
+                val (usedFolders, found) = MailRepository.search(query)
+                serverSearchFolders = usedFolders
                 serverResults = found
             } catch (e: Exception) {
                 snackbar.showSnackbar(
@@ -2215,16 +2215,19 @@ fun InboxScreen(
                             )
                         }
                     }
-                    items(results, key = { it.uid }) { mail ->
+                    items(results, key = { "${it.account}:${it.uid}" }) { mail ->
                         SwipeableMailRow(
                             mail = mail,
                             onClick = {
-                                // Server-Treffer stammen aus dem Such-Ordner
-                                // (Archiv); der Live-Filter aus dem Posteingang
+                                // Server-Treffer stammen aus dem je Konto
+                                // durchsuchten Ordner (Archiv); der
+                                // Live-Filter aus dem Posteingang
                                 openFromSearch(
                                     mail,
-                                    if (serverResults != null) serverSearchFolder
-                                    else MailRepository.MailFolder.INBOX
+                                    if (serverResults != null) {
+                                        serverSearchFolders[mail.account]
+                                            ?: MailRepository.MailFolder.INBOX
+                                    } else MailRepository.MailFolder.INBOX
                                 )
                             },
                             onLongClick = {},
@@ -2235,18 +2238,24 @@ fun InboxScreen(
                                 if (mail.seen) Icons.Filled.MarkEmailUnread else Icons.Filled.Drafts
                             ) {
                                 val newSeen = !mail.seen
-                                scope.launch { MailRepository.setSeen(mail.uid, newSeen) }
+                                scope.launch {
+                                    MailRepository.setSeen(mail.uid, newSeen, mail.account)
+                                }
                                 serverResults = serverResults?.map {
-                                    if (it.uid == mail.uid) it.copy(seen = newSeen) else it
+                                    if (it.uid == mail.uid && it.account == mail.account) {
+                                        it.copy(seen = newSeen)
+                                    } else it
                                 }
                             },
                             leftSpec = SwipeSpec(
                                 R.string.inbox_delete, Icons.Filled.Delete, destructive = true
                             ) {
                                 val prevResults = serverResults
-                                serverResults = serverResults?.filter { it.uid != mail.uid }
+                                serverResults = serverResults?.filter {
+                                    !(it.uid == mail.uid && it.account == mail.account)
+                                }
                                 scope.launch {
-                                    MailRepository.hideLocally(mail.uid)
+                                    MailRepository.hideLocally(mail.uid, mail.account)
                                     val result = snackbar.showSnackbar(
                                         message = context.getString(R.string.inbox_snackbar_deleted),
                                         actionLabel = context.getString(R.string.inbox_undo),
@@ -2256,7 +2265,7 @@ fun InboxScreen(
                                         MailRepository.restoreLocally(mail)
                                         serverResults = prevResults
                                     } else {
-                                        MailRepository.deleteMail(mail.uid)
+                                        MailRepository.deleteMail(mail.uid, mail.account)
                                     }
                                 }
                             },

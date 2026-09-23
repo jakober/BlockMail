@@ -1028,56 +1028,86 @@ object MailRepository {
      * Posteingang öffnet, obwohl in „Alle Nachrichten“ gesucht wurde, läuft
      * beim Server ins Leere („Nachricht nicht gefunden“).
      */
-    suspend fun search(query: String): Pair<MailFolder, List<MailMessage>> =
+    /** Konto-Kennung fürs MailMessage.account-Feld ("" = aktives Konto). */
+    private fun accountTagOf(email: String): String =
+        if (isActiveAccount(email)) "" else email.trim().lowercase()
+
+    /**
+     * Server-Volltextsuche. Im Sammel-Posteingang „Alle Konten“ läuft sie
+     * über ALLE gespeicherten Konten (vorher nur das aktive — ältere Mails
+     * der übrigen Postfächer waren dort unauffindbar). Die Map nennt je
+     * Konto-Kennung den tatsächlich durchsuchten Ordner (Archiv/„Alle
+     * Nachrichten“ oder Posteingang): IMAP-UIDs gelten nur je Ordner, beim
+     * Öffnen eines Treffers muss der richtige mitgegeben werden.
+     */
+    suspend fun search(query: String): Pair<Map<String, MailFolder>, List<MailMessage>> =
         withContext(Dispatchers.IO) {
-        val store = openStore()
-        try {
-            // In "Alle Nachrichten" suchen (enthält auch ältere/archivierte Mails);
-            // Fallback auf Posteingang, falls der Ordner nicht auffindbar ist.
-            val archive = resolveFolder(store, MailFolder.ARCHIVE)?.takeIf { it.exists() }
-            val usedFolder = if (archive != null) MailFolder.ARCHIVE else MailFolder.INBOX
-            val folder = (archive ?: store.getFolder("INBOX")) as IMAPFolder
-            folder.open(Folder.READ_ONLY)
-            // Echte Volltextsuche: Absender, Betreff UND Mail-Inhalt —
-            // die Suche läuft auf dem Server und findet so auch Jahre alte Mails
-            val term = javax.mail.search.OrTerm(
-                arrayOf(
-                    javax.mail.search.SubjectTerm(query),
-                    javax.mail.search.FromStringTerm(query),
-                    javax.mail.search.BodyTerm(query)
-                )
-            )
-            val found = try {
-                folder.search(term)
-            } catch (e: Exception) {
-                // Manche Server können nicht im Inhalt suchen — dann wenigstens
-                // Absender und Betreff durchsuchen
-                folder.search(
-                    javax.mail.search.OrTerm(
-                        javax.mail.search.SubjectTerm(query),
-                        javax.mail.search.FromStringTerm(query)
-                    )
-                )
-            }.takeLast(150).toTypedArray()
-            if (found.isEmpty()) return@withContext usedFolder to emptyList()
-            val inbox = folder
-            val fp = FetchProfile().apply {
-                add(FetchProfile.Item.ENVELOPE)
-                add(FetchProfile.Item.FLAGS)
-                add(FetchProfile.Item.CONTENT_INFO)
-                add(UIDFolder.FetchProfileItem.UID)
-            }
-            inbox.fetch(found, fp)
-            usedFolder to found.mapNotNull { m ->
+        val accountEmails =
+            if (_unified.value) Prefs.pushAccounts().map { it.email } else listOf("")
+        val folders = mutableMapOf<String, MailFolder>()
+        val all = mutableListOf<MailMessage>()
+        var firstError: Exception? = null
+        for (accEmail in accountEmails) {
+            try {
+                val tag = accountTagOf(accEmail.ifBlank { Prefs.email })
+                val store = openStoreFor(accEmail)
                 try {
-                    toMailMessage(inbox.getUID(m), m)
-                } catch (e: Exception) {
-                    null
+                    // In "Alle Nachrichten" suchen (enthält auch ältere/archivierte
+                    // Mails); Fallback auf Posteingang, falls nicht auffindbar
+                    val archive = resolveFolder(store, MailFolder.ARCHIVE)?.takeIf { it.exists() }
+                    val usedFolder = if (archive != null) MailFolder.ARCHIVE else MailFolder.INBOX
+                    val folder = (archive ?: store.getFolder("INBOX")) as IMAPFolder
+                    folder.open(Folder.READ_ONLY)
+                    // Echte Volltextsuche: Absender, Betreff UND Mail-Inhalt —
+                    // läuft auf dem Server und findet so auch Jahre alte Mails
+                    val term = javax.mail.search.OrTerm(
+                        arrayOf(
+                            javax.mail.search.SubjectTerm(query),
+                            javax.mail.search.FromStringTerm(query),
+                            javax.mail.search.BodyTerm(query)
+                        )
+                    )
+                    val found = try {
+                        folder.search(term)
+                    } catch (e: Exception) {
+                        // Manche Server können nicht im Inhalt suchen — dann
+                        // wenigstens Absender und Betreff durchsuchen
+                        folder.search(
+                            javax.mail.search.OrTerm(
+                                javax.mail.search.SubjectTerm(query),
+                                javax.mail.search.FromStringTerm(query)
+                            )
+                        )
+                    }.takeLast(150).toTypedArray()
+                    folders[tag] = usedFolder
+                    if (found.isNotEmpty()) {
+                        val fp = FetchProfile().apply {
+                            add(FetchProfile.Item.ENVELOPE)
+                            add(FetchProfile.Item.FLAGS)
+                            add(FetchProfile.Item.CONTENT_INFO)
+                            add(UIDFolder.FetchProfileItem.UID)
+                        }
+                        folder.fetch(found, fp)
+                        all += found.mapNotNull { m ->
+                            try {
+                                toMailMessage(folder.getUID(m), m).copy(account = tag)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                    }
+                } finally {
+                    runCatching { store.close() }
                 }
-            }.sortedByDescending { it.date }
-        } finally {
-            runCatching { store.close() }
+            } catch (e: Exception) {
+                // Ein scheiterndes Konto lässt die Treffer der anderen stehen
+                if (firstError == null) firstError = e
+            }
         }
+        // Scheitern ALLE Konten, soll die UI den Fehler zeigen statt
+        // fälschlich "Keine Treffer"
+        if (folders.isEmpty() && all.isEmpty()) firstError?.let { throw it }
+        folders.toMap() to all.sortedByDescending { it.date }.take(150)
     }
 
     /**
@@ -1088,31 +1118,45 @@ object MailRepository {
      * damit hasAttachments keine Einzelabfragen pro Mail auslöst.
      */
     suspend fun headerIndex(limit: Int): List<MailMessage> = withContext(Dispatchers.IO) {
-        val store = openStore()
-        try {
-            val inbox = store.getFolder("INBOX") as IMAPFolder
-            inbox.open(Folder.READ_ONLY)
-            val total = inbox.messageCount
-            if (total <= 0) return@withContext emptyList()
-            val start = max(1, total - limit + 1)
-            val msgs = inbox.getMessages(start, total)
-            val fp = FetchProfile().apply {
-                add(FetchProfile.Item.ENVELOPE)
-                add(FetchProfile.Item.FLAGS)
-                add(FetchProfile.Item.CONTENT_INFO)
-                add(UIDFolder.FetchProfileItem.UID)
-            }
-            inbox.fetch(msgs, fp)
-            msgs.mapNotNull { m ->
+        // Sammel-Posteingang: Kopfdaten ALLER Konten (Budget aufgeteilt)
+        val accountEmails =
+            if (_unified.value) Prefs.pushAccounts().map { it.email } else listOf("")
+        val perAccount =
+            if (accountEmails.size > 1) (limit / accountEmails.size).coerceAtLeast(100)
+            else limit
+        val all = mutableListOf<MailMessage>()
+        for (accEmail in accountEmails) {
+            runCatching {
+                val tag = accountTagOf(accEmail.ifBlank { Prefs.email })
+                val store = openStoreFor(accEmail)
                 try {
-                    toMailMessage(inbox.getUID(m), m)
-                } catch (e: Exception) {
-                    null
+                    val inbox = store.getFolder("INBOX") as IMAPFolder
+                    inbox.open(Folder.READ_ONLY)
+                    val total = inbox.messageCount
+                    if (total > 0) {
+                        val start = max(1, total - perAccount + 1)
+                        val msgs = inbox.getMessages(start, total)
+                        val fp = FetchProfile().apply {
+                            add(FetchProfile.Item.ENVELOPE)
+                            add(FetchProfile.Item.FLAGS)
+                            add(FetchProfile.Item.CONTENT_INFO)
+                            add(UIDFolder.FetchProfileItem.UID)
+                        }
+                        inbox.fetch(msgs, fp)
+                        all += msgs.mapNotNull { m ->
+                            try {
+                                toMailMessage(inbox.getUID(m), m).copy(account = tag)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                    }
+                } finally {
+                    runCatching { store.close() }
                 }
-            }.sortedByDescending { it.date }
-        } finally {
-            runCatching { store.close() }
+            }
         }
+        all.sortedByDescending { it.date }
     }
 
     /**
@@ -1136,17 +1180,26 @@ object MailRepository {
     ): List<AiSearchHit> = withContext(Dispatchers.IO) {
         if (keywords.isEmpty()) return@withContext emptyList()
         val hits = mutableListOf<AiSearchHit>()
-        val seen = HashSet<String>() // "ORDNER:uid"
-        runCatching {
-            val store = openStore()
-            try {
-                runCatching {
-                    val inbox = (store.getFolder("INBOX") as IMAPFolder)
-                        .apply { open(Folder.READ_ONLY) }
-                    searchFolderForAi(inbox, MailFolder.INBOX, keywords, maxPerKeyword, seen, hits)
+        // Sammel-Posteingang: Stichwortsuche über ALLE Konten
+        val accountEmails =
+            if (_unified.value) Prefs.pushAccounts().map { it.email } else listOf("")
+        for (accEmail in accountEmails) {
+            val tag = accountTagOf(accEmail.ifBlank { Prefs.email })
+            val seen = HashSet<String>() // "ORDNER:uid" (je Konto eigener Raum)
+            runCatching {
+                val store = openStoreFor(accEmail)
+                try {
+                    runCatching {
+                        val inbox = (store.getFolder("INBOX") as IMAPFolder)
+                            .apply { open(Folder.READ_ONLY) }
+                        searchFolderForAi(
+                            inbox, MailFolder.INBOX, keywords, maxPerKeyword,
+                            seen, hits, accountTag = tag
+                        )
+                    }
+                } finally {
+                    runCatching { store.close() }
                 }
-            } finally {
-                runCatching { store.close() }
             }
         }
         hits
@@ -1159,7 +1212,8 @@ object MailRepository {
         keywords: List<String>,
         maxPerKeyword: Int,
         seen: MutableSet<String>,
-        out: MutableList<AiSearchHit>
+        out: MutableList<AiSearchHit>,
+        accountTag: String = ""
     ) {
         // CONTENT_INFO wie bei headerIndex mitholen, damit hasAttachments
         // keine Einzelabfragen pro Mail auslöst
@@ -1183,7 +1237,9 @@ object MailRepository {
                     runCatching {
                         val uid = folder.getUID(m)
                         if (seen.add("${kind.name}:$uid")) {
-                            out += AiSearchHit(toMailMessage(uid, m), kind)
+                            out += AiSearchHit(
+                                toMailMessage(uid, m).copy(account = accountTag), kind
+                            )
                         }
                     }
                 }
