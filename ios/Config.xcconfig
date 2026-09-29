@@ -1,0 +1,16 @@
+// BlockMail iOS – zentrale Einstellungen (von project.yml eingebunden).
+// Werte hier anpassen; die GitHub-Action kann sie per Umgebungsvariable überschreiben.
+
+// Bundle-ID der App (muss im Apple-Developer-Konto verfügbar sein)
+APP_BUNDLE_ID = com.jakober.blockmail
+
+// Apple-Team-ID (10 Zeichen, developer.apple.com → Membership)
+DEVELOPMENT_TEAM =
+
+// Google-OAuth-Client-ID vom Typ „iOS“ (Google Cloud Console), z. B.
+// 1234567890-abc.apps.googleusercontent.com — leer = Google-Anmeldung aus,
+// App-Passwort/andere Anbieter funktionieren trotzdem.
+GOOGLE_IOS_CLIENT_ID =
+
+MARKETING_VERSION = 4.75
+CURRENT_PROJECT_VERSION = 1

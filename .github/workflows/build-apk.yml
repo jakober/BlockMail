@@ -3,6 +3,11 @@ name: APK bauen
 on:
   push:
     branches: ["**"]
+    # Reine iOS-Änderungen brauchen keinen Android-Build
+    paths-ignore:
+      - "ios/**"
+      - "push-server/**"
+      - ".github/workflows/ios-*.yml"
   workflow_dispatch:
 
 permissions:

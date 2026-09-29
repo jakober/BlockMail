@@ -20,3 +20,10 @@ logo_import/
 # Betriebssystem
 .DS_Store
 Thumbs.db
+
+# iOS (Xcode-Projekt wird per XcodeGen aus ios/project.yml erzeugt)
+ios/BlockMail.xcodeproj/
+ios/build/
+ios/build.log
+ios/DerivedData/
+xcuserdata/

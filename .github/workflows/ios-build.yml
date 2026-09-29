@@ -1,0 +1,49 @@
+name: iOS bauen
+
+# Prüft bei jedem Push auf ios/**, dass die iOS-App kompiliert (ohne Signatur).
+on:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Neuestes Xcode wählen
+        run: |
+          XC=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Verwende $XC"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      - name: XcodeGen installieren
+        run: brew install xcodegen
+
+      - name: Texte prüfen
+        run: |
+          python3 ios/tools/convert_strings.py
+          python3 ios/tools/check_strings.py
+
+      - name: Projekt erzeugen
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Bauen (Simulator, ohne Signatur)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project BlockMail.xcodeproj -scheme BlockMail \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build.log | grep -E "error:|warning: unre|BUILD" || true
+          if ! grep -q "BUILD SUCCEEDED" build.log; then
+            echo "===== Fehler ====="
+            grep -E "error:" build.log | sort -u | head -150
+            exit 1
+          fi
