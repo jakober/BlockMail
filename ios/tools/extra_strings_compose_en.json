@@ -1,0 +1,10 @@
+{
+  "compose_attach_file": "Choose file …",
+  "compose_attach_photo": "Choose photo …",
+  "compose_schedule_custom": "Pick date and time",
+  "compose_schedule_confirm": "Send at this time",
+  "compose_discard_title": "Close message?",
+  "compose_discard_message": "The message can be saved as a draft or discarded.",
+  "compose_save_draft": "Save as draft",
+  "compose_discard": "Discard"
+}

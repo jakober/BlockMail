@@ -1,0 +1,10 @@
+{
+  "compose_attach_file": "Datei auswählen …",
+  "compose_attach_photo": "Foto auswählen …",
+  "compose_schedule_custom": "Datum und Uhrzeit wählen",
+  "compose_schedule_confirm": "Zu diesem Zeitpunkt senden",
+  "compose_discard_title": "Nachricht schließen?",
+  "compose_discard_message": "Die Nachricht kann als Entwurf gespeichert oder verworfen werden.",
+  "compose_save_draft": "Als Entwurf speichern",
+  "compose_discard": "Verwerfen"
+}
