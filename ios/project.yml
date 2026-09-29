@@ -46,6 +46,10 @@ targets:
             CFBundleTypeRole: Editor
             LSHandlerRank: Alternate
             LSItemContentTypes: [com.adobe.pdf]
+          - CFBundleTypeName: Bild
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.image]
         CFBundleURLTypes:
           - CFBundleURLName: com.jakober.blockmail
             CFBundleURLSchemes: [blockmail]

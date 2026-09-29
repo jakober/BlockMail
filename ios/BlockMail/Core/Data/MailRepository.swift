@@ -42,7 +42,7 @@ final class MailRepository {
     @ObservationIgnored private var bodyCache: [String: MailBody] = [:]
     @ObservationIgnored private var attachmentCache: [String: Data] = [:]
     @ObservationIgnored private var snippetJobRunning = false
-    @ObservationIgnored private var refreshing = false
+    @ObservationIgnored private var refreshGen = 0
     @ObservationIgnored private let pool = MailSessionPool.shared
 
     private var prefs: Prefs { Prefs.shared }
@@ -356,11 +356,12 @@ final class MailRepository {
         guard prefs.isConfigured else { return }
         if starred { await refreshStarred(); return }
         if unified { await refreshUnified(); return }
-        guard !refreshing else { return }
-        refreshing = true
+        // Jeder Aufruf bekommt eine Nummer; überholte Ergebnisse werden verworfen
+        refreshGen += 1
+        let gen = refreshGen
         loading = true
         error = nil
-        defer { refreshing = false; loading = false }
+        defer { if gen == refreshGen { loading = false } }
         let folderAtStart = currentFolder
         let customAtStart = customFolder
         let limit = loadLimit
@@ -373,7 +374,8 @@ final class MailRepository {
                 let res = try await s.client.fetch("\(start):\(total)", items: Self.listItems, byUID: false)
                 return (res.compactMap { Self.toMailMessage($0) }, start > 1)
             }
-            guard folderAtStart == currentFolder, customAtStart == customFolder, !unified, !starred else { return }
+            guard gen == refreshGen, folderAtStart == currentFolder, customAtStart == customFolder,
+                  !unified, !starred else { return }
             canLoadMore = more
             let prevSnippets = Dictionary(messages.compactMap { m in m.snippet.map { (m.uid, $0) } },
                                           uniquingKeysWith: { a, _ in a })
