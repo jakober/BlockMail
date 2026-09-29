@@ -13,6 +13,8 @@ keine In-App-Käufe**. Gedacht ausschließlich für die Verteilung über TestFli
 | Launcher-Shortcuts | Quick Actions (App-Symbol lange drücken) |
 | Gemini Nano | Apple Intelligence |
 | Abo, Kontingent, Pro-Hinweise, Entwickler-Code | entfällt |
+| BlockMail als Standard-Mail-App (mailto:), „Per E-Mail senden“ aus anderen Apps | nicht möglich ohne Apple-Sonderfreigabe (Mail-Client-Berechtigung); PDFs/Bilder lassen sich per „Öffnen in … BlockMail“ in den Editor holen |
+| Absender-Logo in der Benachrichtigung | Standard-Mitteilung ohne Logo |
 
 ## Projekt bauen (Mac mit Xcode 16+ / 26)
 
@@ -74,6 +76,13 @@ und neue Mails per Apple Push meldet. Dafür im Apple-Developer-Konto einen **AP
 (Keys → „+“ → Apple Push Notifications service) anlegen. In der App: Einstellungen → Push →
 Server-URL eintragen und anmelden. **Achtung:** Der Server bekommt die Zugangsdaten der Konten —
 nur auf einem eigenen, vertrauenswürdigen Server betreiben.
+
+## Noch ungetestet
+
+Die App kompiliert, und die Unit-Tests der IMAP/MIME-Schicht laufen grün. Auf einem echten Gerät
+und gegen echte Postfächer lief sie aber noch nicht. Deshalb bitte beim ersten TestFlight-Build
+gezielt prüfen: Anmeldung (App-Passwort und Google), Posteingang laden, Senden mit Anhang, Push,
+PDF-Editor und Widget.
 
 ## Aufbau
 
