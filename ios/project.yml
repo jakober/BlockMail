@@ -14,11 +14,6 @@ settings:
     SWIFT_STRICT_CONCURRENCY: minimal
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     CODE_SIGN_STYLE: Automatic
-  configs:
-    # Archiv für TestFlight direkt mit dem Verteilungs-Zertifikat signieren —
-    # sonst verlangt Apple erst ein Development-Profil mit registriertem Gerät
-    Release:
-      CODE_SIGN_IDENTITY: "Apple Distribution"
 targets:
   BlockMail:
     type: application
