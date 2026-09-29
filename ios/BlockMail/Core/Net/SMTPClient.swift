@@ -56,7 +56,7 @@ enum MIMEBuilder {
     }
 
     static func base64Lines(_ data: Data) -> String {
-        data.base64EncodedString(options: [.lineLength76Characters, .endLineWithCarriageReturnLineFeed])
+        data.base64EncodedString(options: [.lineLength76Characters, .endLineWithCarriageReturn, .endLineWithLineFeed])
     }
 
     static func quotedPrintableEncode(_ s: String) -> String {

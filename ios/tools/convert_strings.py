@@ -56,11 +56,21 @@ def esc(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\t", "\\t")
 
 
+def extras(lang: str) -> dict:
+    # extra_strings_<lang>.json plus je Bereich extra_strings_<bereich>_<lang>.json
+    out = {}
+    for extra in sorted(glob.glob(os.path.join(ROOT, "ios/tools", "extra_strings_*.json"))):
+        if extra.endswith(f"_{lang}.json"):
+            with open(extra, encoding="utf-8") as fh:
+                out.update(json.load(fh))
+    return out
+
+
 def write(lang: str, data: dict):
-    extra = os.path.join(ROOT, "ios/tools", f"extra_strings_{lang}.json")
-    if os.path.exists(extra):
-        with open(extra, encoding="utf-8") as fh:
-            data.update(json.load(fh))
+    # Fehlende englische Zusatztexte fallen auf Deutsch zurück
+    if lang != "de":
+        data.update(extras("de"))
+    data.update(extras(lang))
     d = os.path.join(OUT, f"{lang}.lproj")
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "Localizable.strings"), "w", encoding="utf-8") as fh:
