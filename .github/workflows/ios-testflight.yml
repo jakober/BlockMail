@@ -18,6 +18,10 @@ name: iOS → TestFlight
 # Anleitung: ios/README.md
 
 on:
+  # Automatisch jeden Monat am 1. um 03:00 UTC — TestFlight-Builds laufen nach
+  # 90 Tagen ab. (Zeitgesteuerte Läufe startet GitHub nur aus dem Standard-Branch.)
+  schedule:
+    - cron: "0 3 1 * *"
   workflow_dispatch:
     inputs:
       notes:
@@ -32,6 +36,9 @@ jobs:
     steps:
       - name: Code auschecken
         uses: actions/checkout@v4
+        with:
+          # Zeitgesteuert: den iOS-Stand bauen (liegt noch nicht auf main)
+          ref: ${{ github.event_name == 'schedule' && (vars.IOS_BRANCH || 'claude/vigilant-maxwell-jskvvs') || github.ref }}
 
       - name: Secrets prüfen
         env:
