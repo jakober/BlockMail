@@ -368,6 +368,9 @@
 "inbox_font_larger" = "Schrift vergrößern";
 "inbox_font_smaller" = "Schrift verkleinern";
 "inbox_has_attachment" = "Anhang vorhanden";
+"inbox_ios_tour_ai_text" = "Der KI-Knopf fasst deinen ganzen Tag oder alle ungelesenen Mails auf einen Blick zusammen – antippbar bis zur einzelnen Mail.";
+"inbox_ios_tour_ask_text" = "Stelle der KI freie Fragen in der Suchleiste – zum Beispiel „Wie viel habe ich diesen Monat bei Amazon ausgegeben?“. Enter startet die KI, sie durchsucht dein Postfach und liest bei Bedarf die passenden Mails.";
+"inbox_ios_tour_menu_text" = "Mit dem linken Symbol wechselst du direkt zwischen Liste und Kacheln. Daneben das Menü: Hell/Dunkel, Ansicht, schlichtes Design, Schriftgröße und die Einstellungen.";
 "inbox_layout_blocks" = "Kacheln (2er)";
 "inbox_layout_blocks3" = "Kompakt (3er)";
 "inbox_layout_list" = "Liste";

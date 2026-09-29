@@ -98,6 +98,7 @@ struct SettingsAppearanceSections: View {
                 .foregroundStyle(palette.primary)
             layoutRow("list", title: L("settings_layout_list_title"), desc: L("settings_layout_list_desc"))
             layoutRow("blocks", title: L("settings_layout_blocks_title"), desc: L("settings_layout_blocks_desc"))
+            layoutRow("blocks3", title: L("settings_layout_blocks3_title"), desc: L("settings_layout_blocks3_desc"))
 
             SettingsToggleRow(title: L("settings_conversation_view"), desc: L("settings_conversation_view_desc"),
                               isOn: prefs.settingsBinding(\.conversationView))

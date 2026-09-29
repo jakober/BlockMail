@@ -10,6 +10,7 @@ struct BlockMailApp: App {
                 .environment(Prefs.shared)
                 .environment(MailRepository.shared)
                 .environment(AppRouter.shared)
+                .environment(AppNav.shared)
         }
     }
 }
