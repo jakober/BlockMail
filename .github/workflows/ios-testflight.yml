@@ -11,6 +11,7 @@ name: iOS → TestFlight
 # Optional:
 #   GOOGLE_IOS_CLIENT_ID – OAuth-Client-ID (Typ iOS) für „Mit Google anmelden“
 #   IOS_BUNDLE_ID        – abweichende Bundle-ID (Standard: com.jakober.blockmail)
+#   PUSH_SERVER_SECRET   – Passwort des eigenen Push-Servers (nur Hex-Zeichen)
 #
 # Der API-Schlüssel braucht die Rolle „Admin“, damit Xcode Zertifikat und
 # Provisioning-Profile automatisch (Cloud-Signing) anlegen darf.
@@ -64,6 +65,7 @@ jobs:
           TEAM: ${{ secrets.APPLE_TEAM_ID }}
           GCID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
           BID: ${{ secrets.IOS_BUNDLE_ID }}
+          PSEC: ${{ secrets.PUSH_SERVER_SECRET }}
         run: |
           # Build-Nummer muss bei jedem Upload steigen
           BUILD=$(( ${{ github.run_number }} + 100 ))
@@ -72,12 +74,15 @@ jobs:
           if [ -n "$GCID" ]; then
             sed -i '' "s|^GOOGLE_IOS_CLIENT_ID =.*|GOOGLE_IOS_CLIENT_ID = $GCID|" Config.xcconfig
           fi
+          if [ -n "$PSEC" ]; then
+            sed -i '' "s|^PUSH_SERVER_SECRET =.*|PUSH_SERVER_SECRET = $PSEC|" Config.xcconfig
+          fi
           if [ -n "$BID" ]; then
             sed -i '' "s|^APP_BUNDLE_ID =.*|APP_BUNDLE_ID = $BID|" Config.xcconfig
           fi
           # Produktions-Push für TestFlight/App Store
           sed -i '' "s|aps-environment: development|aps-environment: production|" project.yml
-          grep -v "^//" Config.xcconfig | grep -v "^$"
+          grep -v "^//" Config.xcconfig | grep -v "^$" | grep -v "PUSH_SERVER_SECRET"
           python3 tools/convert_strings.py
           xcodegen generate
 

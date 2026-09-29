@@ -179,7 +179,13 @@ final class Prefs {
     var pushServerURL: String { didSet { sp.set(pushServerURL.trimmingCharacters(in: .whitespaces), forKey: "push_server_url") } }
     /// Gemeinsames Passwort des Push-Servers (Header X-Push-Secret; "" = keins).
     var pushServerSecret: String {
-        get { access(keyPath: \.pushServerSecret); return Keychain.get("push_server_secret") ?? "" }
+        get {
+            access(keyPath: \.pushServerSecret)
+            if let v = Keychain.get("push_server_secret"), !v.isEmpty { return v }
+            // Voreinstellung aus dem Build (GitHub-Secret PUSH_SERVER_SECRET)
+            return (Bundle.main.object(forInfoDictionaryKey: "PushServerSecret") as? String)?
+                .trimmingCharacters(in: .whitespaces) ?? ""
+        }
         set { withMutation(keyPath: \.pushServerSecret) { Keychain.set("push_server_secret", newValue.trimmingCharacters(in: .whitespacesAndNewlines)) } }
     }
     /// Zuletzt registriertes APNs-Geräte-Token (hex).
@@ -238,7 +244,11 @@ final class Prefs {
         smtpHost = sp.string(forKey: "smtp_host") ?? "smtp.gmail.com"
         smtpPort = sp.object(forKey: "smtp_port") as? Int ?? 465
         loginUser = sp.string(forKey: "login_user") ?? ""
-        pushServerURL = sp.string(forKey: "push_server_url") ?? ""
+        // Voreinstellung aus dem Build: eigener Push-Server
+        let defaultHost = (Bundle.main.object(forInfoDictionaryKey: "PushServerHost") as? String)?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+        pushServerURL = sp.string(forKey: "push_server_url")
+            ?? (defaultHost.isEmpty || defaultHost.hasPrefix("$") ? "" : "https://" + defaultHost)
         apnsToken = sp.string(forKey: "apns_token") ?? ""
         pushRegisteredAt = Int64(sp.double(forKey: "push_registered_at"))
         defaultSendAccount = sp.string(forKey: "default_send_account") ?? ""

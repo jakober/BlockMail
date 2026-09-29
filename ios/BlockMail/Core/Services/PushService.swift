@@ -31,6 +31,11 @@ final class PushService {
             status = L("svc_no_account")
             return
         }
+        // Echter Push: Geräte-Token anfordern; die Antwort meldet das Gerät
+        // samt Konten beim Push-Server an (auch nach der Ersteinrichtung)
+        if !prefs.pushServerURL.isEmpty && prefs.pushMode == "push" {
+            Task { await PushRegistration.shared.requestRemotePush() }
+        }
         let wanted = Set(prefs.pushAccounts().map { $0.email.lowercased() })
         for (key, task) in loops where !wanted.contains(key) {
             task.cancel()

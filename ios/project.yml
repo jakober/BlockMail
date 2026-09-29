@@ -29,6 +29,8 @@ targets:
         CFBundleDevelopmentRegion: de
         CFBundleLocalizations: [de, en]
         GoogleIOSClientID: $(GOOGLE_IOS_CLIENT_ID)
+        PushServerHost: $(PUSH_SERVER_HOST)
+        PushServerSecret: $(PUSH_SERVER_SECRET)
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true

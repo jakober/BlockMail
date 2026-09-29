@@ -12,5 +12,13 @@ DEVELOPMENT_TEAM =
 // App-Passwort/andere Anbieter funktionieren trotzdem.
 GOOGLE_IOS_CLIENT_ID =
 
+// Eigener Push-Server (nur Hostname, ohne https://). Die App trägt ihn als
+// Voreinstellung ein und meldet sich automatisch an.
+PUSH_SERVER_HOST = push.blockwerk-orange.de
+
+// Server-Passwort (X-Push-Secret). NICHT hier eintragen – kommt beim
+// TestFlight-Build aus dem GitHub-Secret PUSH_SERVER_SECRET.
+PUSH_SERVER_SECRET =
+
 MARKETING_VERSION = 4.75
 CURRENT_PROJECT_VERSION = 1
