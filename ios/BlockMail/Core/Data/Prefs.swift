@@ -177,6 +177,11 @@ final class Prefs {
 
     /// URL des eigenen Push-Servers ("" = kein Echtzeit-Push, nur Hintergrundprüfung).
     var pushServerURL: String { didSet { sp.set(pushServerURL.trimmingCharacters(in: .whitespaces), forKey: "push_server_url") } }
+    /// Gemeinsames Passwort des Push-Servers (Header X-Push-Secret; "" = keins).
+    var pushServerSecret: String {
+        get { access(keyPath: \.pushServerSecret); return Keychain.get("push_server_secret") ?? "" }
+        set { withMutation(keyPath: \.pushServerSecret) { Keychain.set("push_server_secret", newValue.trimmingCharacters(in: .whitespacesAndNewlines)) } }
+    }
     /// Zuletzt registriertes APNs-Geräte-Token (hex).
     var apnsToken: String { didSet { sp.set(apnsToken, forKey: "apns_token") } }
     /// Zeitpunkt der letzten erfolgreichen Push-Registrierung (ms, 0 = nie).

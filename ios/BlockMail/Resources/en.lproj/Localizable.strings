@@ -861,4 +861,6 @@
 "welcome_skip" = "Explore later";
 "welcome_subtitle" = "The clear, fast mail app.";
 "welcome_title" = "Welcome to BlockMail";
+"widget_compose" = "New";
 "widget_description" = "The latest emails from your inbox";
+"widget_no_account" = "No account set up – please open the app";

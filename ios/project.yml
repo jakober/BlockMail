@@ -89,11 +89,25 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).widget
         TARGETED_DEVICE_FAMILY: "1,2"
         SKIP_INSTALL: YES
+  BlockMailTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: BlockMailTests
+    dependencies:
+      - target: BlockMail
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).tests
 schemes:
   BlockMail:
     build:
       targets:
         BlockMail: all
+    test:
+      targets:
+        - BlockMailTests
     run:
       config: Debug
     archive:

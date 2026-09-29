@@ -114,6 +114,8 @@ final class PushRegistration {
         req.timeoutInterval = 20
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(Prefs.shared.installToken)", forHTTPHeaderField: "Authorization")
+        let secret = Prefs.shared.pushServerSecret
+        if !secret.isEmpty { req.setValue(secret, forHTTPHeaderField: "X-Push-Secret") }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, resp) = try await URLSession.shared.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0

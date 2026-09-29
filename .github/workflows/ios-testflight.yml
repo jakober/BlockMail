@@ -1,0 +1,147 @@
+name: iOS → TestFlight
+
+# Baut die iOS-App signiert und lädt sie zu TestFlight hoch.
+# Manuell starten: Actions → „iOS → TestFlight“ → „Run workflow“.
+#
+# Benötigte GitHub-Secrets (Repo → Settings → Secrets and variables → Actions):
+#   APPLE_TEAM_ID        – 10-stellige Team-ID (developer.apple.com → Membership)
+#   ASC_KEY_ID           – App-Store-Connect-API-Schlüssel: Key ID
+#   ASC_ISSUER_ID        – App-Store-Connect-API-Schlüssel: Issuer ID
+#   ASC_KEY_P8           – Inhalt der .p8-Datei (komplett, inkl. BEGIN/END-Zeilen)
+# Optional:
+#   GOOGLE_IOS_CLIENT_ID – OAuth-Client-ID (Typ iOS) für „Mit Google anmelden“
+#   IOS_BUNDLE_ID        – abweichende Bundle-ID (Standard: com.jakober.blockmail)
+#
+# Der API-Schlüssel braucht die Rolle „Admin“, damit Xcode Zertifikat und
+# Provisioning-Profile automatisch (Cloud-Signing) anlegen darf.
+# Anleitung: ios/README.md
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: "Was ist neu? (erscheint als Test-Hinweis in TestFlight)"
+        required: false
+        default: ""
+
+jobs:
+  testflight:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Secrets prüfen
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+          P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          missing=""
+          [ -z "$TEAM" ] && missing="$missing APPLE_TEAM_ID"
+          [ -z "$KID" ] && missing="$missing ASC_KEY_ID"
+          [ -z "$ISS" ] && missing="$missing ASC_ISSUER_ID"
+          [ -z "$P8" ] && missing="$missing ASC_KEY_P8"
+          if [ -n "$missing" ]; then
+            echo "::error::Fehlende Secrets:$missing — siehe ios/README.md"
+            exit 1
+          fi
+
+      - name: Neuestes Xcode wählen
+        run: |
+          XC=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      - name: XcodeGen installieren
+        run: brew install xcodegen
+
+      - name: Konfiguration schreiben
+        working-directory: ios
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          GCID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          BID: ${{ secrets.IOS_BUNDLE_ID }}
+        run: |
+          # Build-Nummer muss bei jedem Upload steigen
+          BUILD=$(( ${{ github.run_number }} + 100 ))
+          sed -i '' "s|^DEVELOPMENT_TEAM =.*|DEVELOPMENT_TEAM = $TEAM|" Config.xcconfig
+          sed -i '' "s|^CURRENT_PROJECT_VERSION =.*|CURRENT_PROJECT_VERSION = $BUILD|" Config.xcconfig
+          if [ -n "$GCID" ]; then
+            sed -i '' "s|^GOOGLE_IOS_CLIENT_ID =.*|GOOGLE_IOS_CLIENT_ID = $GCID|" Config.xcconfig
+          fi
+          if [ -n "$BID" ]; then
+            sed -i '' "s|^APP_BUNDLE_ID =.*|APP_BUNDLE_ID = $BID|" Config.xcconfig
+          fi
+          # Produktions-Push für TestFlight/App Store
+          sed -i '' "s|aps-environment: development|aps-environment: production|" project.yml
+          grep -v "^//" Config.xcconfig | grep -v "^$"
+          python3 tools/convert_strings.py
+          xcodegen generate
+
+      - name: API-Schlüssel ablegen
+        env:
+          P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/asc"
+          printf '%s\n' "$P8" > "$RUNNER_TEMP/asc/AuthKey.p8"
+
+      - name: Archivieren (signiert)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project BlockMail.xcodeproj -scheme BlockMail -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/BlockMail.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
+            -authenticationKeyID "${{ secrets.ASC_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.ASC_ISSUER_ID }}" \
+            2>&1 | tee archive.log | grep -E "error:|ARCHIVE" || true
+          if ! grep -q "ARCHIVE SUCCEEDED" archive.log; then
+            grep -E "error:" archive.log | sort -u | head -80
+            exit 1
+          fi
+
+      - name: Zu TestFlight hochladen
+        working-directory: ios
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${{ secrets.APPLE_TEAM_ID }}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>testFlightInternalTestingOnly</key><false/>
+          </dict>
+          </plist>
+          EOF
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/BlockMail.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
+            -authenticationKeyID "${{ secrets.ASC_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.ASC_ISSUER_ID }}" \
+            2>&1 | tee export.log | tail -40
+          grep -qE "EXPORT SUCCEEDED|Upload succeeded|Uploaded" export.log
+
+      - name: Zusammenfassung
+        if: success()
+        run: |
+          echo "### BlockMail iOS hochgeladen 🚀" >> "$GITHUB_STEP_SUMMARY"
+          echo "Build $(( ${{ github.run_number }} + 100 )) ist bei App Store Connect. Nach der Verarbeitung (ca. 5–30 min) erscheint er in TestFlight." >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${{ github.event.inputs.notes }}" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Hinweis für Tester: ${{ github.event.inputs.notes }}" >> "$GITHUB_STEP_SUMMARY"
+          fi

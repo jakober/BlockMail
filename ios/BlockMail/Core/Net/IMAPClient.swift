@@ -100,24 +100,20 @@ final class IMAPClient: @unchecked Sendable {
 
     func login(user: String, password: String) async throws {
         do {
-            if capabilities.contains("AUTH=PLAIN") || !IMAPArg.isQuotable(password) {
+            if capabilities.contains("SASL-IR") && capabilities.contains("AUTH=PLAIN") {
                 // AUTHENTICATE PLAIN verträgt Sonderzeichen im Passwort sicher
                 let token = Data("\0\(user)\0\(password)".utf8).base64EncodedString()
-                _ = try await command("AUTHENTICATE PLAIN " + token, sensitive: true)
-            } else {
-                _ = try await command("LOGIN \(IMAPArg.quote(user)) \(IMAPArg.quote(password))", sensitive: true)
-            }
-        } catch MailNetError.commandFailed(let msg) {
-            // Einige Server kennen AUTH=PLAIN nur angeblich — LOGIN als Fallback
-            if capabilities.contains("AUTH=PLAIN"), IMAPArg.isQuotable(password) {
                 do {
-                    _ = try await command("LOGIN \(IMAPArg.quote(user)) \(IMAPArg.quote(password))", sensitive: true)
-                } catch {
-                    throw MailNetError.authFailed(msg)
+                    try await command("AUTHENTICATE PLAIN " + token)
+                } catch MailNetError.commandFailed {
+                    // Manche Server kennen AUTH=PLAIN nur angeblich — LOGIN als Fallback
+                    try await command([.raw("LOGIN "), arg(user), .raw(" "), arg(password)])
                 }
             } else {
-                throw MailNetError.authFailed(msg)
+                try await command([.raw("LOGIN "), arg(user), .raw(" "), arg(password)])
             }
+        } catch MailNetError.commandFailed(let msg) {
+            throw MailNetError.authFailed(msg)
         }
         _ = try? await command("CAPABILITY")
     }
@@ -329,7 +325,11 @@ final class IMAPClient: @unchecked Sendable {
     }
 
     func select(_ name: String, readOnly: Bool) async throws {
-        if selected == name && (readOnly || !selectedReadOnly) { return }
+        if selected == name && (readOnly || !selectedReadOnly) {
+            // Bereits geöffnet: NOOP holt neue EXISTS/EXPUNGE-Meldungen ab
+            try await command("NOOP")
+            return
+        }
         exists = 0
         uidNext = 0
         try await command([.raw(readOnly ? "EXAMINE " : "SELECT "), arg(name)])
@@ -438,7 +438,7 @@ final class IMAPClient: @unchecked Sendable {
     /// Wartet per IDLE auf eine Änderung im ausgewählten Ordner. Kehrt zurück,
     /// sobald der Server etwas meldet, `maxWait` abläuft oder `stopIdle()`
     /// aufgerufen wurde. Liefert true, wenn sich etwas geändert hat.
-    func idle(maxWait: TimeInterval = 9 * 60) async throws -> Bool {
+    func idle(maxWait: TimeInterval = 4 * 60) async throws -> Bool {
         guard capabilities.contains("IDLE") else {
             // Ohne IDLE: kurz warten und NOOP als Abfrage
             try await Task.sleep(nanoseconds: UInt64(min(maxWait, 60) * 1_000_000_000))

@@ -47,3 +47,14 @@ jobs:
             grep -E "error:" build.log | sort -u | head -150
             exit 1
           fi
+
+      - name: Unit-Tests (IMAP/MIME-Kern)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          SIM=$(xcrun simctl list devices available | grep -E "^\s+iPhone" | head -1 | sed -E 's/^ +//; s/ \(.*//')
+          echo "Simulator: $SIM"
+          xcodebuild -project BlockMail.xcodeproj -scheme BlockMail \
+            -destination "platform=iOS Simulator,name=$SIM" \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee test.log | grep -E "error:|Test Case .* (passed|failed)|XCTAssert|TEST (SUCCEEDED|FAILED)" || true
+          grep -q "TEST SUCCEEDED" test.log
