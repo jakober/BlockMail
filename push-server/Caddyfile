@@ -1,0 +1,5 @@
+# Caddy holt das TLS-Zertifikat (Let's Encrypt) automatisch.
+{$PUSH_DOMAIN} {
+	encode gzip
+	reverse_proxy push:8787
+}

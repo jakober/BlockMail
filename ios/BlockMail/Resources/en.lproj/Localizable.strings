@@ -432,7 +432,6 @@
 "ios_ai_engine_apple" = "Apple Intelligence (device)";
 "ios_ai_engine_title" = "Which AI?";
 "ios_ai_none" = "None — no API key and no Apple Intelligence";
-"ios_backup_exported" = "Backup saved";
 "ios_bg_status_background" = "Background checks by iOS active";
 "ios_bg_status_foreground" = "Connected – real-time while the app is open (since %@)";
 "ios_claude_key" = "Claude API key";
@@ -443,14 +442,11 @@
 "ios_feedback_device_info" = "—\nBlockMail v%1$@ (iOS)\niOS %2$@\nDevice: %3$@";
 "ios_focus_desc" = "Group the inbox by importance: needs reply, important, can wait, promotions & newsletters.";
 "ios_google_not_configured" = "Google sign-in is not set up in this version. Please connect Gmail with an app password.";
-"ios_layout_title" = "Inbox layout";
 "ios_notif_allow" = "Allow notifications";
 "ios_notif_allowed" = "Notifications are allowed.";
 "ios_notif_buttons_desc" = "Which actions appear directly in a new-mail notification (long press). At most 3 — change the order with the arrows.";
 "ios_notif_move_down" = "Move down";
 "ios_notif_move_up" = "Move up";
-"ios_notif_not_determined" = "Notifications have not been allowed yet.";
-"ios_notif_status" = "Notifications";
 "ios_open_settings" = "Open iOS settings";
 "ios_outbox_at" = "Will be sent on %@";
 "ios_outbox_delete" = "Delete scheduled mail";
@@ -458,7 +454,6 @@
 "ios_outbox_empty" = "No scheduled mails.";
 "ios_outbox_send_now" = "Send now";
 "ios_outbox_title" = "Scheduled mails (outbox)";
-"ios_paste" = "Paste";
 "ios_privacy_text" = "BlockMail connects directly to your mail server. Credentials and API keys are stored encrypted in the iOS keychain, mails and the search index stay on this device. Only what you set up yourself is shared: with your own Claude key, the mail texts being processed go to Anthropic; with your own push server, it receives the credentials needed to check mail. There are no ads and no tracking.";
 "ios_privacy_title" = "Privacy & info";
 "ios_push_denied" = "Notifications are turned off in the iOS settings.";

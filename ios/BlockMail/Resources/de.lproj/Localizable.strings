@@ -432,7 +432,6 @@
 "ios_ai_engine_apple" = "Apple Intelligence (Gerät)";
 "ios_ai_engine_title" = "Welche KI?";
 "ios_ai_none" = "Keine — kein API-Schlüssel und keine Apple Intelligence";
-"ios_backup_exported" = "Sicherung gespeichert";
 "ios_bg_status_background" = "Hintergrundprüfung durch iOS aktiv";
 "ios_bg_status_foreground" = "Verbunden – Echtzeit, solange die App geöffnet ist (seit %@)";
 "ios_claude_key" = "Claude-API-Schlüssel";
@@ -443,14 +442,11 @@
 "ios_feedback_device_info" = "—\nBlockMail v%1$@ (iOS)\niOS %2$@\nGerät: %3$@";
 "ios_focus_desc" = "Posteingang nach Wichtigkeit gruppieren: Braucht Antwort, Wichtig, Kann warten, Werbung & Newsletter.";
 "ios_google_not_configured" = "Die Google-Anmeldung ist in dieser Version nicht eingerichtet. Bitte Gmail mit einem App-Passwort verbinden.";
-"ios_layout_title" = "Posteingang-Layout";
 "ios_notif_allow" = "Mitteilungen erlauben";
 "ios_notif_allowed" = "Mitteilungen sind erlaubt.";
 "ios_notif_buttons_desc" = "Welche Aktionen bei einer neuen Mail direkt in der Mitteilung erscheinen (lange drücken). Höchstens 3 — die Reihenfolge änderst du mit den Pfeilen.";
 "ios_notif_move_down" = "Nach unten";
 "ios_notif_move_up" = "Nach oben";
-"ios_notif_not_determined" = "Mitteilungen wurden noch nicht erlaubt.";
-"ios_notif_status" = "Mitteilungen";
 "ios_open_settings" = "iOS-Einstellungen öffnen";
 "ios_outbox_at" = "Wird gesendet am %@";
 "ios_outbox_delete" = "Geplante Mail löschen";
@@ -458,7 +454,6 @@
 "ios_outbox_empty" = "Keine geplanten Mails.";
 "ios_outbox_send_now" = "Jetzt senden";
 "ios_outbox_title" = "Geplante Mails (Ausgang)";
-"ios_paste" = "Einfügen";
 "ios_privacy_text" = "BlockMail verbindet sich direkt mit deinem Mail-Server. Zugangsdaten und API-Schlüssel liegen verschlüsselt im iOS-Schlüsselbund, Mails und Suchindex nur auf diesem Gerät. Weitergegeben wird nur, was du selbst einrichtest: Mit eigenem Claude-Schlüssel gehen die jeweils bearbeiteten Mail-Texte an Anthropic, mit eigenem Push-Server erhält dieser die Zugangsdaten zum Abruf. Es gibt keine Werbung und kein Tracking.";
 "ios_privacy_title" = "Datenschutz & Info";
 "ios_push_denied" = "Mitteilungen sind in den iOS-Einstellungen ausgeschaltet.";

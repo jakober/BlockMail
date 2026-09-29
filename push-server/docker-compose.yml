@@ -1,0 +1,36 @@
+# BlockMail-Push-Server mit Caddy als HTTPS-Reverse-Proxy.
+# Vorher: .env aus .env.example anlegen und den APNs-Schlüssel nach ./secrets/ legen.
+services:
+  push:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      APNS_KEY_FILE: /run/secrets/apns.p8
+    volumes:
+      - push-data:/data
+      - ./secrets/AuthKey.p8:/run/secrets/apns.p8:ro
+    # Kein Port nach außen – nur Caddy spricht mit dem Dienst.
+    expose:
+      - "8787"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUSH_DOMAIN: ${PUSH_DOMAIN:?PUSH_DOMAIN in .env setzen}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - push
+
+volumes:
+  push-data:
+  caddy-data:
+  caddy-config:

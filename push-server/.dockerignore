@@ -1,0 +1,6 @@
+node_modules
+data
+secrets
+.env
+*.p8
+README.md

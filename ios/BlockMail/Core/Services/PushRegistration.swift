@@ -75,7 +75,9 @@ final class PushRegistration {
                 lastError = nil
                 return
             }
-            let accounts: [[String: Any]] = p.pushAccounts().map { a in
+            // Aktives Konto zuerst: der Server meldet es mit account = "" (App-Konvention)
+            let ordered = p.pushAccounts().sorted { a, _ in a.email.caseInsensitiveCompare(p.email) == .orderedSame }
+            let accounts: [[String: Any]] = ordered.map { a in
                 var o: [String: Any] = [
                     "email": a.email, "authMethod": a.authMethod, "imapHost": a.imapHost,
                     "imapPort": a.imapPort, "loginUser": a.loginName()
