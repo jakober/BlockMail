@@ -274,6 +274,12 @@ object MailChecker {
                 }
             }
             MailRepository.applyRemoteFlags(seenByUid, accountTag(acctEmail))
+            // Zahl am App-Symbol: Der Server zählt die ungelesenen Mails
+            // dieses Postfachs (eine billige SEARCH-Abfrage auf der ohnehin
+            // offenen Verbindung)
+            runCatching {
+                UnreadBadge.set(context, acctEmail, inbox.unreadMessageCount)
+            }
         } catch (_: Exception) {
         }
     }
@@ -377,7 +383,7 @@ object MailChecker {
                 action = actionName
                 putExtra("uid", uid)
                 putExtra("notifId", notifId)
-                putExtra("account", accountTag(acctEmail))
+                putExtra("account", acctEmail)
             }
             return PendingIntent.getForegroundService(
                 context, requestCode, intent,
@@ -391,7 +397,7 @@ object MailChecker {
             context, notifId,
             Intent(context, MainActivity::class.java).apply {
                 putExtra("open_uid", uid)
-                putExtra("open_account", accountTag(acctEmail))
+                putExtra("open_account", acctEmail)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -408,7 +414,7 @@ object MailChecker {
             putExtra("address", fromAddress)
             putExtra("subject", subject)
             putExtra("notifId", notifId)
-            putExtra("account", accountTag(acctEmail))
+            putExtra("account", acctEmail)
         }
         val replyPending = PendingIntent.getForegroundService(
             context, notifId, replyIntent,
@@ -585,7 +591,10 @@ object MailChecker {
         val openIntent = PendingIntent.getActivity(
             context, RADAR_NOTIF_ID,
             Intent(context, MainActivity::class.java).apply {
-                needsReply.firstOrNull()?.let { putExtra("open_uid", it.uid) }
+                needsReply.firstOrNull()?.let {
+                    putExtra("open_uid", it.uid)
+                    putExtra("open_account", it.account.ifBlank { Prefs.email })
+                }
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT

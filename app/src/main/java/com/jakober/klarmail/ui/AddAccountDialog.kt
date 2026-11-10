@@ -75,23 +75,42 @@ private val dlgProviders = listOf(
  * Konto gespeichert und aktiviert. Ersetzt die frühere Bearbeitung „in
  * den Feldern des aktiven Kontos“, die ohne sichtbaren Speichern-Knopf
  * verwirrte.
+ *
+ * Mit [edit] bearbeitet dasselbe Popup die Zugangsdaten eines bereits
+ * gespeicherten Kontos — auch eines gerade NICHT aktiven: Die Felder sind
+ * vorbelegt, die Adresse bleibt fest (sie ist der Schlüssel des Kontos),
+ * und nach bestandenem Verbindungstest werden nur dessen Daten ersetzt;
+ * das aktive Konto wechselt dabei nicht.
  */
 @Composable
 fun AddAccountDialog(
     onDismiss: () -> Unit,
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    edit: Prefs.Account? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var providerId by remember { mutableStateOf("gmail") }
+    // Bearbeiten: Passt alles zu einer Voreinstellung, gilt der Anbieter —
+    // sonst "Eigener Server", damit abweichende Hosts/Ports erhalten bleiben
+    val editPreset = remember(edit) {
+        edit?.let { acc ->
+            dlgProviders.firstOrNull {
+                it.id != "custom" && it.imap.equals(acc.imapHost, ignoreCase = true) &&
+                    it.imapPort == acc.imapPort &&
+                    it.smtp.equals(acc.smtpHost, ignoreCase = true) &&
+                    it.smtpPort == acc.smtpPort
+            }?.id ?: "custom"
+        }
+    }
+    var providerId by remember { mutableStateOf(editPreset ?: "gmail") }
     var providerMenuOpen by remember { mutableStateOf(false) }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var loginUser by remember { mutableStateOf("") }
-    var imapHost by remember { mutableStateOf("") }
-    var imapPort by remember { mutableStateOf("993") }
-    var smtpHost by remember { mutableStateOf("") }
-    var smtpPort by remember { mutableStateOf("587") }
+    var email by remember { mutableStateOf(edit?.email.orEmpty()) }
+    var password by remember { mutableStateOf(edit?.appPassword.orEmpty()) }
+    var loginUser by remember { mutableStateOf(edit?.loginUser.orEmpty()) }
+    var imapHost by remember { mutableStateOf(edit?.imapHost.orEmpty()) }
+    var imapPort by remember { mutableStateOf((edit?.imapPort ?: 993).toString()) }
+    var smtpHost by remember { mutableStateOf(edit?.smtpHost.orEmpty()) }
+    var smtpPort by remember { mutableStateOf((edit?.smtpPort ?: 587).toString()) }
     var testing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -117,7 +136,27 @@ fun AddAccountDialog(
                 email, password, resolvedImapHost(), resolvedImapPort(),
                 loginUser = loginUser.trim()
             )
-            if (err == null) {
+            if (err == null && edit != null) {
+                val p = dlgProviders.first { it.id == providerId }
+                // Nur die Daten DIESES Kontos ersetzen — kein Kontowechsel
+                Prefs.updateAccount(
+                    edit.copy(
+                        authMethod = "password",
+                        appPassword = password,
+                        imapHost = resolvedImapHost(),
+                        imapPort = resolvedImapPort(),
+                        smtpHost = if (providerId == "custom") smtpHost.trim() else p.smtp,
+                        smtpPort =
+                            if (providerId == "custom") smtpPort.trim().toIntOrNull() ?: 587
+                            else p.smtpPort,
+                        loginUser = loginUser.trim()
+                    )
+                )
+                // Push-Verbindungen mit den neuen Daten neu aufbauen
+                com.jakober.klarmail.service.MailSyncService.restart(context)
+                testing = false
+                onDone()
+            } else if (err == null) {
                 val p = dlgProviders.first { it.id == providerId }
                 // Bisheriges Konto sichern, neues aktivieren (wie im
                 // Einrichtungsassistenten)
@@ -161,7 +200,14 @@ fun AddAccountDialog(
             dismissOnClickOutside = false
         ),
         onDismissRequest = { },
-        title = { Text(stringResource(R.string.add_account_title)) },
+        title = {
+            Text(
+                stringResource(
+                    if (edit != null) R.string.settings_edit_connection
+                    else R.string.add_account_title
+                )
+            )
+        },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Box {
@@ -199,6 +245,9 @@ fun AddAccountDialog(
                     onValueChange = { email = it },
                     label = { Text(stringResource(R.string.settings_email_address)) },
                     singleLine = true,
+                    // Beim Bearbeiten fest: Die Adresse ist der Schlüssel des
+                    // Kontos (Farbe, Ordner, Merkliste hängen daran)
+                    enabled = edit == null,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(10.dp))

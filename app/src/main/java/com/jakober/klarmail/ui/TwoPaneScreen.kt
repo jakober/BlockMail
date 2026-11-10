@@ -42,7 +42,9 @@ import com.jakober.klarmail.R
 @Composable
 fun TwoPaneScreen(
     selectedUid: Long,
-    onSelect: (Long) -> Unit,
+    /** Konto-Adresse der gewählten Mail (UIDs sind nur je Postfach eindeutig). */
+    selectedAccount: String,
+    onSelect: (Long, String) -> Unit,
     onCompose: () -> Unit,
     onSettings: () -> Unit,
     onReply: (Long) -> Unit,
@@ -68,7 +70,7 @@ fun TwoPaneScreen(
                     .width(totalWidth * split)
             ) {
                 InboxScreen(
-                    onOpenMail = { onSelect(it) },
+                    onOpenMail = { uid, acct -> onSelect(uid, acct) },
                     onCompose = onCompose,
                     onSettings = onSettings,
                     onOpenDraft = onOpenDraft,
@@ -135,14 +137,14 @@ fun TwoPaneScreen(
                     // key(uid): Beim Mail-Wechsel wird die Detailansicht komplett
                     // neu aufgebaut — sonst bleibt der alte WebView der vorherigen
                     // Mail hängen und füllt die Fläche weiß
-                    androidx.compose.runtime.key(selectedUid) {
+                    androidx.compose.runtime.key(selectedUid, selectedAccount) {
                         // Rückfall-Objekt aus Suche/KI-Treffern (siehe
                         // Detail-Route in MainActivity)
                         val pending = com.jakober.klarmail.data.MailRepository.pendingOpen
                         val fallback = pending?.second?.takeIf { it.uid == selectedUid }
                         DetailScreen(
                             uid = selectedUid,
-                            onBack = { onSelect(-1L) },
+                            onBack = { onSelect(-1L, "") },
                             onReply = { onReply(selectedUid) },
                             folder = pending?.first?.takeIf {
                                 fallback != null &&
@@ -150,6 +152,7 @@ fun TwoPaneScreen(
                                         .MailFolder.INBOX
                             },
                             fallbackMail = fallback,
+                            accountHint = selectedAccount.takeIf { it.isNotBlank() },
                             // Ohne diese Weiterleitung fehlten auf dem Tablet
                             // die Editor-Eintraege im Anhang-Menue
                             onEditAttachment = onEditAttachment,

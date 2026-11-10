@@ -187,12 +187,25 @@ fun DetailScreen(
     fun acctKey(a: String) = a.trim().lowercase()
         .ifBlank { com.jakober.klarmail.data.Prefs.email.trim().lowercase() }
     val wantedAcct = fallbackMail?.account ?: accountHint
-    val mail = messages.find {
+    val listedMail = messages.find {
         it.uid == uid && (
             wantedAcct == null ||
                 acctKey(it.account) == acctKey(wantedAcct)
             )
     } ?: fallbackMail
+    // Steht die Mail NICHT in der geladenen Liste (Benachrichtigung für das
+    // gerade nicht angezeigte Konto, App-Neustart, anderer Ordner offen),
+    // werden ihre Kopfdaten direkt vom Server geholt — früher endete das
+    // sofort in "Nachricht nicht gefunden".
+    var fetchedMail by remember(uid, accountHint) {
+        mutableStateOf<com.jakober.klarmail.data.MailMessage?>(null)
+    }
+    var headerMissing by remember(uid, accountHint) { mutableStateOf(false) }
+    val mail = listedMail ?: fetchedMail
+    // Konto-Kennung wie im MailMessage.account-Feld: "" = aktives Konto
+    val hintTag = accountHint?.trim()?.lowercase()?.let {
+        if (it == com.jakober.klarmail.data.Prefs.email.trim().lowercase()) "" else it
+    }
 
     // remember(uid): In der Zweispalten-Ansicht wechselt die uid im selben
     // Composable — der Zustand muss dann zurückgesetzt werden
@@ -201,7 +214,28 @@ fun DetailScreen(
 
     // Konto der Mail (Sammel-Posteingang/Benachrichtigung): leitet
     // Laden/Markieren/Löschen an den richtigen Mail-Server weiter
-    val mailAccount = mail?.account?.ifBlank { null } ?: accountHint.orEmpty()
+    val mailAccount = mail?.account ?: hintTag.orEmpty()
+
+    LaunchedEffect(uid, listedMail == null) {
+        if (listedMail == null && fetchedMail == null) {
+            val m = MailRepository.fetchHeader(
+                uid,
+                folder ?: MailRepository.currentFolder.value,
+                hintTag.orEmpty()
+            )
+            if (m == null) {
+                headerMissing = true
+            } else {
+                val markRead = folder == null && !m.seen
+                fetchedMail = if (markRead) m.copy(seen = true) else m
+                if (markRead) launch { MailRepository.markSeen(uid, m.account) }
+            }
+        }
+    }
+    // Antworten/Weiterleiten beziehen sich auf genau diese Mail
+    LaunchedEffect(mail?.uid, mail?.account) {
+        if (mail != null) MailRepository.openedMail = mail
+    }
 
     LaunchedEffect(uid) {
         // Nur im normalen Posteingang automatisch als gelesen markieren.
@@ -627,7 +661,13 @@ fun DetailScreen(
                     .fillMaxSize()
                     .padding(padding), contentAlignment = Alignment.Center
             ) {
-                Text(stringResource(R.string.detail_message_not_found))
+                // Erst wenn auch der Server die Mail nicht kennt, ist sie
+                // wirklich weg — bis dahin laufen die Kopfdaten noch ein
+                if (headerMissing) {
+                    Text(stringResource(R.string.detail_message_not_found))
+                } else {
+                    CircularProgressIndicator()
+                }
             }
             return@Scaffold
         }

@@ -16,6 +16,23 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Zahl am App-Symbol (ungelesene Mails): Android hat dafuer keine
+         eigene Schnittstelle, die Startbildschirme der Hersteller schon —
+         jeweils mit eigener Berechtigung. Auf Geraeten anderer Hersteller
+         sind die Eintraege wirkungslos. -->
+    <uses-permission android:name="com.sec.android.provider.badge.permission.READ" />
+    <uses-permission android:name="com.sec.android.provider.badge.permission.WRITE" />
+    <uses-permission android:name="com.huawei.android.launcher.permission.CHANGE_BADGE" />
+    <uses-permission android:name="com.vivo.notification.permission.BADGE_ICON" />
+
+    <!-- Paket-Sichtbarkeit (Android 11+): Der Zaehler-Rundruf muss gezielt an
+         den Startbildschirm gehen, der ihn annimmt — dafuer muss die App
+         dessen Empfaenger sehen duerfen. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.BADGE_COUNT_UPDATE" />
+        </intent>
+    </queries>
 
     <application
         android:name=".MailApp"

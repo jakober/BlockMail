@@ -154,8 +154,12 @@ fun ComposeScreen(
     // Rückfall auf den Öffnen-Merker: Aus Suche/KI-Treffern geöffnete
     // Mails liegen oft außerhalb der geladenen Liste — ohne den Merker
     // ging "Antworten" dort ins Leere (leeres Fenster ohne Empfänger)
+    // Vorrang hat die in der Detailansicht OFFENE Mail: Die UID allein ist
+    // im Sammel-Posteingang nicht eindeutig (gleiche Nummer in zwei
+    // Postfächern) — die Antwort ginge sonst an die falsche Mail.
     fun findMail(uid: Long): com.jakober.klarmail.data.MailMessage? =
-        MailRepository.messages.value.find { it.uid == uid }
+        MailRepository.openedMail?.takeIf { it.uid == uid }
+            ?: MailRepository.messages.value.find { it.uid == uid }
             ?: MailRepository.pendingOpen?.second?.takeIf { it.uid == uid }
 
     val original = replyToUid?.let { uid -> findMail(uid) }

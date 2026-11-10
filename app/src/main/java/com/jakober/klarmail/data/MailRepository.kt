@@ -141,6 +141,62 @@ object MailRepository {
         refresh()
     }
 
+    /**
+     * Benachrichtigungen betreffen immer den Posteingang: Steht die Ansicht
+     * gerade in einem anderen Ordner (Gesendet, eigener Ordner, „Wichtig“),
+     * wird sie SOFORT dorthin gestellt — sonst würde die angetippte Mail
+     * mit ihrer Posteingangs-UID im falschen Ordner gesucht („Nachricht
+     * nicht gefunden“) oder, schlimmer, eine fremde Mail mit derselben
+     * UID bearbeitet. Bewusst nicht suspend: Der Zustand muss stehen,
+     * bevor die Detailansicht startet; das Neuladen läuft im Hintergrund.
+     */
+    fun showInboxForNotification() {
+        if (_currentFolder.value == MailFolder.INBOX && _customFolder.value == null &&
+            !_starred.value
+        ) return
+        _starred.value = false
+        _customFolder.value = null
+        _currentFolder.value = MailFolder.INBOX
+        _messages.value = emptyList()
+        loadLimit = MAX_MESSAGES
+        _canLoadMore.value = false
+        ruleScope.launch { runCatching { refresh() } }
+    }
+
+    /**
+     * Kopfdaten EINER Mail direkt vom Server. Für Mails, die nicht in der
+     * geladenen Liste stehen — etwa eine Benachrichtigung für das gerade
+     * nicht angezeigte Konto oder nach einem App-Neustart. Liefert null,
+     * wenn es die Mail (in diesem Konto/Ordner) wirklich nicht gibt.
+     */
+    suspend fun fetchHeader(
+        uid: Long,
+        folder: MailFolder = MailFolder.INBOX,
+        account: String = ""
+    ): MailMessage? = withContext(Dispatchers.IO) {
+        runCatching {
+            val store = openStoreFor(account)
+            try {
+                val f = resolveFolder(store, folder) as? IMAPFolder ?: return@runCatching null
+                f.open(Folder.READ_ONLY)
+                val m = f.getMessageByUID(uid) ?: return@runCatching null
+                f.fetch(
+                    arrayOf(m),
+                    FetchProfile().apply {
+                        add(FetchProfile.Item.ENVELOPE)
+                        add(FetchProfile.Item.FLAGS)
+                        add(FetchProfile.Item.CONTENT_INFO)
+                        add(UIDFolder.FetchProfileItem.UID)
+                    }
+                )
+                toMailMessage(uid, m)
+                    .copy(account = accountTagOf(account.ifBlank { Prefs.email }))
+            } finally {
+                runCatching { store.close() }
+            }
+        }.getOrNull()
+    }
+
     /** Zeigt alle mit Stern markierten Mails aller Konten. */
     suspend fun switchStarred() {
         if (_starred.value) return
@@ -1449,6 +1505,15 @@ object MailRepository {
     /** Merker für eine gezielt zu öffnende Mail (Suche/KI-Treffer). */
     var pendingOpen: Pair<MailFolder, MailMessage>? = null
 
+    /**
+     * Die Mail, die gerade in der Detailansicht offen ist. Antworten und
+     * Weiterleiten greifen darauf zu: Per UID allein ließe sich im
+     * Sammel-Posteingang die falsche Mail erwischen (gleiche UID in zwei
+     * Postfächern), und Mails außerhalb der geladenen Liste gar nicht.
+     */
+    @Volatile
+    var openedMail: MailMessage? = null
+
     suspend fun loadBodyContent(
         uid: Long,
         folder: MailFolder = _currentFolder.value,
@@ -1595,11 +1660,29 @@ object MailRepository {
 
     suspend fun markSeen(uid: Long, account: String = "") = setSeen(uid, true, account)
 
+    /** Steht die Ansicht im normalen Posteingang (kein Ordner, nicht „Wichtig“)? */
+    private fun inboxView(): Boolean =
+        _currentFolder.value == MailFolder.INBOX && _customFolder.value == null &&
+            !_starred.value
+
+    /** Zahl am App-Symbol sofort nachführen (Server-Abgleich folgt ohnehin). */
+    private fun badgeDelta(account: String, delta: Int) {
+        if (delta == 0 || !inboxView()) return
+        appContext?.let {
+            com.jakober.klarmail.service.UnreadBadge.adjust(it, account, delta)
+        }
+    }
+
     suspend fun setSeen(uid: Long, seen: Boolean, account: String = "") = withContext(Dispatchers.IO) {
+        // Nur ein echter Wechsel verändert die Ungelesen-Zahl am App-Symbol
+        if (_messages.value.any {
+                it.uid == uid && sameAccount(it.account, account) && it.seen != seen
+            }
+        ) badgeDelta(account, if (seen) -1 else 1)
         // Sofort lokal aktualisieren, damit die UI nicht auf das Netzwerk wartet
         _messages.value = sort(
             _messages.value.map {
-                if (it.uid == uid && (account.isBlank() || it.account == account.lowercase())) {
+                if (it.uid == uid && sameAccount(it.account, account)) {
                     it.copy(seen = seen)
                 } else it
             }
@@ -1634,7 +1717,7 @@ object MailRepository {
             // Sofort lokal umschalten, damit der Stern ohne Warten reagiert
             _messages.update { list ->
                 list.map {
-                    if (it.uid == uid && (account.isBlank() || it.account == account.lowercase())) {
+                    if (it.uid == uid && sameAccount(it.account, account)) {
                         it.copy(flagged = flagged)
                     } else it
                 }
@@ -1694,7 +1777,7 @@ object MailRepository {
         withContext(Dispatchers.IO) {
             _messages.update { list ->
                 list.map {
-                    if (it.uid == uid && (account.isBlank() || it.account == account.lowercase())) {
+                    if (it.uid == uid && sameAccount(it.account, account)) {
                         it.copy(answered = true)
                     } else it
                 }
@@ -1756,6 +1839,10 @@ object MailRepository {
         val set = uids.toSet()
         // Vor dem lokalen Update die Konto-Zuordnung sichern (Sammel-Posteingang)
         val byAccount = _messages.value.filter { it.uid in set }.groupBy { it.account }
+        byAccount.forEach { (acct, mails) ->
+            val changed = mails.count { it.seen != seen }
+            badgeDelta(acct, if (seen) -changed else changed)
+        }
         _messages.value = sort(_messages.value.map { if (it.uid in set) it.copy(seen = seen) else it })
         persist()
         if (seen) {
@@ -1843,7 +1930,7 @@ object MailRepository {
      */
     fun hideLocally(uid: Long, account: String = "") {
         _messages.update { list ->
-            list.filter { !(it.uid == uid && (account.isBlank() || it.account == account.lowercase())) }
+            list.filter { !(it.uid == uid && sameAccount(it.account, account)) }
         }
         persist()
     }
@@ -1862,7 +1949,7 @@ object MailRepository {
         val folder = _currentFolder.value
         // Sofort lokal entfernen, damit die UI nicht wartet
         _messages.value = _messages.value.filter {
-            !(it.uid == uid && (account.isBlank() || it.account == account.lowercase()))
+            !(it.uid == uid && sameAccount(it.account, account))
         }
         persist()
         synchronized(bodyCache) { bodyCache.remove("${folder.name}${accountKeyPart(account)}:$uid") }
@@ -1901,7 +1988,7 @@ object MailRepository {
         withContext(Dispatchers.IO) {
             val source = _currentFolder.value
             _messages.value = _messages.value.filter {
-                !(it.uid == uid && (account.isBlank() || it.account == account.lowercase()))
+                !(it.uid == uid && sameAccount(it.account, account))
             }
             persist()
             synchronized(bodyCache) {

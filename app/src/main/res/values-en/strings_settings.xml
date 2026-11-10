@@ -107,6 +107,7 @@
     <string name="settings_visible_folders_desc">Deselected folders no longer appear in this account\'s folder menu. The inbox is always visible.</string>
     <string name="settings_account_active">%1$s (active)</string>
     <string name="settings_account_remove">Remove account</string>
+    <string name="settings_account_credentials">Credentials</string>
     <string name="settings_choose_color">Pick color</string>
     <string name="settings_default_sender">Default sender</string>
     <string name="settings_default_sender_desc">New emails are written from this account (you can switch anytime in the compose window). Replies always go through the account that received the email.</string>

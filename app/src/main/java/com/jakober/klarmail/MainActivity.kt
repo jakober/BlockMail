@@ -139,6 +139,10 @@ class MainActivity : ComponentActivity() {
                 val openUid = pendingOpenUid.value
                 androidx.compose.runtime.LaunchedEffect(openUid) {
                     if (openUid != null) {
+                        // Benachrichtigungen/Widget meinen immer den
+                        // Posteingang — Ansicht dorthin stellen, sonst
+                        // wird die UID im falschen Ordner gesucht
+                        com.jakober.klarmail.data.MailRepository.showInboxForNotification()
                         val acct = android.net.Uri.encode(openUid.second)
                         nav.navigate("detail/${openUid.first}?acct=$acct")
                         pendingOpenUid.value = null
@@ -174,9 +178,16 @@ class MainActivity : ComponentActivity() {
                             var selectedUid by androidx.compose.runtime.saveable.rememberSaveable {
                                 androidx.compose.runtime.mutableStateOf(-1L)
                             }
+                            var selectedAcct by androidx.compose.runtime.saveable.rememberSaveable {
+                                androidx.compose.runtime.mutableStateOf("")
+                            }
                             com.jakober.klarmail.ui.TwoPaneScreen(
                                 selectedUid = selectedUid,
-                                onSelect = { selectedUid = it },
+                                selectedAccount = selectedAcct,
+                                onSelect = { uid, acct ->
+                                    selectedUid = uid
+                                    selectedAcct = acct
+                                },
                                 onCompose = { nav.navigate("compose") },
                                 onSettings = { nav.navigate("settings") },
                                 onReply = { uid -> nav.navigate("compose?replyTo=$uid") },
@@ -189,7 +200,9 @@ class MainActivity : ComponentActivity() {
                             )
                         } else {
                             InboxScreen(
-                                onOpenMail = { uid -> nav.navigate("detail/$uid") },
+                                onOpenMail = { uid, acct ->
+                                    nav.navigate("detail/$uid?acct=${android.net.Uri.encode(acct)}")
+                                },
                                 onCompose = { nav.navigate("compose") },
                                 onSettings = { nav.navigate("settings") },
                                 onOpenDraft = { id -> nav.navigate("compose?draft=$id") },
@@ -300,7 +313,9 @@ class MainActivity : ComponentActivity() {
                     composable("attachments") {
                         com.jakober.klarmail.ui.AttachmentsScreen(
                             onBack = { nav.popBackStack() },
-                            onOpenMail = { uid -> nav.navigate("detail/$uid") }
+                            onOpenMail = { uid, acct ->
+                                    nav.navigate("detail/$uid?acct=${android.net.Uri.encode(acct)}")
+                                }
                         )
                     }
                     composable("settings") {

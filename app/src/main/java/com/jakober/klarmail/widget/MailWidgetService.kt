@@ -48,7 +48,12 @@ class MailWidgetService : RemoteViewsService() {
             )
             rv.setOnClickFillInIntent(
                 R.id.widget_item_root,
-                Intent().putExtra("open_uid", m.uid)
+                Intent()
+                    .putExtra("open_uid", m.uid)
+                    .putExtra(
+                        "open_account",
+                        m.account.ifBlank { com.jakober.klarmail.data.Prefs.email }
+                    )
             )
             return rv
         }

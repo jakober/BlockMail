@@ -62,7 +62,7 @@ import java.util.Locale
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
+fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long, String) -> Unit) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -219,7 +219,14 @@ fun AttachmentsScreen(onBack: () -> Unit, onOpenMail: (Long) -> Unit) {
                                             }
                                         }
                                     },
-                                    onOpenMail = { onOpenMail(e.mail.uid) }
+                                    onOpenMail = {
+                                        onOpenMail(
+                                            e.mail.uid,
+                                            e.mail.account.ifBlank {
+                                                com.jakober.klarmail.data.Prefs.email
+                                            }
+                                        )
+                                    }
                                 )
                             }
                         }

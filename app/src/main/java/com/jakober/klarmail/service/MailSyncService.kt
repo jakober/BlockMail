@@ -321,6 +321,8 @@ class MailSyncService : Service() {
         val keys = accounts.map { it.email.trim().lowercase() }.toSet()
         // Status-Einträge entfernter Konten wegräumen (keine Geister-Zeilen)
         pushStatusByAccount.value = pushStatusByAccount.value.filterKeys { it in keys }
+        // …und ihre Ungelesenen aus der Zahl am App-Symbol nehmen
+        UnreadBadge.retain(this, keys)
         idlers = accounts.associate { acc ->
             val key = acc.email.trim().lowercase()
             val holder = AccountIdle(key)

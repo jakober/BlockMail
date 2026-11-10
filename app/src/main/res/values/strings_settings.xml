@@ -107,6 +107,7 @@
     <string name="settings_visible_folders_desc">Abgewählte Ordner erscheinen nicht im Ordner-Menü dieses Kontos. Der Posteingang ist immer sichtbar.</string>
     <string name="settings_account_active">%1$s (aktiv)</string>
     <string name="settings_account_remove">Konto entfernen</string>
+    <string name="settings_account_credentials">Zugangsdaten</string>
     <string name="settings_choose_color">Farbe wählen</string>
     <string name="settings_default_sender">Standard-Absender</string>
     <string name="settings_default_sender_desc">Neue Mails werden über dieses Konto geschrieben (im Verfassen-Fenster jederzeit umschaltbar). Antworten gehen immer über das Konto, in dem die Mail ankam.</string>

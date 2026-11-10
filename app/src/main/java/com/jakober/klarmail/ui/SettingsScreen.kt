@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -319,6 +320,29 @@ fun SettingsScreen(
                 smtpHostField = Prefs.smtpHost
                 smtpPortField = Prefs.smtpPort.toString()
                 accountList = Prefs.accounts()
+            }
+        )
+    }
+    // Zugangsdaten EINES gespeicherten Kontos bearbeiten — auch wenn es
+    // gerade nicht das aktive ist (vorher ging das nur fürs aktive Konto)
+    var editAccountFor by remember { mutableStateOf<Prefs.Account?>(null) }
+    editAccountFor?.let { acc ->
+        AddAccountDialog(
+            edit = acc,
+            onDismiss = { editAccountFor = null },
+            onDone = {
+                editAccountFor = null
+                accountList = Prefs.accounts()
+                if (acc.email.equals(Prefs.email, ignoreCase = true)) {
+                    // Formularfelder des aktiven Kontos nachziehen
+                    password = Prefs.appPassword
+                    loginUserField = Prefs.loginUser
+                    providerId = providerIdFor(Prefs.imapHost)
+                    imapHostField = Prefs.imapHost
+                    imapPortField = Prefs.imapPort.toString()
+                    smtpHostField = Prefs.smtpHost
+                    smtpPortField = Prefs.smtpPort.toString()
+                }
             }
         )
     }
@@ -1264,11 +1288,31 @@ fun SettingsScreen(
                             }
                         }
                     }
-                    // Klar beschriftete Aktionen statt kleiner Symbole
+                    // Klar beschriftete Aktionen statt kleiner Symbole; seitlich
+                    // wischbar, weil drei Knöpfe schmale Displays sprengen
                     Row(
-                        modifier = Modifier.padding(start = 32.dp),
+                        modifier = Modifier
+                            .padding(start = 32.dp)
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Zugangsdaten je Konto bearbeiten — Google-Konten
+                        // haben keine (Anmeldung läuft über das Google-Fenster)
+                        if (acc.authMethod != "oauth") {
+                            AssistChip(
+                                onClick = { editAccountFor = acc },
+                                label = {
+                                    Text(stringResource(R.string.settings_account_credentials))
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Filled.Edit,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            )
+                        }
                         AssistChip(
                             onClick = { colorPickerFor = acc.email },
                             label = { Text(stringResource(R.string.settings_choose_color)) },

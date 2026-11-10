@@ -55,6 +55,10 @@ object Prefs {
     /** Änderungszähler der Konto-Farben (löst Neuzeichnen der Listen aus). */
     val accountColorsFlow = MutableStateFlow(0)
 
+    /** Adresse des aktiven Kontos — die Oberfläche zeigt damit an, in
+     *  welchem Postfach man sich gerade befindet (Kontowechsel live). */
+    val activeEmailFlow = MutableStateFlow("")
+
     /** Änderungszähler der ausgeblendeten Ordner je Konto. */
     val hiddenFoldersFlow = MutableStateFlow(0)
 
@@ -96,6 +100,7 @@ object Prefs {
         swipeRightFlow.value = swipeRightAction
         devModeFlow.value = devMode
         pushModeFlow.value = pushMode
+        activeEmailFlow.value = email
         // Aktives Konto in der Kontenliste sichern (für den Konten-Wechsler)
         snapshotActiveAccount()
         mutedFlow.value = loadSet("muted_senders")
@@ -370,7 +375,10 @@ object Prefs {
 
     var email: String
         get() = sp.getString("email", "") ?: ""
-        set(v) = sp.edit().putString("email", v.trim()).apply()
+        set(v) {
+            sp.edit().putString("email", v.trim()).apply()
+            activeEmailFlow.value = v.trim()
+        }
 
     var appPassword: String
         get() = sp.getString("app_password", "") ?: ""
@@ -594,6 +602,11 @@ object Prefs {
             fontScaleFlow.value = c
         }
 
+    /** Ungelesen-Zähler je Konto (JSON) für die Zahl am App-Symbol. */
+    var badgeCounts: String
+        get() = sp.getString("badge_counts", "") ?: ""
+        set(v) = sp.edit().putString("badge_counts", v).apply()
+
     /** Höchste bereits per Push verarbeitete Mail-UID (für Lücken-Nachholung). */
     // Pro Konto eigene Merkliste; Schlüsselschema unverändert, damit
     // Bestandswerte nach dem Update weitergelten (keine Doppelmeldungen)
@@ -714,6 +727,27 @@ object Prefs {
         // Kontostand hat sich geaendert: Der naechtliche Voll-Index darf
         // erneut laufen, damit auch dieses Konto die volle Historie bekommt
         indexAutoBuilt = false
+    }
+
+    /**
+     * Überschreibt die gespeicherten Zugangsdaten EINES Kontos (Bearbeiten
+     * in den Einstellungen) — ohne es dafür erst aktivieren zu müssen. Ist
+     * es das aktive Konto, ziehen die aktiven Felder mit, sonst würden
+     * Liste und laufende Verbindung auseinanderlaufen.
+     */
+    fun updateAccount(acc: Account) {
+        if (acc.email.equals(email, ignoreCase = true)) {
+            authMethod = acc.authMethod
+            appPassword = acc.appPassword
+            imapHost = acc.imapHost
+            imapPort = acc.imapPort
+            smtpHost = acc.smtpHost
+            smtpPort = acc.smtpPort
+            loginUser = acc.loginUser
+        }
+        saveAccounts(
+            accounts().map { if (it.email.equals(acc.email, ignoreCase = true)) acc else it }
+        )
     }
 
     fun removeAccount(accountEmail: String) =

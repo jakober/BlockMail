@@ -281,7 +281,8 @@ private fun indexHitToAiHit(h: MailIndex.IndexHit): MailRepository.AiSearchHit {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InboxScreen(
-    onOpenMail: (Long) -> Unit,
+    /** UID + Konto-Adresse: UIDs sind nur je Postfach eindeutig. */
+    onOpenMail: (Long, String) -> Unit,
     onCompose: () -> Unit,
     onSettings: () -> Unit,
     onOpenDraft: (Long) -> Unit = {},
@@ -461,7 +462,7 @@ fun InboxScreen(
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable {
                                         aiResult = null
-                                        onOpenMail(line.mail.uid)
+                                        onOpenMail(line.mail.uid, line.mail.account.ifBlank { Prefs.email })
                                     }
                             } else {
                                 Modifier
@@ -583,7 +584,7 @@ fun InboxScreen(
         // Posteingang geoeffnet wird, laeuft beim Server ins Leere
         // ("Nachricht nicht gefunden")
         MailRepository.pendingOpen = folder to mail
-        onOpenMail(mail.uid)
+        onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email })
     }
 
     fun exitSearch() {
@@ -1042,17 +1043,50 @@ fun InboxScreen(
                                 // Lokaler Wert: Bei einer per "by" gehaltenen
                                 // Variablen kann Kotlin nicht smart-casten
                                 val customName = customFolder?.substringAfterLast('/')
-                                Text(
-                                    when {
-                                        starredFolder -> stringResource(R.string.inbox_starred)
-                                        unified -> stringResource(R.string.inbox_all_accounts)
-                                        customName != null -> customName
-                                        else -> currentFolder.label
-                                    },
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                // Bei mehreren Postfächern steht unter dem Ordner,
+                                // in welchem Konto man sich gerade befindet — sonst
+                                // sieht "Posteingang" in jedem Konto gleich aus.
+                                val activeEmail by Prefs.activeEmailFlow.collectAsState()
+                                val titleAccount = remember(activeEmail, unified, starredFolder) {
+                                    if (unified || starredFolder || Prefs.pushAccounts().size < 2) {
+                                        null
+                                    } else activeEmail.ifBlank { null }
+                                }
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                ) {
+                                    Text(
+                                        when {
+                                            starredFolder -> stringResource(R.string.inbox_starred)
+                                            unified -> stringResource(R.string.inbox_all_accounts)
+                                            customName != null -> customName
+                                            else -> currentFolder.label
+                                        },
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (titleAccount != null) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Prefs.accountColor(titleAccount)?.let { c ->
+                                                Box(
+                                                    Modifier
+                                                        .size(8.dp)
+                                                        .background(Color(c), CircleShape)
+                                                )
+                                                Spacer(Modifier.width(5.dp))
+                                            }
+                                            Text(
+                                                titleAccount,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
                                 if (configured) {
                                     Icon(
                                         Icons.Filled.ArrowDropDown,
@@ -2371,7 +2405,7 @@ fun InboxScreen(
                             ) { mail ->
                                 SwipeableMailBlock(
                                     mail = mail,
-                                    onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                    onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email }) },
                                     onLongClick = { toggleSelect(mail.uid) },
                                     selected = selected.contains(mail.uid),
                                     selectionMode = selectionMode,
@@ -2394,7 +2428,7 @@ fun InboxScreen(
                         ) { mail ->
                             SwipeableMailBlock(
                                 mail = mail,
-                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email }) },
                                 onLongClick = { toggleSelect(mail.uid) },
                                 selected = selected.contains(mail.uid),
                                 selectionMode = selectionMode,
@@ -2416,7 +2450,7 @@ fun InboxScreen(
                         ) { mail ->
                             SwipeableMailBlock(
                                 mail = mail,
-                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email }) },
                                 onLongClick = { toggleSelect(mail.uid) },
                                 selected = selected.contains(mail.uid),
                                 selectionMode = selectionMode,
@@ -2440,7 +2474,7 @@ fun InboxScreen(
                                 ) {
                                     SwipeableMailBlock(
                                         mail = mail,
-                                        onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                        onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email }) },
                                         onLongClick = { toggleSelect(mail.uid) },
                                         selected = selected.contains(mail.uid),
                                         selectionMode = selectionMode,
@@ -2480,7 +2514,7 @@ fun InboxScreen(
                                     ) { mail ->
                                         SwipeableMailBlock(
                                             mail = mail,
-                                            onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                            onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email }) },
                                             onLongClick = { toggleSelect(mail.uid) },
                                             selected = selected.contains(mail.uid),
                                             selectionMode = selectionMode,
@@ -2592,7 +2626,7 @@ fun InboxScreen(
                         items(mails, key = { "${it.account}:${it.uid}" }, contentType = { "mail" }) { mail ->
                             SwipeableMailRow(
                                 mail = mail,
-                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email }) },
                                 onLongClick = { toggleSelect(mail.uid) },
                                 selected = selected.contains(mail.uid),
                                 selectionMode = selectionMode,
@@ -2613,7 +2647,7 @@ fun InboxScreen(
                         items(unread, key = { "${it.account}:${it.uid}" }, contentType = { "mail" }) { mail ->
                             SwipeableMailRow(
                                 mail = mail,
-                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email }) },
                                 onLongClick = { toggleSelect(mail.uid) },
                                 selected = selected.contains(mail.uid),
                                 selectionMode = selectionMode,
@@ -2630,7 +2664,7 @@ fun InboxScreen(
                         items(mails, key = { "${it.account}:${it.uid}" }, contentType = { "mail" }) { mail ->
                             SwipeableMailRow(
                                 mail = mail,
-                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email }) },
                                 onLongClick = { toggleSelect(mail.uid) },
                                 selected = selected.contains(mail.uid),
                                 selectionMode = selectionMode,
@@ -2650,7 +2684,7 @@ fun InboxScreen(
                             item(key = "${mail.account}:${mail.uid}") {
                                 SwipeableMailRow(
                                     mail = mail,
-                                    onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                    onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email }) },
                                     onLongClick = { toggleSelect(mail.uid) },
                                     selected = selected.contains(mail.uid),
                                     selectionMode = selectionMode,
@@ -2684,7 +2718,7 @@ fun InboxScreen(
                                 ) { mail ->
                                     SwipeableMailRow(
                                         mail = mail,
-                                        onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid) },
+                                        onClick = { if (selectionMode) toggleSelect(mail.uid) else onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email }) },
                                         onLongClick = { toggleSelect(mail.uid) },
                                         selected = selected.contains(mail.uid),
                                         selectionMode = selectionMode,
