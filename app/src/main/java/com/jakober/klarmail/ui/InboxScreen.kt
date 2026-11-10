@@ -201,6 +201,36 @@ private fun extractAiKeywords(question: String): List<String> {
  * Absender, Datum, Konto, FTS-Snippet als Vorschau), der Ordner-Name wird auf
  * MailFolder zurückgemappt (unbekannt → INBOX).
  */
+/** Kleine Zahl-Pille: ungelesene Mails eines Postfachs. */
+@Composable
+private fun UnreadPill(count: Int) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(9.dp))
+            .background(MaterialTheme.colorScheme.primary)
+            .padding(horizontal = 6.dp, vertical = 1.dp)
+    ) {
+        Text(
+            if (count > 999) "999+" else "$count",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimary,
+            maxLines = 1
+        )
+    }
+}
+
+/**
+ * Kurzname eines Kontos für die Konto-Leiste: die Domain ("gmail.com"),
+ * solange sie unter den Konten eindeutig ist — sonst die volle Adresse.
+ */
+private fun accountChipLabel(email: String, all: List<Prefs.Account>): String {
+    val domain = email.substringAfterLast('@', "").trim().lowercase()
+    val unique = all.count {
+        it.email.substringAfterLast('@', "").trim().lowercase() == domain
+    } == 1
+    return if (domain.isNotBlank() && unique) domain else email
+}
+
 /**
  * Suchzustand auf Datei-Ebene: überlebt die Navigation in die Mail-Ansicht
  * und zurück (der Posteingang verlässt dabei die Composition). exitSearch()
@@ -585,6 +615,31 @@ fun InboxScreen(
         // ("Nachricht nicht gefunden")
         MailRepository.pendingOpen = folder to mail
         onOpenMail(mail.uid, mail.account.ifBlank { Prefs.email })
+    }
+
+    // Mehrere Postfächer: Konto-Leiste unter der Suche, Ungelesen-Zahlen je
+    // Konto und Warnung bei anhaltend toter Push-Verbindung
+    val currentAccountEmail by Prefs.activeEmailFlow.collectAsState()
+    val switchAccounts = remember(currentAccountEmail) { Prefs.pushAccounts() }
+    val unreadByAccount by com.jakober.klarmail.service.UnreadBadge.countsFlow.collectAsState()
+    val pushStates by com.jakober.klarmail.service.MailSyncService
+        .pushStatusByAccount.collectAsState()
+    var dismissedPushWarn by remember { mutableStateOf<String?>(null) }
+
+    fun switchToUnified() {
+        if (!unified) scope.launch { MailRepository.setUnified(true) }
+    }
+
+    fun switchToAccount(acc: Prefs.Account) {
+        scope.launch {
+            if (acc.email.equals(Prefs.email, ignoreCase = true)) {
+                // Nur den Sammel-Modus verlassen
+                MailRepository.setUnified(false)
+            } else {
+                MailRepository.setUnified(false, reload = false)
+                MailRepository.switchAccount(acc)
+            }
+        }
     }
 
     fun exitSearch() {
@@ -1308,9 +1363,7 @@ fun InboxScreen(
                                         },
                                         onClick = {
                                             folderMenuOpen = false
-                                            if (!unified) {
-                                                scope.launch { MailRepository.setUnified(true) }
-                                            }
+                                            switchToUnified()
                                         }
                                     )
                                     accounts.forEach { acc ->
@@ -1318,14 +1371,25 @@ fun InboxScreen(
                                             acc.email.equals(Prefs.email, ignoreCase = true)
                                         DropdownMenuItem(
                                             text = {
-                                                Text(
-                                                    acc.email,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    fontWeight = if (active) FontWeight.SemiBold
-                                                    else FontWeight.Normal
-                                                )
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        acc.email,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        fontWeight = if (active) FontWeight.SemiBold
+                                                        else FontWeight.Normal,
+                                                        modifier = Modifier.weight(1f, fill = false)
+                                                    )
+                                                    // Ungelesene Mails dieses Postfachs
+                                                    val n = unreadByAccount[
+                                                        acc.email.trim().lowercase()
+                                                    ] ?: 0
+                                                    if (n > 0) {
+                                                        Spacer(Modifier.width(8.dp))
+                                                        UnreadPill(n)
+                                                    }
+                                                }
                                             },
                                             leadingIcon = {
                                                 val accColor = Prefs.accountColor(acc.email)
@@ -1353,21 +1417,7 @@ fun InboxScreen(
                                             },
                                             onClick = {
                                                 folderMenuOpen = false
-                                                if (!active) {
-                                                    scope.launch {
-                                                        val sameAccount = acc.email
-                                                            .equals(Prefs.email, ignoreCase = true)
-                                                        if (sameAccount) {
-                                                            // Nur den Sammel-Modus verlassen
-                                                            MailRepository.setUnified(false)
-                                                        } else {
-                                                            MailRepository.setUnified(
-                                                                false, reload = false
-                                                            )
-                                                            MailRepository.switchAccount(acc)
-                                                        }
-                                                    }
-                                                }
+                                                if (!active) switchToAccount(acc)
                                             }
                                         )
                                     }
@@ -1999,6 +2049,154 @@ fun InboxScreen(
                     }
                 } else {
                     Spacer(Modifier.width(14.dp))
+                }
+            }
+
+            // Warnung, wenn ein Postfach sich anhaltend nicht verbinden kann:
+            // bei abgelehnter Anmeldung nach einer Minute, sonst nach zehn —
+            // kurze Aussetzer (Funkloch, Neuverbinden) melden sich so nicht.
+            // Bisher stand das nur versteckt in den Einstellungen.
+            val nowMs = System.currentTimeMillis()
+            val pushWarn = pushStates.entries.firstOrNull { (_, st) ->
+                st.kind == com.jakober.klarmail.service.MailSyncService
+                    .PushKind.DISCONNECTED_ERROR &&
+                    st.failingSince > 0L &&
+                    nowMs - st.failingSince > (if (st.authFailed) 60_000L else 600_000L)
+            }
+            val pushWarnKey = pushWarn?.let { "${it.key}:${it.value.failingSince}" }
+            if (pushWarn != null && pushWarnKey != dismissedPushWarn && configured) {
+                val st = pushWarn.value
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 6.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(
+                            start = 14.dp, end = 6.dp, top = 10.dp, bottom = 2.dp
+                        )
+                    ) {
+                        Text(
+                            if (st.authFailed) {
+                                stringResource(R.string.inbox_push_warn_auth, pushWarn.key)
+                            } else {
+                                stringResource(
+                                    R.string.inbox_push_warn_conn,
+                                    pushWarn.key,
+                                    remember(st.failingSince) {
+                                        SimpleDateFormat("HH:mm", Locale.getDefault())
+                                            .format(Date(st.failingSince))
+                                    }
+                                )
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        if (st.detail.isNotBlank()) {
+                            Text(
+                                st.detail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                                    .copy(alpha = 0.75f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            androidx.compose.material3.TextButton(
+                                onClick = { dismissedPushWarn = pushWarnKey }
+                            ) { Text(stringResource(R.string.inbox_push_warn_dismiss)) }
+                            androidx.compose.material3.TextButton(onClick = onSettings) {
+                                Text(stringResource(R.string.inbox_push_warn_action))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Konto-Leiste: ein Tipp wechselt zwischen "Alle Konten" und den
+            // einzelnen Postfächern (sonst nur über das Titel-Menü). Während
+            // einer Suche/KI-Antwort ausgeblendet — dort zählt der Platz.
+            if (configured && switchAccounts.size > 1 && query.isBlank() &&
+                aiAnswer == null && serverResults == null && !starredFolder
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val totalUnread = switchAccounts
+                        .map { unreadByAccount[it.email.trim().lowercase()] ?: 0 }
+                        .sum()
+                    androidx.compose.material3.FilterChip(
+                        selected = unified,
+                        onClick = { switchToUnified() },
+                        label = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.inbox_all_accounts))
+                                if (totalUnread > 0) {
+                                    Spacer(Modifier.width(6.dp))
+                                    UnreadPill(totalUnread)
+                                }
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.AllInbox,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                    switchAccounts.forEach { acc ->
+                        val active = !unified &&
+                            acc.email.equals(currentAccountEmail, ignoreCase = true)
+                        val n = unreadByAccount[acc.email.trim().lowercase()] ?: 0
+                        androidx.compose.material3.FilterChip(
+                            selected = active,
+                            onClick = { if (!active) switchToAccount(acc) },
+                            label = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        accountChipLabel(acc.email, switchAccounts),
+                                        maxLines = 1
+                                    )
+                                    if (n > 0) {
+                                        Spacer(Modifier.width(6.dp))
+                                        UnreadPill(n)
+                                    }
+                                }
+                            },
+                            leadingIcon = {
+                                val accColor = Prefs.accountColor(acc.email)
+                                if (accColor != null) {
+                                    Box(
+                                        Modifier
+                                            .size(12.dp)
+                                            .background(Color(accColor), CircleShape)
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Filled.AccountCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
             }
 

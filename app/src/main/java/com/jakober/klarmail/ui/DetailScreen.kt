@@ -677,6 +677,20 @@ fun DetailScreen(
                 .padding(padding)
         ) {
             val currentBody = body
+            // „Empfangen über …“: nur bei mehreren Postfächern und nicht für
+            // selbst verschickte Mails (Gesendet/Entwürfe)
+            val viewFolder = folder ?: MailRepository.currentFolder.value
+            val receivedAccount: String? = remember(mailAccount, viewFolder) {
+                if (com.jakober.klarmail.data.Prefs.pushAccounts().size > 1 &&
+                    viewFolder != MailRepository.MailFolder.SENT &&
+                    viewFolder != MailRepository.MailFolder.DRAFTS
+                ) {
+                    mailAccount.ifBlank { com.jakober.klarmail.data.Prefs.email }
+                } else null
+            }
+            val receivedVia: String? = receivedAccount?.let {
+                stringResource(R.string.detail_received_via, it)
+            }
             // Phishing-Wächter: Prüfung im Hintergrund; der Inhalt wird erst
             // nach der Prüfung aufgebaut, damit das Layout von Anfang an steht
             var phishing by remember(uid) {
@@ -1024,14 +1038,23 @@ fun DetailScreen(
                         else -> null
                     }
                     val hasReplyLink = !replyRec?.second.isNullOrBlank()
+                    val receivedColorHex = remember(receivedAccount) {
+                        receivedAccount?.let { acct ->
+                            com.jakober.klarmail.data.Prefs.accountColor(acct)
+                                ?.let { "#%06X".format(it and 0xFFFFFF) }
+                        }
+                    }
                     val fullHtml = remember(
                         currentBody, phishingResult, aiAvailable, darkTheme, pageTexts,
-                        senderIconUrl, accentHex, repliedText, hasReplyLink
+                        senderIconUrl, accentHex, repliedText, hasReplyLink,
+                        receivedVia, receivedColorHex
                     ) {
                         buildMailPageHtml(
                             mail, currentBody, phishingResult, aiAvailable, darkTheme,
                             pageTexts, senderIconUrl, accentHex,
-                            repliedText, hasReplyLink
+                            repliedText, hasReplyLink,
+                            receivedVia = receivedVia,
+                            receivedColor = receivedColorHex
                         )
                     }
                     HtmlMailView(
@@ -1132,6 +1155,14 @@ fun DetailScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                            }
+                            if (receivedVia != null) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    receivedVia,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                             Spacer(Modifier.height(10.dp))
                         }
@@ -1597,7 +1628,11 @@ private fun buildMailPageHtml(
     /** Fertig formatierte Beantwortet-Zeile („Beantwortet am …“) oder null. */
     repliedText: String? = null,
     /** „Antwort ansehen“-Link zeigen? (Message-ID der Antwort ist bekannt.) */
-    showReplyLink: Boolean = false
+    showReplyLink: Boolean = false,
+    /** Fertige Zeile „Empfangen über konto@…“ (nur bei mehreren Postfächern). */
+    receivedVia: String? = null,
+    /** Konto-Farbe als Hex für den Punkt vor der Zeile, falls gewählt. */
+    receivedColor: String? = null
 ): String {
     val orange = accent
     // Fester Kopf-Hintergrund je App-Design: Mails bringen oft eigene
@@ -1657,6 +1692,18 @@ private fun buildMailPageHtml(
             .append("✨ ").append(htmlEscape(texts.summarize)).append("</a>")
     }
     sb.append("</div>")
+    // Bei mehreren Postfächern: in welchem Konto die Mail liegt — im
+    // Sammel-Posteingang sonst nicht erkennbar
+    if (receivedVia != null) {
+        sb.append("<div style=\"margin:0 0 10px 0;font-size:12.5px;color:$subColor;")
+            .append("display:flex;align-items:center;\">")
+        if (receivedColor != null) {
+            sb.append("<span style=\"display:inline-block;width:9px;height:9px;")
+                .append("min-width:9px;border-radius:5px;background:$receivedColor;")
+                .append("margin-right:6px;\"></span>")
+        }
+        sb.append(htmlEscape(receivedVia)).append("</div>")
+    }
     // Beantwortet-Zeile: dezent unter dem Absender; mit Sprung zur
     // gesendeten Antwort, wenn deren Message-ID bekannt ist
     if (repliedText != null) {

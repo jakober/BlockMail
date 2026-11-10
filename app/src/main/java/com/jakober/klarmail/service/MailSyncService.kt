@@ -358,22 +358,40 @@ class MailSyncService : Service() {
         val self = kotlin.coroutines.coroutineContext[Job]
         val stillActive: () -> Boolean = { self?.isActive == true }
         var backoff = 5_000L
+        var failingSince = 0L
         while (stillActive()) {
             lastAliveMs = System.currentTimeMillis()
             holder.lastWakeMs = lastAliveMs
             try {
-                connectAndIdle(acc, holder, stillActive) { backoff = 5_000L }
+                connectAndIdle(acc, holder, stillActive) {
+                    backoff = 5_000L
+                    failingSince = 0L
+                }
                 if (!stillActive()) break
                 setStatus(holder.email, PushState(PushKind.DISCONNECTED, now()))
                 delay(3_000)
             } catch (e: Exception) {
                 if (!stillActive()) break
+                // Ohne Netz ist nicht das Konto das Problem — die Ausfall-Uhr
+                // läuft nur, solange das Gerät selbst online ist
+                val online = runCatching {
+                    getSystemService(android.net.ConnectivityManager::class.java)
+                        ?.activeNetwork != null
+                }.getOrDefault(true)
+                if (!online) {
+                    failingSince = 0L
+                } else if (failingSince == 0L) {
+                    failingSince = System.currentTimeMillis()
+                }
                 setStatus(
                     holder.email,
                     PushState(
                         PushKind.DISCONNECTED_ERROR, now(),
                         detail = e.message?.take(80).orEmpty(),
-                        retrySeconds = backoff / 1000
+                        retrySeconds = backoff / 1000,
+                        failingSince = failingSince,
+                        authFailed = e is javax.mail.AuthenticationFailedException ||
+                            e.message?.contains("Google-") == true
                     )
                 )
                 delay(backoff)
@@ -481,7 +499,16 @@ class MailSyncService : Service() {
         val kind: PushKind,
         val time: String = "",
         val detail: String = "",
-        val retrySeconds: Long = 0
+        val retrySeconds: Long = 0,
+        /**
+         * Seit wann (ms) dieses Konto sich ununterbrochen nicht verbinden
+         * kann, obwohl das Gerät online ist — 0 = kein anhaltender Ausfall.
+         * Der Posteingang warnt damit, statt den Fehler nur in den
+         * Einstellungen zu zeigen.
+         */
+        val failingSince: Long = 0,
+        /** Der Server lehnt die Anmeldung ab (Passwort geändert, Zugriff entzogen). */
+        val authFailed: Boolean = false
     )
 
     companion object {

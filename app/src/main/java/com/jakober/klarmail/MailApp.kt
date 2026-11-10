@@ -63,6 +63,8 @@ class MailApp : Application() {
         }
         com.jakober.klarmail.data.MailIndex.init(this)
         createChannels()
+        // Ungelesen-Zähler je Konto (Zahl am App-Symbol, Konto-Leiste)
+        runCatching { com.jakober.klarmail.service.UnreadBadge.ensureLoaded() }
         com.jakober.klarmail.service.SyncGuardWorker.schedule(this)
         // Voll-Index automatisch aufbauen — aber nur bei WLAN + Laden
         com.jakober.klarmail.service.IndexBuildWorker.schedule(this)

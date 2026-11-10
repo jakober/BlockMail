@@ -34,6 +34,10 @@
     <string name="inbox_search_archive_header">From the archive</string>
 
     <!-- Folder menu -->
+    <string name="inbox_push_warn_auth">Sign-in to %1$s failed. New mail no longer arrives there.</string>
+    <string name="inbox_push_warn_conn">No connection to %1$s since %2$s. New mail arrives there with a delay.</string>
+    <string name="inbox_push_warn_action">Check credentials</string>
+    <string name="inbox_push_warn_dismiss">Hide</string>
     <string name="inbox_all_accounts">All accounts</string>
     <string name="inbox_folder_switch">Switch folder</string>
     <string name="inbox_attachments">Attachments</string>

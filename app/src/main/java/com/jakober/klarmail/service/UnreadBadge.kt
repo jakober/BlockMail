@@ -25,6 +25,13 @@ object UnreadBadge {
     private var loaded = false
     private var lastSent = -1
 
+    /** Derselbe Stand für die Oberfläche (Konto-Leiste, Konto-Menü). */
+    val countsFlow = kotlinx.coroutines.flow.MutableStateFlow<Map<String, Int>>(emptyMap())
+
+    /** Gespeicherten Stand früh laden, damit die Oberfläche sofort Zahlen hat. */
+    @Synchronized
+    fun ensureLoaded() = load()
+
     private fun key(accountEmail: String) =
         accountEmail.ifBlank { Prefs.email }.trim().lowercase()
 
@@ -35,6 +42,7 @@ object UnreadBadge {
             val o = JSONObject(Prefs.badgeCounts.ifBlank { "{}" })
             o.keys().forEach { counts[it] = o.optInt(it, 0) }
         }
+        countsFlow.value = HashMap(counts)
     }
 
     /** Verbindlicher Stand eines Kontos (vom Server gezählt). */
@@ -73,6 +81,7 @@ object UnreadBadge {
                 counts.forEach { (k, v) -> put(k, v) }
             }.toString()
         }
+        countsFlow.value = HashMap(counts)
         val total = counts.values.sum()
         if (total == lastSent) return
         lastSent = total

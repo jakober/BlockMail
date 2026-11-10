@@ -34,6 +34,10 @@
     <string name="inbox_search_archive_header">Aus dem Archiv</string>
 
     <!-- Ordner-Menü -->
+    <string name="inbox_push_warn_auth">Anmeldung bei %1$s fehlgeschlagen. Neue Mails kommen dort nicht mehr an.</string>
+    <string name="inbox_push_warn_conn">Keine Verbindung zu %1$s seit %2$s. Neue Mails kommen dort nur verzögert an.</string>
+    <string name="inbox_push_warn_action">Zugangsdaten prüfen</string>
+    <string name="inbox_push_warn_dismiss">Ausblenden</string>
     <string name="inbox_all_accounts">Alle Konten</string>
     <string name="inbox_folder_switch">Ordner wechseln</string>
     <string name="inbox_attachments">Anhänge</string>
