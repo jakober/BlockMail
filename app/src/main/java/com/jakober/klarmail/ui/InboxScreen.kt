@@ -220,10 +220,12 @@ private fun UnreadPill(count: Int) {
 }
 
 /**
- * Kurzname eines Kontos für die Konto-Leiste: die Domain ("gmail.com"),
- * solange sie unter den Konten eindeutig ist — sonst die volle Adresse.
+ * Kurzname eines Kontos für die Konto-Leiste: der in den Einstellungen
+ * vergebene Name; ohne ihn die Domain ("gmail.com"), solange sie unter den
+ * Konten eindeutig ist — sonst die volle Adresse.
  */
 private fun accountChipLabel(email: String, all: List<Prefs.Account>): String {
+    Prefs.accountName(email).takeIf { it.isNotBlank() }?.let { return it }
     val domain = email.substringAfterLast('@', "").trim().lowercase()
     val unique = all.count {
         it.email.substringAfterLast('@', "").trim().lowercase() == domain
@@ -1133,7 +1135,7 @@ fun InboxScreen(
                                                 Spacer(Modifier.width(5.dp))
                                             }
                                             Text(
-                                                titleAccount,
+                                                Prefs.accountLabel(titleAccount),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1,
@@ -1373,7 +1375,7 @@ fun InboxScreen(
                                             text = {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(
-                                                        acc.email,
+                                                        Prefs.accountLabel(acc.email),
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis,
@@ -2083,11 +2085,14 @@ fun InboxScreen(
                     ) {
                         Text(
                             if (st.authFailed) {
-                                stringResource(R.string.inbox_push_warn_auth, pushWarn.key)
+                                stringResource(
+                                    R.string.inbox_push_warn_auth,
+                                    Prefs.accountLabel(pushWarn.key)
+                                )
                             } else {
                                 stringResource(
                                     R.string.inbox_push_warn_conn,
-                                    pushWarn.key,
+                                    Prefs.accountLabel(pushWarn.key),
                                     remember(st.failingSince) {
                                         SimpleDateFormat("HH:mm", Locale.getDefault())
                                             .format(Date(st.failingSince))
@@ -3658,9 +3663,13 @@ private fun MailRow(
                 onClick = onClick
             )
     ) {
-        // Balken vorne: zeigt nur Ungelesene in Primärfarbe an. Die Konto-Farbe
-        // erscheint stattdessen als kleiner Punkt neben dem Datum — und nur im
-        // Sammel-Posteingang „Alle Konten“, wo sie zur Unterscheidung dient.
+        // Balken vorne. Im Sammel-Posteingang „Alle Konten“ trägt er die
+        // Konto-Farbe und zeigt bei JEDER Mail, zu welchem Postfach sie
+        // gehört (abgerundet und leicht eingerückt, damit er sich vom
+        // Ungelesen-Streifen unterscheidet); ungelesen bleibt dort an
+        // Fettschrift und Punkt unter der Uhrzeit erkennbar. Im Einzelkonto
+        // — und für Konten ohne gewählte Farbe — markiert er wie bisher nur
+        // Ungelesene in Primärfarbe.
         val colorsVersion by Prefs.accountColorsFlow.collectAsState()
         val unified by MailRepository.unified.collectAsState()
         val accountColor = remember(colorsVersion, mail.account, unified) {
@@ -3668,21 +3677,29 @@ private fun MailRow(
             else Prefs.accountColor(mail.account.ifBlank { Prefs.email })
                 ?.let { Color(it) }
         }
-        val barColor =
-            if (!mail.seen && !selected) MaterialTheme.colorScheme.primary else null
-        if (barColor != null) {
-            // matchParentSize: erst nach dem Inhalt gemessen, damit der Streifen
-            // die volle Kartenhöhe bekommt (fillMaxHeight wäre hier unbegrenzt)
+        // matchParentSize: erst nach dem Inhalt gemessen, damit der Streifen
+        // die volle Kartenhöhe bekommt (fillMaxHeight wäre hier unbegrenzt)
+        if (accountColor != null) {
+            Box(Modifier.matchParentSize()) {
+                Box(
+                    Modifier
+                        .padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
+                        .width(4.dp)
+                        .fillMaxHeight()
+                        .background(accountColor, RoundedCornerShape(2.dp))
+                )
+            }
+        } else if (!mail.seen && !selected) {
             Box(Modifier.matchParentSize()) {
                 Box(
                     Modifier
                         .width(4.dp)
                         .fillMaxHeight()
-                        .background(barColor)
+                        .background(MaterialTheme.colorScheme.primary)
                 )
             }
         }
-        MailRowContent(mail, selected, selectionMode, threadCount, accountColor)
+        MailRowContent(mail, selected, selectionMode, threadCount)
     }
 }
 
@@ -3691,8 +3708,7 @@ private fun MailRowContent(
     mail: MailMessage,
     selected: Boolean,
     selectionMode: Boolean,
-    threadCount: Int? = null,
-    accountColor: Color? = null
+    threadCount: Int? = null
 ) {
     // Schlichtes Design: kompaktere Zeilen (weniger Innenabstand)
     val plain by Prefs.plainDesignFlow.collectAsState()
@@ -3779,16 +3795,6 @@ private fun MailRowContent(
         Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Sammel-Posteingang: kleiner Punkt in der Konto-Farbe zeigt,
-                // zu welchem Postfach die Mail gehört
-                if (accountColor != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(9.dp)
-                            .background(accountColor, CircleShape)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                }
                 // Phishing-Wächter: kleines rotes Ausrufezeichen statt Rahmen
                 val phishingSet by Prefs.phishingFlow.collectAsState()
                 val phishingWarning = remember(phishingSet, mail.account, mail.uid) {

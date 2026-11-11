@@ -108,6 +108,10 @@
     <string name="settings_account_active">%1$s (aktiv)</string>
     <string name="settings_account_remove">Konto entfernen</string>
     <string name="settings_account_credentials">Zugangsdaten</string>
+    <string name="settings_account_name">Name</string>
+    <string name="settings_account_name_title">Anzeigename für dieses Konto</string>
+    <string name="settings_account_name_hint">z. B. Privat oder Firma</string>
+    <string name="settings_account_name_desc">Erscheint in der Konto-Leiste, im Titel, im Konto-Menü und in Benachrichtigungen. Leer lassen: Adresse bzw. Domain wie bisher.</string>
     <string name="settings_choose_color">Farbe wählen</string>
     <string name="settings_default_sender">Standard-Absender</string>
     <string name="settings_default_sender_desc">Neue Mails werden über dieses Konto geschrieben (im Verfassen-Fenster jederzeit umschaltbar). Antworten gehen immer über das Konto, in dem die Mail ankam.</string>

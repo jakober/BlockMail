@@ -1092,6 +1092,55 @@ fun SettingsScreen(
                     }
                 )
             }
+            // Anzeigename je Konto: erscheint in Konto-Leiste, Titel, Menü,
+            // Benachrichtigung — statt der Adresse bzw. Domain
+            var namePickerFor by remember { mutableStateOf<String?>(null) }
+            namePickerFor?.let { accEmail ->
+                var nameText by remember(accEmail) {
+                    mutableStateOf(Prefs.accountName(accEmail))
+                }
+                AlertDialog(
+                    onDismissRequest = { namePickerFor = null },
+                    title = { Text(stringResource(R.string.settings_account_name_title)) },
+                    text = {
+                        Column {
+                            Text(
+                                accEmail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = nameText,
+                                onValueChange = { nameText = it.take(24) },
+                                label = { Text(stringResource(R.string.settings_account_name)) },
+                                placeholder = {
+                                    Text(stringResource(R.string.settings_account_name_hint))
+                                },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                stringResource(R.string.settings_account_name_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            Prefs.setAccountName(accEmail, nameText)
+                            namePickerFor = null
+                        }) { Text(stringResource(R.string.settings_save)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { namePickerFor = null }) {
+                            Text(stringResource(R.string.settings_cancel))
+                        }
+                    }
+                )
+            }
             // Sichtbare Ordner je Konto (abgewählte verschwinden aus dem Ordner-Menü)
             var folderPickerFor by remember { mutableStateOf<String?>(null) }
             val hiddenVersion by Prefs.hiddenFoldersFlow.collectAsState()
@@ -1264,15 +1313,28 @@ fun SettingsScreen(
                                 )
                         )
                         Spacer(Modifier.width(10.dp))
-                        Text(
-                            if (active) {
-                                stringResource(R.string.settings_account_active, acc.email)
-                            } else acc.email,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (active) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
+                        val accName = remember(colorsVersion, acc.email) {
+                            Prefs.accountName(acc.email)
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            val shown = accName.ifBlank { acc.email }
+                            Text(
+                                if (active) {
+                                    stringResource(R.string.settings_account_active, shown)
+                                } else shown,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (active) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface
+                            )
+                            // Mit eigenem Namen bleibt die Adresse darunter sichtbar
+                            if (accName.isNotBlank()) {
+                                Text(
+                                    acc.email,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         if (!active) {
                             IconButton(onClick = {
                                 Prefs.removeAccount(acc.email)
@@ -1296,6 +1358,17 @@ fun SettingsScreen(
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        AssistChip(
+                            onClick = { namePickerFor = acc.email },
+                            label = { Text(stringResource(R.string.settings_account_name)) },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.AccountCircle,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
                         // Zugangsdaten je Konto bearbeiten — Google-Konten
                         // haben keine (Anmeldung läuft über das Google-Fenster)
                         if (acc.authMethod != "oauth") {
@@ -1631,7 +1704,7 @@ fun SettingsScreen(
                 // Mehrere Postfächer: Zustand jeder Verbindung einzeln zeigen
                 perAccount.entries.sortedBy { it.key }.forEach { (acctEmail, st) ->
                     Text(
-                        "$acctEmail: ${pushStateText(st)}",
+                        "${Prefs.accountLabel(acctEmail)}: ${pushStateText(st)}",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

@@ -689,7 +689,10 @@ fun DetailScreen(
                 } else null
             }
             val receivedVia: String? = receivedAccount?.let {
-                stringResource(R.string.detail_received_via, it)
+                stringResource(
+                    R.string.detail_received_via,
+                    com.jakober.klarmail.data.Prefs.accountLabel(it)
+                )
             }
             // Phishing-Wächter: Prüfung im Hintergrund; der Inhalt wird erst
             // nach der Prüfung aufgebaut, damit das Layout von Anfang an steht

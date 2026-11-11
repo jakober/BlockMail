@@ -443,7 +443,7 @@ object MailChecker {
             // Logo-Update derselben Meldung bleibt lautlos
             .setOnlyAlertOnce(true)
         // Bei mehreren Postfächern zeigt der Untertitel, wohin die Mail kam
-        if (Prefs.pushAccounts().size > 1) builder.setSubText(acctEmail)
+        if (Prefs.pushAccounts().size > 1) builder.setSubText(Prefs.accountLabel(acctEmail))
         // Aktions-Knöpfe nach Nutzer-Auswahl (Android zeigt höchstens 3 an)
         Prefs.notifActions.forEach { key ->
             when (key) {

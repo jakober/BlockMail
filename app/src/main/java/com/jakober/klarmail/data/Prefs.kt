@@ -130,7 +130,7 @@ object Prefs {
         "vip_only_notif", "notif_actions", "push_mode", "default_send_account",
         "ai_engine", "known_recipients"
     )
-    private val backupPrefixes = listOf("account_color_", "hidden_folders_")
+    private val backupPrefixes = listOf("account_color_", "account_name_", "hidden_folders_")
 
     fun exportSettingsJson(): String {
         val values = JSONObject()
@@ -1126,6 +1126,25 @@ object Prefs {
             sp.edit().putString("swipe_right", v).apply()
             swipeRightFlow.value = v
         }
+
+    /**
+     * Vom Nutzer vergebener Anzeigename eines Kontos ("Privat", "Firma") —
+     * leer, wenn keiner vergeben wurde.
+     */
+    fun accountName(accountEmail: String): String =
+        sp.getString("account_name_" + accountEmail.trim().lowercase(), "") ?: ""
+
+    fun setAccountName(accountEmail: String, name: String) {
+        val key = "account_name_" + accountEmail.trim().lowercase()
+        if (name.isBlank()) sp.edit().remove(key).apply()
+        else sp.edit().putString(key, name.trim()).apply()
+        // Derselbe Zähler wie bei der Farbe: "Darstellung der Konten geändert"
+        accountColorsFlow.value++
+    }
+
+    /** Anzeige eines Kontos: der vergebene Name, sonst die Adresse. */
+    fun accountLabel(accountEmail: String): String =
+        accountName(accountEmail).ifBlank { accountEmail }
 
     /** Farbe eines Kontos (ARGB) oder null, wenn keine gewählt wurde. */
     fun accountColor(accountEmail: String): Int? {

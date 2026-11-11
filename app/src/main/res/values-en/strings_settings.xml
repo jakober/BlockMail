@@ -108,6 +108,10 @@
     <string name="settings_account_active">%1$s (active)</string>
     <string name="settings_account_remove">Remove account</string>
     <string name="settings_account_credentials">Credentials</string>
+    <string name="settings_account_name">Name</string>
+    <string name="settings_account_name_title">Display name for this account</string>
+    <string name="settings_account_name_hint">e.g. Private or Work</string>
+    <string name="settings_account_name_desc">Shown in the account bar, the title, the account menu and in notifications. Leave empty to keep the address or domain.</string>
     <string name="settings_choose_color">Pick color</string>
     <string name="settings_default_sender">Default sender</string>
     <string name="settings_default_sender_desc">New emails are written from this account (you can switch anytime in the compose window). Replies always go through the account that received the email.</string>
