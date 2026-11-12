@@ -3663,33 +3663,26 @@ private fun MailRow(
                 onClick = onClick
             )
     ) {
-        // Balken vorne. Im Sammel-Posteingang „Alle Konten“ trägt er die
-        // Konto-Farbe und zeigt bei JEDER Mail, zu welchem Postfach sie
-        // gehört (abgerundet und leicht eingerückt, damit er sich vom
-        // Ungelesen-Streifen unterscheidet); ungelesen bleibt dort an
-        // Fettschrift und Punkt unter der Uhrzeit erkennbar. Im Einzelkonto
-        // — und für Konten ohne gewählte Farbe — markiert er wie bisher nur
-        // Ungelesene in Primärfarbe.
+        // Balken vorne: zeigt nur Ungelesene in Primärfarbe an. Das Postfach
+        // einer Mail steht im Sammel-Posteingang „Alle Konten“ als Mini-Badge
+        // mit dem Kontonamen rechts unter der Uhrzeit (siehe MailRowContent).
         val colorsVersion by Prefs.accountColorsFlow.collectAsState()
         val unified by MailRepository.unified.collectAsState()
-        val accountColor = remember(colorsVersion, mail.account, unified) {
-            if (!unified) null
-            else Prefs.accountColor(mail.account.ifBlank { Prefs.email })
-                ?.let { Color(it) }
+        val accountEmail = mail.account.ifBlank { Prefs.email }
+        val accountColor = remember(colorsVersion, accountEmail, unified) {
+            if (!unified) null else Prefs.accountColor(accountEmail)?.let { Color(it) }
         }
-        // matchParentSize: erst nach dem Inhalt gemessen, damit der Streifen
-        // die volle Kartenhöhe bekommt (fillMaxHeight wäre hier unbegrenzt)
-        if (accountColor != null) {
-            Box(Modifier.matchParentSize()) {
-                Box(
-                    Modifier
-                        .padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
-                        .width(4.dp)
-                        .fillMaxHeight()
-                        .background(accountColor, RoundedCornerShape(2.dp))
-                )
-            }
-        } else if (!mail.seen && !selected) {
+        // Vergebener Name; ohne ihn die Domain (die volle Adresse wäre für
+        // ein Mini-Badge zu lang)
+        val accountBadge = remember(colorsVersion, accountEmail, unified) {
+            if (!unified) null
+            else Prefs.accountName(accountEmail).ifBlank {
+                accountEmail.substringAfterLast('@', accountEmail)
+            }.takeIf { it.isNotBlank() }
+        }
+        if (!mail.seen && !selected) {
+            // matchParentSize: erst nach dem Inhalt gemessen, damit der Streifen
+            // die volle Kartenhöhe bekommt (fillMaxHeight wäre hier unbegrenzt)
             Box(Modifier.matchParentSize()) {
                 Box(
                     Modifier
@@ -3699,7 +3692,10 @@ private fun MailRow(
                 )
             }
         }
-        MailRowContent(mail, selected, selectionMode, threadCount)
+        MailRowContent(
+            mail, selected, selectionMode, threadCount,
+            accountBadge = accountBadge, accountColor = accountColor
+        )
     }
 }
 
@@ -3708,7 +3704,11 @@ private fun MailRowContent(
     mail: MailMessage,
     selected: Boolean,
     selectionMode: Boolean,
-    threadCount: Int? = null
+    threadCount: Int? = null,
+    /** Kontoname fürs Mini-Badge (nur im Sammel-Posteingang gesetzt). */
+    accountBadge: String? = null,
+    /** Gewählte Konto-Farbe des Badges; ohne Farbe ein neutrales Grau. */
+    accountColor: Color? = null
 ) {
     // Schlichtes Design: kompaktere Zeilen (weniger Innenabstand)
     val plain by Prefs.plainDesignFlow.collectAsState()
@@ -3850,15 +3850,58 @@ private fun MailRowContent(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            if (!mail.seen) {
-                Spacer(Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .size(9.dp)
-                        .background(MaterialTheme.colorScheme.primary, CircleShape)
-                )
+            // Unter der Uhrzeit: Ungelesen-Punkt und (im Sammel-Posteingang)
+            // das Mini-Badge mit dem Kontonamen — nebeneinander, damit die
+            // Zeile dadurch nicht höher wird
+            if (!mail.seen || accountBadge != null) {
+                Spacer(Modifier.height(5.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!mail.seen) {
+                        Box(
+                            modifier = Modifier
+                                .size(9.dp)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        )
+                    }
+                    if (accountBadge != null) {
+                        if (!mail.seen) Spacer(Modifier.width(5.dp))
+                        AccountBadge(accountBadge, accountColor)
+                    }
+                }
             }
         }
+    }
+}
+
+/**
+ * Mini-Badge mit dem Kontonamen: zeigt im Sammel-Posteingang, in welchem
+ * Postfach eine Mail liegt. Gefüllt in der Konto-Farbe; die Schriftfarbe
+ * richtet sich nach deren Helligkeit, damit der Name lesbar bleibt.
+ */
+@Composable
+private fun AccountBadge(name: String, color: Color?) {
+    val bg = color ?: MaterialTheme.colorScheme.surfaceContainerHighest
+    val fg = when {
+        color == null -> MaterialTheme.colorScheme.onSurfaceVariant
+        color.luminance() > 0.55f -> Color(0xFF1A1A1A)
+        else -> Color.White
+    }
+    Box(
+        modifier = Modifier
+            .widthIn(max = 84.dp)
+            .clip(RoundedCornerShape(5.dp))
+            .background(bg)
+            .padding(horizontal = 5.dp, vertical = 1.dp)
+    ) {
+        Text(
+            name,
+            fontSize = 9.sp,
+            lineHeight = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = fg,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
