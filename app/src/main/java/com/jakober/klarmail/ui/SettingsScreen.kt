@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.ManageSearch
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.People
@@ -1332,6 +1334,39 @@ fun SettingsScreen(
                                     acc.email,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        // Reihenfolge festlegen: so stehen die Konten in der
+                        // Konto-Leiste unter der Suche und im Konto-Menü
+                        if (accountList.size > 1) {
+                            val pos = accountList.indexOf(acc)
+                            IconButton(
+                                enabled = pos > 0,
+                                onClick = {
+                                    Prefs.moveAccount(acc.email, -1)
+                                    accountList = Prefs.accounts()
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.KeyboardArrowUp,
+                                    contentDescription =
+                                        stringResource(R.string.settings_account_move_up)
+                                )
+                            }
+                            IconButton(
+                                enabled = pos < accountList.lastIndex,
+                                onClick = {
+                                    Prefs.moveAccount(acc.email, 1)
+                                    accountList = Prefs.accounts()
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.KeyboardArrowDown,
+                                    contentDescription =
+                                        stringResource(R.string.settings_account_move_down)
                                 )
                             }
                         }

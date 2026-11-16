@@ -723,7 +723,16 @@ object Prefs {
             email, authMethod, appPassword, refreshToken,
             imapHost, imapPort, smtpHost, smtpPort, loginUser
         )
-        saveAccounts(accounts().filter { !it.email.equals(acc.email, ignoreCase = true) } + acc)
+        // An ORT UND STELLE ersetzen: Die Reihenfolge der Liste ist die
+        // Reihenfolge in Konto-Leiste und Konto-Menü. Früher wurde das Konto
+        // herausgenommen und hinten angehängt — bei jedem Kontowechsel
+        // sprangen die Konten dadurch an eine andere Position.
+        val list = accounts()
+        saveAccounts(
+            if (list.any { it.email.equals(acc.email, ignoreCase = true) }) {
+                list.map { if (it.email.equals(acc.email, ignoreCase = true)) acc else it }
+            } else list + acc
+        )
         // Kontostand hat sich geaendert: Der naechtliche Voll-Index darf
         // erneut laufen, damit auch dieses Konto die volle Historie bekommt
         indexAutoBuilt = false
@@ -748,6 +757,21 @@ object Prefs {
         saveAccounts(
             accounts().map { if (it.email.equals(acc.email, ignoreCase = true)) acc else it }
         )
+    }
+
+    /**
+     * Verschiebt ein Konto in der Liste um eine Stelle (delta -1 = nach
+     * vorn, +1 = nach hinten) — legt die Reihenfolge in Konto-Leiste und
+     * Konto-Menü fest.
+     */
+    fun moveAccount(accountEmail: String, delta: Int) {
+        val list = accounts().toMutableList()
+        val from = list.indexOfFirst { it.email.equals(accountEmail, ignoreCase = true) }
+        val to = from + delta
+        if (from < 0 || to < 0 || to >= list.size) return
+        val acc = list.removeAt(from)
+        list.add(to, acc)
+        saveAccounts(list)
     }
 
     fun removeAccount(accountEmail: String) =

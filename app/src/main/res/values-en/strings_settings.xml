@@ -100,7 +100,7 @@
     <!-- Account management -->
     <string name="settings_accounts_title">Accounts</string>
     <string name="settings_accounts_subtitle">Your mailboxes: color and visible folders per account</string>
-    <string name="settings_accounts_desc">Switch between accounts via the folder menu at the top of the inbox. “Pick color” gives the account its own color — it appears as a bar at the front of every email from that account. “Visible folders” controls which folders the account shows in the folder menu.</string>
+    <string name="settings_accounts_desc">Switch between accounts in the inbox via the account bar below the search or the menu at the title. The arrows set the order of the accounts there. “Name” assigns a display name, “Pick color” a color — both appear in the account bar and, under “All accounts”, as a small label on every email. “Visible folders” controls which folders the account shows in the folder menu.</string>
     <string name="settings_account_color_title">Color for this account</string>
     <string name="settings_no_color">No color</string>
     <string name="settings_visible_folders">Visible folders</string>
@@ -112,6 +112,8 @@
     <string name="settings_account_name_title">Display name for this account</string>
     <string name="settings_account_name_hint">e.g. Private or Work</string>
     <string name="settings_account_name_desc">Shown in the account bar, the title, the account menu and in notifications. Leave empty to keep the address or domain.</string>
+    <string name="settings_account_move_up">Move account up</string>
+    <string name="settings_account_move_down">Move account down</string>
     <string name="settings_choose_color">Pick color</string>
     <string name="settings_default_sender">Default sender</string>
     <string name="settings_default_sender_desc">New emails are written from this account (you can switch anytime in the compose window). Replies always go through the account that received the email.</string>

@@ -100,7 +100,7 @@
     <!-- Konten-Verwaltung -->
     <string name="settings_accounts_title">Konten</string>
     <string name="settings_accounts_subtitle">Deine Postfächer: Farbe und sichtbare Ordner je Konto</string>
-    <string name="settings_accounts_desc">Zwischen den Konten wechselst du oben im Posteingang über das Ordner-Menü. „Farbe wählen“ gibt dem Konto eine eigene Farbe — sie erscheint als Balken vorne an jeder Mail dieses Kontos. „Sichtbare Ordner“ legt fest, welche Ordner das Konto im Ordner-Menü zeigt.</string>
+    <string name="settings_accounts_desc">Zwischen den Konten wechselst du im Posteingang über die Konto-Leiste unter der Suche oder das Menü am Titel. Die Pfeile legen die Reihenfolge der Konten dort fest. „Name“ vergibt einen eigenen Anzeigenamen, „Farbe wählen“ eine Farbe — beides erscheint in der Konto-Leiste und bei „Alle Konten“ als kleines Etikett an jeder Mail. „Sichtbare Ordner“ legt fest, welche Ordner das Konto im Ordner-Menü zeigt.</string>
     <string name="settings_account_color_title">Farbe für dieses Konto</string>
     <string name="settings_no_color">Keine Farbe</string>
     <string name="settings_visible_folders">Sichtbare Ordner</string>
@@ -112,6 +112,8 @@
     <string name="settings_account_name_title">Anzeigename für dieses Konto</string>
     <string name="settings_account_name_hint">z. B. Privat oder Firma</string>
     <string name="settings_account_name_desc">Erscheint in der Konto-Leiste, im Titel, im Konto-Menü und in Benachrichtigungen. Leer lassen: Adresse bzw. Domain wie bisher.</string>
+    <string name="settings_account_move_up">Konto nach oben</string>
+    <string name="settings_account_move_down">Konto nach unten</string>
     <string name="settings_choose_color">Farbe wählen</string>
     <string name="settings_default_sender">Standard-Absender</string>
     <string name="settings_default_sender_desc">Neue Mails werden über dieses Konto geschrieben (im Verfassen-Fenster jederzeit umschaltbar). Antworten gehen immer über das Konto, in dem die Mail ankam.</string>
