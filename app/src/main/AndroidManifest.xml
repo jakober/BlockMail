@@ -15,6 +15,10 @@
          Ohne sie greift ein Fenster-Wecker (max. 10 Minuten Spielraum). -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Kraeftiger Impuls beim Erreichen der Wischschwelle (die System-Haptik
+         faellt je nach Geraet zu schwach aus). Normale Berechtigung, keine
+         Nachfrage beim Nutzer. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Zahl am App-Symbol (ungelesene Mails): Android hat dafuer keine
          eigene Schnittstelle, die Startbildschirme der Hersteller schon —

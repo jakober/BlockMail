@@ -201,6 +201,69 @@ private fun extractAiKeywords(question: String): List<String> {
  * Absender, Datum, Konto, FTS-Snippet als Vorschau), der Ordner-Name wird auf
  * MailFolder zurückgemappt (unbekannt → INBOX).
  */
+/**
+ * Ein Segment der Konto-Leiste: "Alle Konten" (mit Sammel-Symbol) oder ein
+ * Postfach (mit Farbpunkt). Gewählt = helle Pille mit kräftiger Schrift.
+ */
+@Composable
+private fun AccountSegment(
+    label: String,
+    selected: Boolean,
+    unread: Int,
+    dotColor: Color?,
+    allAccounts: Boolean,
+    selectedBg: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val content = if (selected) MaterialTheme.colorScheme.onSurface
+    else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) selectedBg else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        when {
+            allAccounts -> Icon(
+                Icons.Filled.AllInbox,
+                contentDescription = null,
+                modifier = Modifier.size(15.dp),
+                tint = content
+            )
+            dotColor != null -> Box(
+                Modifier
+                    .size(8.dp)
+                    .background(dotColor, CircleShape)
+            )
+            else -> Icon(
+                Icons.Filled.AccountCircle,
+                contentDescription = null,
+                modifier = Modifier.size(15.dp),
+                tint = content
+            )
+        }
+        Spacer(Modifier.width(6.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = content,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        if (unread > 0) {
+            Spacer(Modifier.width(6.dp))
+            UnreadPill(unread)
+        }
+    }
+}
+
 /** Kleine Zahl-Pille: ungelesene Mails eines Postfachs. */
 @Composable
 private fun UnreadPill(count: Int) {
@@ -2133,73 +2196,57 @@ fun InboxScreen(
             if (configured && switchAccounts.size > 1 && query.isBlank() &&
                 aiAnswer == null && serverResults == null && !starredFolder
             ) {
+                // Segment-Leiste im Stil der Suchleiste darüber: dieselbe weiche,
+                // voll abgerundete Fläche; das gewählte Konto liegt als helle
+                // Pille darin. (Die umrandeten Chips davor wirkten daneben
+                // wie ein Fremdkörper.)
+                val segDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+                val segSelectedBg = if (segDark) {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)
+                } else MaterialTheme.colorScheme.surface
+                // Bis zu vier Segmente teilen sich die Breite gleichmäßig; bei
+                // mehr Konten wird die Leiste seitlich wischbar
+                val segFill = switchAccounts.size <= 3
+                val totalUnread = switchAccounts
+                    .map { unreadByAccount[it.email.trim().lowercase()] ?: 0 }
+                    .sum()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 12.dp)
-                        .padding(bottom = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(bottom = 6.dp)
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .then(
+                            if (segFill) Modifier
+                            else Modifier.horizontalScroll(rememberScrollState())
+                        )
+                        .padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val totalUnread = switchAccounts
-                        .map { unreadByAccount[it.email.trim().lowercase()] ?: 0 }
-                        .sum()
-                    androidx.compose.material3.FilterChip(
+                    AccountSegment(
+                        label = stringResource(R.string.inbox_all_accounts),
                         selected = unified,
-                        onClick = { switchToUnified() },
-                        label = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(stringResource(R.string.inbox_all_accounts))
-                                if (totalUnread > 0) {
-                                    Spacer(Modifier.width(6.dp))
-                                    UnreadPill(totalUnread)
-                                }
-                            }
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Filled.AllInbox,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+                        unread = totalUnread,
+                        dotColor = null,
+                        allAccounts = true,
+                        selectedBg = segSelectedBg,
+                        modifier = if (segFill) Modifier.weight(1f) else Modifier,
+                        onClick = { switchToUnified() }
                     )
                     switchAccounts.forEach { acc ->
                         val active = !unified &&
                             acc.email.equals(currentAccountEmail, ignoreCase = true)
-                        val n = unreadByAccount[acc.email.trim().lowercase()] ?: 0
-                        androidx.compose.material3.FilterChip(
+                        AccountSegment(
+                            label = accountChipLabel(acc.email, switchAccounts),
                             selected = active,
-                            onClick = { if (!active) switchToAccount(acc) },
-                            label = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        accountChipLabel(acc.email, switchAccounts),
-                                        maxLines = 1
-                                    )
-                                    if (n > 0) {
-                                        Spacer(Modifier.width(6.dp))
-                                        UnreadPill(n)
-                                    }
-                                }
-                            },
-                            leadingIcon = {
-                                val accColor = Prefs.accountColor(acc.email)
-                                if (accColor != null) {
-                                    Box(
-                                        Modifier
-                                            .size(12.dp)
-                                            .background(Color(accColor), CircleShape)
-                                    )
-                                } else {
-                                    Icon(
-                                        Icons.Filled.AccountCircle,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
+                            unread = unreadByAccount[acc.email.trim().lowercase()] ?: 0,
+                            dotColor = Prefs.accountColor(acc.email)?.let { Color(it) },
+                            allAccounts = false,
+                            selectedBg = segSelectedBg,
+                            modifier = if (segFill) Modifier.weight(1f) else Modifier,
+                            onClick = { if (!active) switchToAccount(acc) }
                         )
                     }
                 }
@@ -3398,6 +3445,50 @@ private fun buildThreads(messages: List<MailMessage>): List<MailThread> =
 
 private const val SWIPE_THRESHOLD = 0.30f
 
+/**
+ * Deutlich spürbarer Impuls beim Erreichen der Wischschwelle. Die
+ * System-Haptik (performHapticFeedback) fällt je nach Gerät und
+ * Einstellung sehr schwach aus — deshalb ein eigener, kräftiger Impuls
+ * direkt über den Vibrationsmotor. Wer haptisches Feedback systemweit
+ * abgeschaltet hat, bekommt auch hier keines; ohne Vibrationsmotor oder
+ * bei einem Fehler greift [fallback] (die System-Haptik).
+ */
+private fun swipeThresholdBuzz(context: android.content.Context, fallback: () -> Unit) {
+    try {
+        val hapticsOff = android.provider.Settings.System.getInt(
+            context.contentResolver,
+            android.provider.Settings.System.HAPTIC_FEEDBACK_ENABLED,
+            1
+        ) == 0
+        if (hapticsOff) return
+        val vibrator: android.os.Vibrator? = if (android.os.Build.VERSION.SDK_INT >= 31) {
+            context.getSystemService(android.os.VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(android.os.Vibrator::class.java)
+        }
+        if (vibrator == null || !vibrator.hasVibrator()) {
+            fallback()
+            return
+        }
+        val effect = when {
+            // Volle Stärke, kurz und knackig — wo der Motor die Stärke regeln kann
+            vibrator.hasAmplitudeControl() ->
+                android.os.VibrationEffect.createOneShot(40L, 255)
+            android.os.Build.VERSION.SDK_INT >= 29 ->
+                android.os.VibrationEffect.createPredefined(
+                    android.os.VibrationEffect.EFFECT_HEAVY_CLICK
+                )
+            else -> android.os.VibrationEffect.createOneShot(
+                40L, android.os.VibrationEffect.DEFAULT_AMPLITUDE
+            )
+        }
+        vibrator.vibrate(effect)
+    } catch (_: Exception) {
+        fallback()
+    }
+}
+
 /** Beschreibt eine Wisch-Aktion (Label-Ressource, Symbol, rot eingefärbt?, Ausführung). */
 class SwipeSpec(
     val labelRes: Int,
@@ -3440,6 +3531,7 @@ private fun SwipeableMailRow(
         val density = androidx.compose.ui.platform.LocalDensity.current
         val widthPx = with(density) { maxWidth.toPx() }
         val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+        val buzzContext = LocalContext.current.applicationContext
         // Bewusst KEIN rememberSaveable (rememberSwipeToDismissBoxState):
         // Der gespeicherte "weggewischt"-Zustand würde sonst beim
         // Wiederherstellen einer Mail über "Rückgängig" restauriert und die
@@ -3509,9 +3601,11 @@ private fun SwipeableMailRow(
             }.collect { fraction ->
                 if (fraction >= SWIPE_THRESHOLD && !thresholdReached) {
                     thresholdReached = true
-                    haptics.performHapticFeedback(
-                        androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
-                    )
+                    swipeThresholdBuzz(buzzContext) {
+                        haptics.performHapticFeedback(
+                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
+                        )
+                    }
                 } else if (fraction < SWIPE_THRESHOLD - 0.04f && thresholdReached) {
                     thresholdReached = false
                 }
@@ -4433,6 +4527,7 @@ private fun SwipeableMailBlock(
         val density = androidx.compose.ui.platform.LocalDensity.current
         val widthPx = with(density) { maxWidth.toPx() }
         val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+        val buzzContext = LocalContext.current.applicationContext
         // Gleiches Muster wie SwipeableMailRow: Aktion direkt in
         // confirmValueChange auslösen, Block schnappt von selbst zurück
         val currentRight = androidx.compose.runtime.rememberUpdatedState(rightSpec)
@@ -4490,9 +4585,11 @@ private fun SwipeableMailBlock(
             }.collect { fraction ->
                 if (fraction >= SWIPE_THRESHOLD && !thresholdReached) {
                     thresholdReached = true
-                    haptics.performHapticFeedback(
-                        androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
-                    )
+                    swipeThresholdBuzz(buzzContext) {
+                        haptics.performHapticFeedback(
+                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
+                        )
+                    }
                 } else if (fraction < SWIPE_THRESHOLD - 0.04f && thresholdReached) {
                     thresholdReached = false
                 }
