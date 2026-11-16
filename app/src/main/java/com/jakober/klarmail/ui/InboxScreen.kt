@@ -3455,6 +3455,23 @@ private fun SwipeableMailRow(
         // Schutz vor Doppel-Auslösung: erst wieder scharf, wenn die Zeile
         // nahezu zurückgeschnappt ist (siehe snapshotFlow unten)
         val triggered = remember(mail.uid) { mutableStateOf(false) }
+        // Die Aktion darf NUR auslösen, wenn beim Loslassen wirklich die
+        // Schwelle überschritten ist — dieselbe, an der es vibriert. Die
+        // Komponente meldet das Ziel sonst auch bei bloßer Geschwindigkeit:
+        // Ein kurzer Schnipser über wenige Pixel löste die Aktion aus, ohne
+        // dass die Schwelle (und damit die Vibration) je erreicht wurde.
+        // Der Halter ist nötig, weil confirmValueChange die Wischstrecke des
+        // Zustands braucht, der gerade erst erzeugt wird.
+        val stateHolder = remember(mail.uid) { arrayOfNulls<SwipeToDismissBoxState>(1) }
+        val currentWidth = androidx.compose.runtime.rememberUpdatedState(widthPx)
+        val swipedFarEnough: (Boolean) -> Boolean = { toEnd ->
+            val off = try {
+                stateHolder[0]?.requireOffset() ?: 0f
+            } catch (e: Exception) {
+                0f
+            }
+            (if (toEnd) off else -off) / currentWidth.value >= SWIPE_THRESHOLD
+        }
         val dismissState = remember(mail.uid) {
             SwipeToDismissBoxState(
                 initialValue = SwipeToDismissBoxValue.Settled,
@@ -3462,14 +3479,14 @@ private fun SwipeableMailRow(
                 confirmValueChange = { value ->
                     when (value) {
                         SwipeToDismissBoxValue.StartToEnd -> {
-                            if (!triggered.value) {
+                            if (!triggered.value && swipedFarEnough(true)) {
                                 triggered.value = true
                                 currentRight.value.onTrigger()
                             }
                             false
                         }
                         SwipeToDismissBoxValue.EndToStart -> {
-                            if (!triggered.value) {
+                            if (!triggered.value && swipedFarEnough(false)) {
                                 triggered.value = true
                                 currentLeft.value.onTrigger()
                             }
@@ -3480,7 +3497,7 @@ private fun SwipeableMailRow(
                 },
                 // Erst ab 30 % Wischstrecke auslösen; vorher schnappt die Zeile zurück
                 positionalThreshold = { totalDistance -> totalDistance * SWIPE_THRESHOLD }
-            )
+            ).also { stateHolder[0] = it }
         }
 
         // Vibrieren, sobald die Auslöseschwelle überschritten wird
@@ -4421,6 +4438,23 @@ private fun SwipeableMailBlock(
         val currentRight = androidx.compose.runtime.rememberUpdatedState(rightSpec)
         val currentLeft = androidx.compose.runtime.rememberUpdatedState(leftSpec)
         val triggered = remember(mail.uid) { mutableStateOf(false) }
+        // Die Aktion darf NUR auslösen, wenn beim Loslassen wirklich die
+        // Schwelle überschritten ist — dieselbe, an der es vibriert. Die
+        // Komponente meldet das Ziel sonst auch bei bloßer Geschwindigkeit:
+        // Ein kurzer Schnipser über wenige Pixel löste die Aktion aus, ohne
+        // dass die Schwelle (und damit die Vibration) je erreicht wurde.
+        // Der Halter ist nötig, weil confirmValueChange die Wischstrecke des
+        // Zustands braucht, der gerade erst erzeugt wird.
+        val stateHolder = remember(mail.uid) { arrayOfNulls<SwipeToDismissBoxState>(1) }
+        val currentWidth = androidx.compose.runtime.rememberUpdatedState(widthPx)
+        val swipedFarEnough: (Boolean) -> Boolean = { toEnd ->
+            val off = try {
+                stateHolder[0]?.requireOffset() ?: 0f
+            } catch (e: Exception) {
+                0f
+            }
+            (if (toEnd) off else -off) / currentWidth.value >= SWIPE_THRESHOLD
+        }
         val dismissState = remember(mail.uid) {
             SwipeToDismissBoxState(
                 initialValue = SwipeToDismissBoxValue.Settled,
@@ -4428,14 +4462,14 @@ private fun SwipeableMailBlock(
                 confirmValueChange = { value ->
                     when (value) {
                         SwipeToDismissBoxValue.StartToEnd -> {
-                            if (!triggered.value) {
+                            if (!triggered.value && swipedFarEnough(true)) {
                                 triggered.value = true
                                 currentRight.value.onTrigger()
                             }
                             false
                         }
                         SwipeToDismissBoxValue.EndToStart -> {
-                            if (!triggered.value) {
+                            if (!triggered.value && swipedFarEnough(false)) {
                                 triggered.value = true
                                 currentLeft.value.onTrigger()
                             }
@@ -4445,7 +4479,7 @@ private fun SwipeableMailBlock(
                     }
                 },
                 positionalThreshold = { totalDistance -> totalDistance * SWIPE_THRESHOLD }
-            )
+            ).also { stateHolder[0] = it }
         }
 
         var thresholdReached by remember { mutableStateOf(false) }
