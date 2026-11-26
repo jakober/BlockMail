@@ -151,6 +151,42 @@ private val swipeActionLabels = listOf(
 )
 
 /**
+ * Design-Auswahl mit Überschrift, Erklärung und einer Chip-Reihe
+ * (Einfachauswahl) — für "Farbe in den Flächen" und "Absender-Logos".
+ */
+@Composable
+private fun DesignChoiceRow(
+    title: String,
+    desc: String,
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            desc,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            options.forEach { (id, label) ->
+                androidx.compose.material3.FilterChip(
+                    selected = selected == id,
+                    onClick = { onSelect(id) },
+                    label = { Text(label) }
+                )
+            }
+        }
+    }
+}
+
+/**
  * Einfacher Farbwähler: Farbton, Sättigung und Helligkeit als Regler mit
  * großer Live-Vorschau — ohne Zusatz-Bibliothek.
  */
@@ -1614,9 +1650,42 @@ fun SettingsScreen(
                 )
             }
 
+            // Wie stark die gewählte Farbe die Flächen der App tönt
+            // (Hintergründe, Karten, Suchfeld, Leisten, Mail-Kopf)
+            Spacer(Modifier.height(12.dp))
+            val colorIntensity by Prefs.colorIntensityFlow.collectAsState()
+            DesignChoiceRow(
+                title = stringResource(R.string.settings_color_intensity),
+                desc = stringResource(R.string.settings_color_intensity_desc),
+                options = listOf(
+                    "off" to stringResource(R.string.settings_color_intensity_off),
+                    "soft" to stringResource(R.string.settings_color_intensity_soft),
+                    "strong" to stringResource(R.string.settings_color_intensity_strong)
+                ),
+                selected = colorIntensity,
+                onSelect = { Prefs.colorIntensity = it }
+            )
+
+            // Absender-Logos: bunte Marken-Logos zurücknehmen oder abschalten,
+            // damit die gewählte Farbe das Bild bestimmt
+            Spacer(Modifier.height(12.dp))
+            val logoStyle by Prefs.logoStyleFlow.collectAsState()
+            DesignChoiceRow(
+                title = stringResource(R.string.settings_logo_style),
+                desc = stringResource(R.string.settings_logo_style_desc),
+                options = listOf(
+                    "color" to stringResource(R.string.settings_logo_style_color),
+                    "muted" to stringResource(R.string.settings_logo_style_muted),
+                    "gray" to stringResource(R.string.settings_logo_style_gray),
+                    "off" to stringResource(R.string.settings_logo_style_off)
+                ),
+                selected = logoStyle,
+                onSelect = { Prefs.logoStyle = it }
+            )
+
             // Schlichtes Design: Mail-Listen ohne Verläufe/Hintergründe —
             // wirkt auf Liste, Kacheln und kleine Kacheln, hell wie dunkel
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             val plainDesign by Prefs.plainDesignFlow.collectAsState()
             Row(
                 modifier = Modifier.fillMaxWidth(),

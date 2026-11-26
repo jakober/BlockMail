@@ -33,6 +33,17 @@
     <string name="settings_group_appearance">Appearance</string>
     <string name="settings_appearance_title">Appearance</string>
     <string name="settings_appearance_subtitle">Light/dark and the app\'s colors</string>
+    <string name="settings_color_intensity">Color in surfaces</string>
+    <string name="settings_color_intensity_desc">How strongly your color tints backgrounds, cards, the search field and the mail header</string>
+    <string name="settings_color_intensity_off">Off</string>
+    <string name="settings_color_intensity_soft">Subtle</string>
+    <string name="settings_color_intensity_strong">Strong</string>
+    <string name="settings_logo_style">Sender logos</string>
+    <string name="settings_logo_style_desc">Tone down colorful logos so your color sets the look</string>
+    <string name="settings_logo_style_color">Colorful</string>
+    <string name="settings_logo_style_muted">Muted</string>
+    <string name="settings_logo_style_gray">Grayscale</string>
+    <string name="settings_logo_style_off">Off</string>
     <string name="settings_plain_design">Plain design</string>
     <string name="settings_plain_design_desc">Mail lists without tinted backgrounds and gradients</string>
     <string name="scheme_default">BlockMail (default)</string>

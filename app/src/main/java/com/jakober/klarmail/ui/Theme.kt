@@ -145,6 +145,60 @@ fun customScheme(base: Color): SchemeDef = makeScheme(
 )
 
 /**
+ * Tönt alle Flächen des Schemas mit der gewählten Farbe. Ohne das stammen
+ * Hintergrund, Suchleiste, Menüs, Dialoge und Trennlinien aus den festen
+ * Material-Standardtönen (einem Lila-Grau) — egal welche Farbe gewählt ist,
+ * sah die App dann fast gleich aus, nur Knöpfe und Markierungen wechselten.
+ *
+ * [k] ist die Stärke: 1,2 = dezent, 2,2 = kräftig. Ausgangspunkt sind neutrale
+ * Weiß-/Grautöne, in die die Farbe eingemischt wird — so bleibt Text auf
+ * jeder Fläche gut lesbar.
+ */
+private fun tintSurfaces(scheme: ColorScheme, base: Color, dark: Boolean, k: Float): ColorScheme {
+    fun mix(neutral: Long, amount: Float) =
+        lerp(Color(neutral), base, (amount * k).coerceIn(0f, 0.5f))
+    return if (!dark) {
+        val surface = mix(0xFFFFFFFF, 0.04f)
+        scheme.copy(
+            background = surface,
+            surface = surface,
+            surfaceBright = surface,
+            surfaceDim = mix(0xFFDEDEE3, 0.10f),
+            surfaceContainerLowest = mix(0xFFFFFFFF, 0.015f),
+            surfaceContainerLow = mix(0xFFFFFFFF, 0.055f),
+            surfaceContainer = mix(0xFFFFFFFF, 0.075f),
+            surfaceContainerHigh = mix(0xFFFFFFFF, 0.095f),
+            surfaceContainerHighest = mix(0xFFFFFFFF, 0.115f),
+            surfaceVariant = mix(0xFFECECF0, 0.10f),
+            onBackground = Color(0xFF1B1B1F),
+            onSurface = Color(0xFF1B1B1F),
+            onSurfaceVariant = mix(0xFF47474D, 0.14f),
+            outline = mix(0xFF76767C, 0.20f),
+            outlineVariant = mix(0xFFC8C8CE, 0.18f)
+        )
+    } else {
+        val surface = mix(0xFF121214, 0.06f)
+        scheme.copy(
+            background = surface,
+            surface = surface,
+            surfaceDim = surface,
+            surfaceBright = mix(0xFF38383D, 0.10f),
+            surfaceContainerLowest = mix(0xFF0C0C0E, 0.04f),
+            surfaceContainerLow = mix(0xFF1A1A1D, 0.07f),
+            surfaceContainer = mix(0xFF1F1F23, 0.08f),
+            surfaceContainerHigh = mix(0xFF29292E, 0.10f),
+            surfaceContainerHighest = mix(0xFF343439, 0.11f),
+            surfaceVariant = mix(0xFF44444A, 0.14f),
+            onBackground = Color(0xFFE5E5EA),
+            onSurface = Color(0xFFE5E5EA),
+            onSurfaceVariant = mix(0xFFC8C8CE, 0.12f),
+            outline = mix(0xFF909096, 0.18f),
+            outlineVariant = mix(0xFF45454B, 0.18f)
+        )
+    }
+}
+
+/**
  * Kräftige Grundfarbe des gewählten Schemas — im Gegensatz zu
  * colorScheme.primary auch im Dunkelmodus NICHT aufgehellt.
  */
@@ -157,17 +211,31 @@ fun KlarMailTheme(
     content: @Composable () -> Unit
 ) {
     val customColor by Prefs.customColorFlow.collectAsState()
-    val def = if (schemeId == "custom") {
-        customScheme(Color(customColor))
-    } else {
-        colorSchemes.find { it.id == schemeId } ?: colorSchemes.first()
+    // remember: Sonst entstünde bei "Eigene Farbe" mit jedem Neuaufbau ein
+    // neues Schema-Objekt — und damit jedes Mal eine neu berechnete Tönung
+    val def = androidx.compose.runtime.remember(schemeId, customColor) {
+        if (schemeId == "custom") {
+            customScheme(Color(customColor))
+        } else {
+            colorSchemes.find { it.id == schemeId } ?: colorSchemes.first()
+        }
     }
     val dark = when (darkMode) {
         "light" -> false
         "dark" -> true
         else -> isSystemInDarkTheme()
     }
-    val scheme = if (dark) def.dark else def.light
+    // Flächen in der gewählten Farbe tönen (Einstellung: Aus/Dezent/Kräftig)
+    val intensity by Prefs.colorIntensityFlow.collectAsState()
+    val rawScheme = if (dark) def.dark else def.light
+    val accentBase = def.light.primary
+    val scheme = androidx.compose.runtime.remember(rawScheme, accentBase, dark, intensity) {
+        when (intensity) {
+            "off" -> rawScheme
+            "strong" -> tintSurfaces(rawScheme, accentBase, dark, 2.2f)
+            else -> tintSurfaces(rawScheme, accentBase, dark, 1.2f)
+        }
+    }
 
     // Untere Systemleiste (Gesten-/Navigationsleiste) deckend in App-Farbe
     // einfärben: Bei voll transparenter Leiste blenden manche Geräte den

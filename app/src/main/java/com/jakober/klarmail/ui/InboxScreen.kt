@@ -264,6 +264,18 @@ private fun AccountSegment(
     }
 }
 
+/**
+ * Absenderfarbe ungelesener Mails: die gewählte App-Farbe — im Hellmodus
+ * leicht abgedunkelt, damit sie auf dem getönten Grund gut lesbar bleibt.
+ */
+@Composable
+private fun unreadSenderColor(): Color {
+    val scheme = MaterialTheme.colorScheme
+    return if (scheme.surface.luminance() > 0.5f) {
+        androidx.compose.ui.graphics.lerp(scheme.primary, Color.Black, 0.12f)
+    } else scheme.primary
+}
+
 /** Kleine Zahl-Pille: ungelesene Mails eines Postfachs. */
 @Composable
 private fun UnreadPill(count: Int) {
@@ -2053,7 +2065,7 @@ fun InboxScreen(
                     Icons.Filled.Search,
                     contentDescription = stringResource(R.string.inbox_search),
                     modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.primary
                 )
                 Spacer(Modifier.width(10.dp))
                 BasicTextField(
@@ -3857,6 +3869,8 @@ private fun MailRowContent(
                     text = mail.from,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (mail.seen) FontWeight.Normal else FontWeight.Bold,
+                    // Ungelesen: Absender in der gewählten Farbe
+                    color = if (mail.seen) Color.Unspecified else unreadSenderColor(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
@@ -3943,7 +3957,7 @@ private fun MailRowContent(
                         Icons.Filled.AttachFile,
                         contentDescription = stringResource(R.string.inbox_has_attachment),
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(Modifier.width(3.dp))
                 }
@@ -4314,7 +4328,7 @@ private fun MailBlock(
                                 Icons.Filled.AttachFile,
                                 contentDescription = stringResource(R.string.inbox_has_attachment),
                                 modifier = Modifier.size(12.dp),
-                                tint = scheme.onSurfaceVariant
+                                tint = scheme.primary
                             )
                         }
                         if (chipColor != null) {
@@ -4370,7 +4384,7 @@ private fun MailBlock(
                         Icons.Filled.AttachFile,
                         contentDescription = stringResource(R.string.inbox_has_attachment),
                         modifier = Modifier.size(15.dp),
-                        tint = scheme.onSurfaceVariant
+                        tint = scheme.primary
                     )
                     Spacer(Modifier.width(6.dp))
                 }
@@ -4411,6 +4425,7 @@ private fun MailBlock(
                 text = mail.from,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = if (mail.seen) FontWeight.Medium else FontWeight.SemiBold,
+                color = if (mail.seen) Color.Unspecified else unreadSenderColor(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false)

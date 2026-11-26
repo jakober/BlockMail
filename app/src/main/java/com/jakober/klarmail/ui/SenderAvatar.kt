@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -17,6 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -40,8 +43,20 @@ private val freemailDomains = setOf(
 @Composable
 fun SenderAvatar(name: String, address: String, size: Dp) {
     val domain = address.substringAfterLast("@", "").lowercase().trim()
-    val candidates = remember(domain) {
-        if (domain.isNotBlank() && domain !in freemailDomains) {
+    // Einstellung "Absender-Logos": farbig / gedämpft / Graustufen / aus.
+    // Bunte Marken-Logos drängen sich sonst vor die gewählte App-Farbe.
+    val logoStyle by com.jakober.klarmail.data.Prefs.logoStyleFlow.collectAsState()
+    val logoFilter = remember(logoStyle) {
+        when (logoStyle) {
+            "gray" -> ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+            "muted" -> ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.35f) })
+            else -> null
+        }
+    }
+    val candidates = remember(domain, logoStyle) {
+        // "aus": gar kein Logo laden — überall der Buchstaben-Kreis in der
+        // gewählten Farbe
+        if (logoStyle != "off" && domain.isNotBlank() && domain !in freemailDomains) {
             // Gemeinsame Quellenliste mit der Mail-Detailansicht (der
             // Google-Favicon-Dienst ist raus — er liefert für unbekannte
             // Domains eine unscharfe Weltkugel statt eines Fehlers)
@@ -88,7 +103,9 @@ fun SenderAvatar(name: String, address: String, size: Dp) {
                 SubcomposeAsyncImageContent(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(10.dp)),
+                    colorFilter = logoFilter,
+                    alpha = if (logoStyle == "muted") 0.9f else 1f
                 )
             }
         )

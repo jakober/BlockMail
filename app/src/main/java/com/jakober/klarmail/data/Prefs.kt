@@ -46,6 +46,12 @@ object Prefs {
     /** Schlichtes Design: Mail-Zeilen/-Kacheln ohne farbige Verläufe. */
     val plainDesignFlow = MutableStateFlow(true)
 
+    /** Wie stark die gewählte Farbe die Flächen tönt: "off", "soft", "strong". */
+    val colorIntensityFlow = MutableStateFlow("soft")
+
+    /** Darstellung der Absender-Logos: "color", "muted", "gray", "off". */
+    val logoStyleFlow = MutableStateFlow("color")
+
     /** Schriftgröße der App in Prozent (80–120, Standard 100). */
     val fontScaleFlow = MutableStateFlow(100)
 
@@ -115,6 +121,8 @@ object Prefs {
         indexEnabledFlow.value = indexEnabled
         indexYearsFlow.value = indexYears
         plainDesignFlow.value = plainDesign
+        colorIntensityFlow.value = colorIntensity
+        logoStyleFlow.value = logoStyle
         fontScaleFlow.value = fontScalePercent
         proAdFlow.value = proAdEnabled
     }
@@ -124,6 +132,7 @@ object Prefs {
 
     private val backupKeys = setOf(
         "color_scheme", "custom_color", "dark_mode", "inbox_layout", "plain_design",
+        "color_intensity", "logo_style",
         "font_scale",
         "conversation_view", "swipe_left", "swipe_right", "signature",
         "mail_templates", "muted_senders", "blocked_senders", "vip_senders",
@@ -591,6 +600,30 @@ object Prefs {
         set(v) {
             sp.edit().putBoolean("plain_design", v).apply()
             plainDesignFlow.value = v
+        }
+
+    /**
+     * Tönung der Flächen (Hintergrund, Suchleiste, Menüs, Dialoge) in der
+     * gewählten Farbe: "off" = neutrale Standardtöne wie früher, "soft" =
+     * dezent (Standard), "strong" = kräftig.
+     */
+    var colorIntensity: String
+        get() = sp.getString("color_intensity", "soft") ?: "soft"
+        set(v) {
+            sp.edit().putString("color_intensity", v).apply()
+            colorIntensityFlow.value = v
+        }
+
+    /**
+     * Absender-Logos: "color" = farbig (Standard), "muted" = gedämpft,
+     * "gray" = Graustufen, "off" = keine Logos (Buchstaben-Kreis in der
+     * gewählten Farbe).
+     */
+    var logoStyle: String
+        get() = sp.getString("logo_style", "color") ?: "color"
+        set(v) {
+            sp.edit().putString("logo_style", v).apply()
+            logoStyleFlow.value = v
         }
 
     /** Schriftgröße der App in Prozent (80–120, Standard 100). */

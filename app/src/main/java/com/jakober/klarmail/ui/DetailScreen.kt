@@ -1047,17 +1047,44 @@ fun DetailScreen(
                                 ?.let { "#%06X".format(it and 0xFFFFFF) }
                         }
                     }
+                    // Kopf in den Flächentönen des App-Designs (gewählte Farbe)
+                    // — bei Flächenfarbe "Aus" bleiben die alten festen Töne
+                    fun hex(c: androidx.compose.ui.graphics.Color) =
+                        "#%06X".format(c.toArgb() and 0xFFFFFF)
+                    val colorIntensity by com.jakober.klarmail.data.Prefs
+                        .colorIntensityFlow.collectAsState()
+                    val tinted = colorIntensity != "off"
+                    val headerBgHex =
+                        if (tinted) hex(MaterialTheme.colorScheme.surfaceContainerLow) else null
+                    val chipBgHex =
+                        if (tinted) hex(MaterialTheme.colorScheme.surfaceContainerHighest) else null
+                    val hrHex =
+                        if (tinted) hex(MaterialTheme.colorScheme.outlineVariant) else null
+                    // Einstellung "Absender-Logos" gilt auch für den Mail-Kopf
+                    val logoStyle by com.jakober.klarmail.data.Prefs
+                        .logoStyleFlow.collectAsState()
+                    val shownIconUrl = if (logoStyle == "off") null else senderIconUrl
+                    val logoCss = when (logoStyle) {
+                        "gray" -> "filter:grayscale(1);"
+                        "muted" -> "filter:grayscale(0.65);opacity:0.9;"
+                        else -> ""
+                    }
                     val fullHtml = remember(
                         currentBody, phishingResult, aiAvailable, darkTheme, pageTexts,
-                        senderIconUrl, accentHex, repliedText, hasReplyLink,
-                        receivedVia, receivedColorHex
+                        shownIconUrl, accentHex, repliedText, hasReplyLink,
+                        receivedVia, receivedColorHex,
+                        headerBgHex, chipBgHex, hrHex, logoCss
                     ) {
                         buildMailPageHtml(
                             mail, currentBody, phishingResult, aiAvailable, darkTheme,
-                            pageTexts, senderIconUrl, accentHex,
+                            pageTexts, shownIconUrl, accentHex,
                             repliedText, hasReplyLink,
                             receivedVia = receivedVia,
-                            receivedColor = receivedColorHex
+                            receivedColor = receivedColorHex,
+                            headerBgHex = headerBgHex,
+                            chipBgHex = chipBgHex,
+                            hrHex = hrHex,
+                            logoCss = logoCss
                         )
                     }
                     HtmlMailView(
@@ -1635,19 +1662,29 @@ private fun buildMailPageHtml(
     /** Fertige Zeile „Empfangen über konto@…“ (nur bei mehreren Postfächern). */
     receivedVia: String? = null,
     /** Konto-Farbe als Hex für den Punkt vor der Zeile, falls gewählt. */
-    receivedColor: String? = null
+    receivedColor: String? = null,
+    /**
+     * Flächentöne des App-Designs als Hex (Kopf-Hintergrund, Anhang-Chips,
+     * Trennlinie) — so greift der Mail-Kopf die gewählte Farbe auf, statt
+     * fest weiß bzw. schwarz zu sein. null = die alten festen Töne.
+     */
+    headerBgHex: String? = null,
+    chipBgHex: String? = null,
+    hrHex: String? = null,
+    /** CSS für das Absender-Logo (Einstellung gedämpft/Graustufen). */
+    logoCss: String = ""
 ): String {
     val orange = accent
     // Fester Kopf-Hintergrund je App-Design: Mails bringen oft eigene
     // (auch dunkle) Seitenhintergründe mit — mit "transparent" schien der
     // durch und machte Betreff/Absender unlesbar. Der Mail-Inhalt unter
     // der Trennlinie behält seine eigenen Farben.
-    val headerBg = if (dark) "#101012" else "#ffffff"
+    val headerBg = headerBgHex ?: if (dark) "#101012" else "#ffffff"
     val titleColor = if (dark) "#F2F2F2" else "#1a1a1a"
     val subColor = if (dark) "#A8A8A8" else "#8a8a8a"
-    val chipBg = if (dark) "#2A2A2E" else "#f1f1f1"
+    val chipBg = chipBgHex ?: if (dark) "#2A2A2E" else "#f1f1f1"
     val chipColor = if (dark) "#E4E4E4" else "#333"
-    val hrColor = if (dark) "#2A2A2E" else "#e5e5e5"
+    val hrColor = hrHex ?: if (dark) "#2A2A2E" else "#e5e5e5"
     val sb = StringBuilder()
     sb.append("<div style=\"font-family:sans-serif;background:$headerBg;")
         .append("padding:12px 12px 2px 12px;\">")
@@ -1661,7 +1698,8 @@ private fun buildMailPageHtml(
     val avatar = if (senderIconUrl != null) {
         "<img src=\"${htmlEscape(senderIconUrl)}\" " +
             "style=\"width:42px;height:42px;min-width:42px;border-radius:21px;" +
-            "background:${if (dark) "#2A2A2E" else "#f2f2f2"};object-fit:contain;\">"
+            "background:${if (dark) "#2A2A2E" else "#f2f2f2"};object-fit:contain;" +
+            "$logoCss\">"
     } else {
         val initial = htmlEscape(
             (mail.from.firstOrNull() ?: mail.fromAddress.firstOrNull() ?: '?')

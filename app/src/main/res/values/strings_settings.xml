@@ -33,6 +33,17 @@
     <string name="settings_group_appearance">Aussehen</string>
     <string name="settings_appearance_title">Erscheinungsbild</string>
     <string name="settings_appearance_subtitle">Hell/Dunkel und die Farben der App</string>
+    <string name="settings_color_intensity">Farbe in den Flächen</string>
+    <string name="settings_color_intensity_desc">Wie stark deine Farbe Hintergründe, Karten, Suchfeld und Mail-Kopf tönt</string>
+    <string name="settings_color_intensity_off">Aus</string>
+    <string name="settings_color_intensity_soft">Dezent</string>
+    <string name="settings_color_intensity_strong">Kräftig</string>
+    <string name="settings_logo_style">Absender-Logos</string>
+    <string name="settings_logo_style_desc">Bunte Logos zurücknehmen, damit deine Farbe das Bild bestimmt</string>
+    <string name="settings_logo_style_color">Farbig</string>
+    <string name="settings_logo_style_muted">Gedämpft</string>
+    <string name="settings_logo_style_gray">Graustufen</string>
+    <string name="settings_logo_style_off">Aus</string>
     <string name="settings_plain_design">Schlichtes Design</string>
     <string name="settings_plain_design_desc">Mail-Listen ohne farbige Hintergründe und Verläufe</string>
     <string name="scheme_default">BlockMail (Standard)</string>
