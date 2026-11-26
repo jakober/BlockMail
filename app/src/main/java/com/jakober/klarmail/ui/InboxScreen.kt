@@ -3836,9 +3836,13 @@ private fun MailRowContent(
     // Schlichtes Design: kompaktere Zeilen (weniger Innenabstand)
     val plain by Prefs.plainDesignFlow.collectAsState()
     Row(
+        // Links knapper als rechts: Das (kleine) Logo rückt an den Rand,
+        // damit der Abstand zum Rand nicht größer wirkt als der zum Text
         modifier = Modifier.padding(
-            horizontal = 16.dp,
-            vertical = if (plain) 7.dp else 12.dp
+            start = 9.dp,
+            end = 16.dp,
+            top = if (plain) 7.dp else 12.dp,
+            bottom = if (plain) 7.dp else 12.dp
         ),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3865,7 +3869,7 @@ private fun MailRowContent(
                 size = 31.dp
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(15.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
