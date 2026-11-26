@@ -197,7 +197,7 @@ fun StatsScreen(onBack: () -> Unit) {
                         SenderAvatar(
                             name = name.ifBlank { address },
                             address = address,
-                            size = 34.dp
+                            size = 24.dp
                         )
                         Spacer(Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {

@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 
@@ -78,6 +79,10 @@ fun SenderAvatar(name: String, address: String, size: Dp) {
             Text(
                 text = name.firstOrNull()?.uppercase() ?: "?",
                 style = MaterialTheme.typography.titleMedium,
+                // Buchstabe wächst/schrumpft mit dem Kreis (auch in den
+                // kleinen Kacheln noch mittig und nicht abgeschnitten)
+                fontSize = (size.value * 0.45f).sp,
+                lineHeight = (size.value * 0.6f).sp,
                 color = MaterialTheme.colorScheme.onPrimary
             )
         }
@@ -103,7 +108,7 @@ fun SenderAvatar(name: String, address: String, size: Dp) {
                 SubcomposeAsyncImageContent(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(10.dp)),
+                        .clip(RoundedCornerShape(size * 0.23f)),
                     colorFilter = logoFilter,
                     alpha = if (logoStyle == "muted") 0.9f else 1f
                 )

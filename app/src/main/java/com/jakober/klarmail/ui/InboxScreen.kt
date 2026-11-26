@@ -3845,13 +3845,14 @@ private fun MailRowContent(
         if (selectionMode && selected) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(31.dp)
                     .background(MaterialTheme.colorScheme.primary, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Filled.Check,
                     contentDescription = null,
+                    modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
@@ -3859,10 +3860,12 @@ private fun MailRowContent(
             SenderAvatar(
                 name = mail.from,
                 address = mail.fromAddress,
-                size = 44.dp
+                // Logos bewusst klein (30 % kleiner als früher): Sie sollen
+                // den Absender kennzeichnen, nicht die Liste dominieren
+                size = 31.dp
             )
         }
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -4240,7 +4243,7 @@ private fun MailBlock(
             .padding(if (compact) 10.dp else 14.dp)
     ) {
         // Kompakt-Variante (3 Spalten): kleinere Maße, kein Vorschautext
-        val avatarFrame = if (compact) 34.dp else 42.dp
+        val avatarFrame = if (compact) 24.dp else 30.dp
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Fester Rahmen hält alle Kacheln gleich hoch — mit feinem
             // Ring um den Avatar bei ungelesenen Mails
@@ -4251,14 +4254,14 @@ private fun MailBlock(
                 when {
                     selectionMode && selected -> Box(
                         modifier = Modifier
-                            .size(if (compact) 32.dp else 40.dp)
+                            .size(if (compact) 22.dp else 28.dp)
                             .background(scheme.primary, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Filled.Check,
                             contentDescription = null,
-                            modifier = Modifier.size(if (compact) 16.dp else 20.dp),
+                            modifier = Modifier.size(if (compact) 13.dp else 16.dp),
                             tint = scheme.onPrimary
                         )
                     }
@@ -4268,20 +4271,20 @@ private fun MailBlock(
                             .border(
                                 2.dp,
                                 scheme.primary.copy(alpha = 0.55f),
-                                RoundedCornerShape(if (compact) 11.dp else 13.dp)
+                                RoundedCornerShape(if (compact) 8.dp else 9.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         SenderAvatar(
                             name = mail.from,
                             address = mail.fromAddress,
-                            size = if (compact) 26.dp else 34.dp
+                            size = if (compact) 18.dp else 24.dp
                         )
                     }
                     else -> SenderAvatar(
                         name = mail.from,
                         address = mail.fromAddress,
-                        size = if (compact) 32.dp else 40.dp
+                        size = if (compact) 22.dp else 28.dp
                     )
                 }
             }

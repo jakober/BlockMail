@@ -1058,7 +1058,7 @@ private fun SuggestionList(
                 SenderAvatar(
                     name = c.name.ifBlank { c.address },
                     address = c.address,
-                    size = 32.dp
+                    size = 22.dp
                 )
                 Spacer(Modifier.width(12.dp))
                 Column {

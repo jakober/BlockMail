@@ -1167,7 +1167,7 @@ fun DetailScreen(
                                 SenderAvatar(
                                     name = mail.from,
                                     address = mail.fromAddress,
-                                    size = 40.dp
+                                    size = 28.dp
                                 )
                                 Spacer(Modifier.width(12.dp))
                                 Column {
@@ -1697,7 +1697,7 @@ private fun buildMailPageHtml(
     // gibt es keine, den Initialen-Kreis (besser als eine Pixel-Weltkugel)
     val avatar = if (senderIconUrl != null) {
         "<img src=\"${htmlEscape(senderIconUrl)}\" " +
-            "style=\"width:42px;height:42px;min-width:42px;border-radius:21px;" +
+            "style=\"width:30px;height:30px;min-width:30px;border-radius:15px;" +
             "background:${if (dark) "#2A2A2E" else "#f2f2f2"};object-fit:contain;" +
             "$logoCss\">"
     } else {
@@ -1705,8 +1705,8 @@ private fun buildMailPageHtml(
             (mail.from.firstOrNull() ?: mail.fromAddress.firstOrNull() ?: '?')
                 .uppercase()
         )
-        "<div style=\"width:42px;height:42px;min-width:42px;border-radius:21px;" +
-            "background:$orange;color:#fff;font-size:19px;font-weight:600;" +
+        "<div style=\"width:30px;height:30px;min-width:30px;border-radius:15px;" +
+            "background:$orange;color:#fff;font-size:14px;font-weight:600;" +
             "display:flex;align-items:center;justify-content:center;\">$initial</div>"
     }
     val date = SimpleDateFormat("EEEE, d. MMMM yyyy, HH:mm", Locale.getDefault())
